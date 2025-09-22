@@ -1,0 +1,6 @@
+@RandevuCore.API_HostAddress = http://localhost:5091
+
+GET {{RandevuCore.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
