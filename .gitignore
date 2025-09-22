@@ -1,0 +1,18 @@
+# .NET Core
+bin/
+obj/
+*.user
+*.suo
+*.vscode/
+*.vs/
+
+# EF Core Migrations
+Migrations/
+
+# Secrets
+appsettings*.json
+
+# Node / Angular
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
