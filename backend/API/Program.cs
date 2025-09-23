@@ -1,7 +1,11 @@
 using Microsoft.EntityFrameworkCore;
-using RandevuCore.Domain.Interfaces;
 using RandevuCore.Infrastructure.Persistence;
-using RandevuCore.Infrastructure.Repositories;
+using Microsoft.AspNetCore.Identity; // PasswordHasher için
+using RandevuCore.Domain.Entities;   // User entity
+using RandevuCore.Domain.Interfaces; // IRepository interface’leri
+using RandevuCore.Application.Services; // UserService
+using RandevuCore.Infrastructure.Repositories; // AppointmentRepository, UserRepository
+using RandevuCore.Infrastructure.Services; // JwtTokenService
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +16,10 @@ builder.Services.AddDbContext<RandevuDbContext>(options =>
 
 // Dependency Injection
 builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 
 // Add controllers, swagger, etc.
 builder.Services.AddControllers();
