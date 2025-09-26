@@ -1,1 +1,29 @@
-<p>appointment-form works!</p>
+<div class="auth-card" style="max-width:520px;margin:16px auto;">
+  <h1>Yeni Randevu</h1>
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <div class="field">
+      <label>Başlık</label>
+      <input formControlName="title" type="text" />
+    </div>
+    <div class="field">
+      <label>Başlangıç</label>
+      <input formControlName="startsAt" type="datetime-local" />
+    </div>
+    <div class="field">
+      <label>Bitiş</label>
+      <input formControlName="endsAt" type="datetime-local" />
+    </div>
+    <div class="field">
+      <label>Davetli Kullanıcı Id</label>
+      <input formControlName="inviteeId" type="text" />
+    </div>
+    <div class="field">
+      <label>Notlar</label>
+      <textarea formControlName="notes"></textarea>
+    </div>
+    <button class="primary" type="submit" [disabled]="form.invalid || loading">
+      {{ loading ? 'Kaydediliyor...' : 'Kaydet' }}
+    </button>
+    <div class="error" *ngIf="error">{{ error }}</div>
+  </form>
+</div>

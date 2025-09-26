@@ -1,1 +1,10 @@
+<div class="list">
+  <div class="item" *ngFor="let m of items">
+    <div class="title">{{ m.title }}</div>
+    <div class="time">{{ m.startsAt | date:'short' }} - {{ m.endsAt | date:'short' }}</div>
+    <a [routerLink]="['/meetings', m.id]">Odaya Gir</a>
+  </div>
+  <div *ngIf="!items?.length" class="empty">Toplantı yok.</div>
+</div>
+
 <p>meeting-list works!</p>

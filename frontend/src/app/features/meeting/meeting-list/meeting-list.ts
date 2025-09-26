@@ -1,11 +1,18 @@
 import { Component } from '@angular/core';
+import { CommonModule, DatePipe } from '@angular/common';
+import { RouterModule } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-meeting-list',
-  imports: [],
+  standalone: true,
+  imports: [CommonModule, RouterModule, DatePipe],
   templateUrl: './meeting-list.html',
-  styleUrl: './meeting-list.css'
+  styleUrls: ['./meeting-list.css']
 })
-export class MeetingList {
-
+export class MeetingListComponent {
+  items: any[] = [];
+  constructor(private http: HttpClient) {
+    this.http.get<any[]>('http://localhost:5125/api/meetings').subscribe(r => this.items = r);
+  }
 }

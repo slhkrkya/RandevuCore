@@ -5,7 +5,10 @@ using RandevuCore.Domain.Entities;   // User entity
 using RandevuCore.Domain.Interfaces; // IRepository interface’leri
 using RandevuCore.Application.Services; // UserService
 using RandevuCore.Infrastructure.Repositories; // AppointmentRepository, UserRepository
-using RandevuCore.Infrastructure.Services; // JwtTokenService
+using RandevuCore.Infrastructure.Services; // JwtTokenService, MeetingService
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,12 +22,40 @@ builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<AppointmentService>();
+builder.Services.AddScoped<MeetingService>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+
+// JWT Authentication
+var jwtSection = builder.Configuration.GetSection("JwtSettings");
+var jwtSecret = jwtSection.GetValue<string>("Secret");
+var jwtIssuer = jwtSection.GetValue<string>("Issuer");
+var jwtAudience = jwtSection.GetValue<string>("Audience");
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateIssuerSigningKey = true,
+        ValidateLifetime = true,
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtAudience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret!))
+    };
+});
 
 // Add controllers, swagger, etc.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddSignalR();
 
 // CORS
 const string FrontendCorsPolicy = "FrontendCorsPolicy";
@@ -54,5 +85,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<RandevuCore.API.Realtime.RealtimeHub>("/ws");
 
 app.Run();

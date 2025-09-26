@@ -1,1 +1,11 @@
-<p>appointment-list works!</p>
+<div class="list">
+  <div style="margin-bottom:12px">
+    <a class="primary" routerLink="/appointments/new">Yeni Randevu</a>
+  </div>
+  <div class="item" *ngFor="let a of items">
+    <div class="title">{{ a.title }}</div>
+    <div class="time">{{ a.startsAt | date:'short' }} - {{ a.endsAt | date:'short' }}</div>
+    <div class="meta">Durum: {{ a.status }}</div>
+  </div>
+  <div *ngIf="!items?.length" class="empty">Randevu bulunamadı.</div>
+  </div>

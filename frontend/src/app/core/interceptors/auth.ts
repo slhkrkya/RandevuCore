@@ -1,8 +1,8 @@
-import { Injectable } from '@angular/core';
+import { HttpEvent, HttpHandlerFn, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
 
-@Injectable({
-  providedIn: 'root'
-})
-export class Auth {
-  
-}
+export const authInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, next: HttpHandlerFn) => {
+  const token = localStorage.getItem('token');
+  if (!token) return next(req);
+  const clone = req.clone({ setHeaders: { Authorization: `Bearer ${token}` } });
+  return next(clone);
+};
