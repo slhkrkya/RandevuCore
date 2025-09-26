@@ -1,7 +1,8 @@
 import { Component, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterModule } from '@angular/router';
+import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { AuthService } from '../../../core/services/auth';
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-navbar',
@@ -12,8 +13,44 @@ import { AuthService } from '../../../core/services/auth';
 })
 export class NavbarComponent {
   isAuthenticated = computed(() => !!this.auth.getToken());
+  currentRoute = '';
 
-  constructor(private auth: AuthService, private router: Router) {}
+  constructor(private auth: AuthService, private router: Router) {
+    // Track current route for page title
+    this.router.events
+      .pipe(filter(event => event instanceof NavigationEnd))
+      .subscribe((event: NavigationEnd) => {
+        this.currentRoute = event.url;
+      });
+  }
+
+  getCurrentPageTitle(): string {
+    switch (this.currentRoute) {
+      case '/appointments':
+        return 'Randevu Yönetimi';
+      case '/meetings':
+        return 'Toplantı Yönetimi';
+      case '/profile':
+        return 'Profil Ayarları';
+      case '/login':
+        return 'Giriş Yap';
+      case '/register':
+        return 'Kayıt Ol';
+      default:
+        if (this.currentRoute.startsWith('/meeting/')) {
+          return 'Toplantı Odası';
+        }
+        return 'RandevuCore';
+    }
+  }
+
+  navigateToProfile() {
+    this.router.navigate(['/profile']);
+  }
+
+  navigateToSettings() {
+    this.router.navigate(['/settings']);
+  }
 
   logout() {
     this.auth.logout();

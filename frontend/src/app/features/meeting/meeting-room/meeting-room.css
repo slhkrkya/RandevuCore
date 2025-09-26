@@ -1,13 +1,155 @@
-.room {
-  padding: 16px;
+/* Modern Video Conference Styles */
+.glassmorphism {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
-.toolbar { display:flex; gap:8px; margin-bottom: 12px; }
-.toolbar .primary { background:#111827; color:#fff; border:0; border-radius:8px; padding:8px 12px; cursor:pointer; }
-.layout { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items:start; }
-.panel { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding: 10px; }
-.video-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-video { width:100%; border-radius:8px; background:#11182722; }
-canvas { width:100%; height:500px; background:#fff; border-radius:8px; border:1px solid #e5e7eb; }
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 8px;
+  padding: 8px;
+}
+
+.video-container {
+  position: relative;
+  background: #1f2937;
+  border-radius: 8px;
+  overflow: hidden;
+  aspect-ratio: 16/9;
+}
+
+.video-container video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.local-video {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 192px;
+  height: 128px;
+  border-radius: 8px;
+  border: 2px solid white;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  cursor: grab;
+  transition: transform 0.2s ease;
+}
+
+.local-video:active {
+  cursor: grabbing;
+}
+
+.control-button {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 50%;
+  padding: 8px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+}
+
+.control-button.active {
+  background: #ef4444;
+}
+
+.participant-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.participant-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.participant-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.participant-status {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
+.status-online { background: #10b981; }
+.status-presenting { background: #f59e0b; }
+.status-offline { background: #6b7280; }
+
+.whiteboard-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.whiteboard-container canvas {
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+.end-call-button {
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 9999px;
+  padding: 12px 24px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.end-call-button:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+}
+
+/* Dark mode adjustments */
+.dark .participant-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark .participant-avatar {
+  background: #4b5563;
+}
+
+.dark .whiteboard-container {
+  background: rgba(31, 41, 55, 0.5);
+}
 
 

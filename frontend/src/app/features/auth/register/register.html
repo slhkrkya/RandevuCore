@@ -1,59 +1,155 @@
-<div class="auth-container">
-  <div class="auth-card">
-    <h1>Kayıt Ol</h1>
-    <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
-      <div class="field">
-        <label for="name">İsim</label>
-        <input id="name" formControlName="name" type="text" autocomplete="name" [class.invalid]="form.get('name')?.touched && form.get('name')?.invalid" />
-        <div class="error" *ngIf="form.get('name')?.touched && form.get('name')?.invalid">
-          <span>İsim gerekli</span>
+<div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-md w-full space-y-8">
+    <!-- Header -->
+    <div class="text-center">
+      <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900">
+        <span class="material-symbols-outlined text-primary-600 dark:text-primary-400 text-2xl">person_add</span>
+      </div>
+      <h2 class="mt-6 text-3xl font-bold text-gray-900 dark:text-white">Kayıt Ol</h2>
+      <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+        Yeni hesap oluşturun
+      </p>
+    </div>
+
+    <!-- Form -->
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="mt-8 space-y-6" novalidate>
+      <div class="space-y-4">
+        <!-- Name Field -->
+        <div>
+          <label for="name" class="form-label">Ad Soyad</label>
+          <input 
+            id="name" 
+            formControlName="name" 
+            type="text" 
+            autocomplete="name" 
+            class="form-input"
+            [class.border-red-500]="form.get('name')?.touched && form.get('name')?.invalid"
+            placeholder="Adınız Soyadınız"
+          />
+          <div class="form-error" *ngIf="form.get('name')?.touched && form.get('name')?.invalid">
+            <span>Ad soyad gerekli</span>
+          </div>
+        </div>
+
+        <!-- Email Field -->
+        <div>
+          <label for="email" class="form-label">Email Adresi</label>
+          <input 
+            id="email" 
+            formControlName="email" 
+            type="email" 
+            autocomplete="email" 
+            class="form-input"
+            [class.border-red-500]="form.get('email')?.touched && form.get('email')?.invalid"
+            placeholder="ornek@email.com"
+          />
+          <div class="form-error" *ngIf="form.get('email')?.touched && form.get('email')?.invalid">
+            <span *ngIf="form.get('email')?.errors?.['required']">Email adresi gerekli</span>
+            <span *ngIf="form.get('email')?.errors?.['email']">Geçerli bir email adresi girin</span>
+          </div>
+        </div>
+
+        <!-- Password Field -->
+        <div>
+          <label for="password" class="form-label">Şifre</label>
+          <div class="relative">
+            <input 
+              id="password" 
+              formControlName="password" 
+              [type]="showPassword ? 'text' : 'password'" 
+              autocomplete="new-password" 
+              class="form-input pr-10"
+              [class.border-red-500]="form.get('password')?.touched && form.get('password')?.invalid"
+              placeholder="••••••••"
+            />
+            <button 
+              type="button" 
+              class="absolute inset-y-0 right-0 pr-3 flex items-center"
+              (click)="showPassword = !showPassword"
+              [attr.aria-label]="showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'"
+            >
+              <span class="material-symbols-outlined text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                {{ showPassword ? 'visibility_off' : 'visibility' }}
+              </span>
+            </button>
+          </div>
+          <div class="form-error" *ngIf="form.get('password')?.touched && form.get('password')?.invalid">
+            <span *ngIf="form.get('password')?.errors?.['required']">Şifre gerekli</span>
+            <span *ngIf="form.get('password')?.errors?.['minlength']">En az 6 karakter olmalı</span>
+          </div>
+        </div>
+
+        <!-- Confirm Password Field -->
+        <div>
+          <label for="confirmPassword" class="form-label">Şifre Tekrar</label>
+          <div class="relative">
+            <input 
+              id="confirmPassword" 
+              formControlName="confirmPassword" 
+              [type]="showConfirm ? 'text' : 'password'" 
+              autocomplete="new-password" 
+              class="form-input pr-10"
+              [class.border-red-500]="(form.get('confirmPassword')?.touched && form.get('confirmPassword')?.invalid) || (form.touched && form.errors?.['passwordsMismatch'])"
+              placeholder="••••••••"
+            />
+            <button 
+              type="button" 
+              class="absolute inset-y-0 right-0 pr-3 flex items-center"
+              (click)="showConfirm = !showConfirm"
+              [attr.aria-label]="showConfirm ? 'Şifreyi gizle' : 'Şifreyi göster'"
+            >
+              <span class="material-symbols-outlined text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                {{ showConfirm ? 'visibility_off' : 'visibility' }}
+              </span>
+            </button>
+          </div>
+          <div class="form-error" *ngIf="form.get('confirmPassword')?.touched && form.get('confirmPassword')?.invalid">
+            <span>Şifre tekrar gerekli</span>
+          </div>
+          <div class="form-error" *ngIf="form.touched && form.errors?.['passwordsMismatch']">
+            <span>Şifreler eşleşmiyor</span>
+          </div>
         </div>
       </div>
 
-      <div class="field">
-        <label for="email">Email</label>
-        <input id="email" formControlName="email" type="email" autocomplete="email" [class.invalid]="form.get('email')?.touched && form.get('email')?.invalid" />
-        <div class="error" *ngIf="form.get('email')?.touched && form.get('email')?.invalid">
-          <span *ngIf="form.get('email')?.errors?.['required']">Email gerekli</span>
-          <span *ngIf="form.get('email')?.errors?.['email']">Geçerli bir email girin</span>
-        </div>
+      <!-- Submit Button -->
+      <div>
+        <button 
+          type="submit" 
+          [disabled]="form.invalid || loading"
+          class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+        >
+          <span class="absolute left-0 inset-y-0 flex items-center pl-3">
+            <span class="material-symbols-outlined text-primary-500 group-hover:text-primary-400" *ngIf="!loading">
+              person_add
+            </span>
+            <span class="spinner" *ngIf="loading"></span>
+          </span>
+          {{ loading ? 'Kayıt yapılıyor...' : 'Kayıt Ol' }}
+        </button>
       </div>
 
-      <div class="field">
-        <label for="password">Şifre</label>
-        <div class="password-field">
-          <input id="password" formControlName="password" [type]="showPassword ? 'text' : 'password'" autocomplete="new-password" [class.invalid]="form.get('password')?.touched && form.get('password')?.invalid" />
-          <button type="button" class="icon" (click)="showPassword = !showPassword" [attr.aria-label]="showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'">
-            {{ showPassword ? '🙈' : '👁️' }}
-          </button>
-        </div>
-        <div class="error" *ngIf="form.get('password')?.touched && form.get('password')?.invalid">
-          <span *ngIf="form.get('password')?.errors?.['required']">Şifre gerekli</span>
-          <span *ngIf="form.get('password')?.errors?.['minlength']">En az 6 karakter</span>
-        </div>
+      <!-- Links -->
+      <div class="text-center">
+        <p class="text-sm text-gray-600 dark:text-gray-400">
+          Zaten hesabın var mı? 
+          <a routerLink="/login" class="font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300 transition-colors">
+            Giriş yap
+          </a>
+        </p>
       </div>
 
-      <div class="field">
-        <label for="confirmPassword">Şifre Tekrar</label>
-        <div class="password-field">
-          <input id="confirmPassword" formControlName="confirmPassword" [type]="showConfirm ? 'text' : 'password'" autocomplete="new-password" [class.invalid]="(form.get('confirmPassword')?.touched && form.get('confirmPassword')?.invalid) || (form.touched && form.errors?.['passwordsMismatch'])" />
-          <button type="button" class="icon" (click)="showConfirm = !showConfirm" [attr.aria-label]="showConfirm ? 'Şifreyi gizle' : 'Şifreyi göster'">
-            {{ showConfirm ? '🙈' : '👁️' }}
-          </button>
-        </div>
-        <div class="error" *ngIf="form.get('confirmPassword')?.touched && form.get('confirmPassword')?.invalid">
-          <span>Şifre tekrar gerekli</span>
-        </div>
-        <div class="error" *ngIf="form.touched && form.errors?.['passwordsMismatch']">
-          <span>Şifreler eşleşmiyor</span>
+      <!-- Error Message -->
+      <div *ngIf="error" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <span class="material-symbols-outlined text-red-400">error</span>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm text-red-800 dark:text-red-200">{{ error }}</p>
+          </div>
         </div>
       </div>
-
-      <button class="primary" type="submit" [disabled]="form.invalid || loading">
-        {{ loading ? 'Kayıt yapılıyor...' : 'Kayıt ol' }}
-      </button>
-      <p class="muted">Zaten hesabın var mı? <a routerLink="/login">Giriş yap</a></p>
-      <div *ngIf="error" class="error toptip">{{ error }}</div>
     </form>
   </div>
 </div>

@@ -1,18 +1,70 @@
-<nav class="navbar">
-  <div class="nav-left">
-    <a routerLink="/appointments" class="brand">Randevu</a>
-    <a routerLink="/appointments" routerLinkActive="active">Randevular</a>
-    <a routerLink="/meetings" routerLinkActive="active">Toplantılar</a>
-  </div>
-  <div class="nav-right">
-    <ng-container *ngIf="isAuthenticated(); else guest">
-      <button class="link" (click)="logout()">Çıkış Yap</button>
-    </ng-container>
-    <ng-template #guest>
-      <a routerLink="/login" routerLinkActive="active">Giriş</a>
-      <a routerLink="/register" routerLinkActive="active">Kayıt Ol</a>
-    </ng-template>
-  </div>
-</nav>
+<header class="w-full bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+  <nav class="container mx-auto px-6 py-3 flex items-center justify-between">
+    <!-- Left Section: Logo and Navigation -->
+    <div class="flex items-center space-x-4">
+      <div class="text-blue-600 dark:text-blue-400">
+        <svg class="h-8 w-8" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z"></path>
+          <path d="M12 10C10.9 10 10 10.9 10 12C10 13.1 10.9 14 12 14C13.1 14 14 13.1 14 12C14 10.9 13.1 10 12 10Z"></path>
+        </svg>
+      </div>
+      <h1 class="text-lg font-bold text-gray-900 dark:text-white">RandevuCore</h1>
+      <div class="hidden md:flex items-center space-x-6 ml-8">
+        <a routerLink="/appointments" 
+           routerLinkActive="text-blue-600 dark:text-blue-400" 
+           class="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium">
+          Randevular
+        </a>
+        <a routerLink="/meetings" 
+           routerLinkActive="text-blue-600 dark:text-blue-400" 
+           class="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium">
+          Toplantılar
+        </a>
+      </div>
+    </div>
+
+    <!-- Center Section: Current Page Title -->
+    <div class="flex-1 text-center hidden lg:block">
+      <h2 class="text-base font-medium text-gray-500 dark:text-gray-400">
+        <ng-container *ngIf="getCurrentPageTitle() as title">{{ title }}</ng-container>
+      </h2>
+    </div>
+
+    <!-- Right Section: User Actions -->
+    <div class="flex items-center space-x-4">
+      <ng-container *ngIf="isAuthenticated(); else guest">
+        <!-- User Profile Button -->
+        <button class="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                (click)="navigateToProfile()">
+          <span class="material-symbols-outlined">person</span>
+        </button>
+        
+        <!-- Settings Button -->
+        <button class="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                (click)="navigateToSettings()">
+          <span class="material-symbols-outlined">settings</span>
+        </button>
+        
+        <!-- Logout Button -->
+        <button class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg flex items-center space-x-2 transition-colors"
+                (click)="logout()">
+          <span class="material-symbols-outlined text-base">logout</span>
+          <span class="hidden sm:inline">Çıkış Yap</span>
+        </button>
+      </ng-container>
+      
+      <ng-template #guest>
+        <a routerLink="/login" 
+           class="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium">
+          Giriş
+        </a>
+        <a routerLink="/register" 
+           class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+          Kayıt Ol
+        </a>
+      </ng-template>
+    </div>
+  </nav>
+</header>
 
 
