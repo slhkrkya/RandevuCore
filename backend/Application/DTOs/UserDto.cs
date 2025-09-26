@@ -19,4 +19,11 @@ namespace RandevuCore.Application.DTOs
         public string Email { get; set; } = null!;
         public string Name { get; set; } = null!;
     }
+
+    public class UserListItemDto
+    {
+        public Guid Id { get; set; }
+        public string Email { get; set; } = null!;
+        public string Name { get; set; } = null!;
+    }
 }

@@ -1,4 +1,7 @@
 <div class="list">
+  <div style="margin-bottom:12px">
+    <a class="primary" routerLink="/meetings/new">Yeni Toplantı</a>
+  </div>
   <div class="item" *ngFor="let m of items">
     <div class="title">{{ m.title }}</div>
     <div class="time">{{ m.startsAt | date:'short' }} - {{ m.endsAt | date:'short' }}</div>

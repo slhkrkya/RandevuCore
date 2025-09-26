@@ -14,7 +14,12 @@ namespace RandevuCore.API.Controllers
         private readonly MeetingService _service;
         public MeetingsController(MeetingService service) => _service = service;
 
-        private Guid GetUserId() => Guid.Parse(User.FindFirstValue("sub")!);
+        private Guid GetUserId()
+        {
+            var id = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            if (string.IsNullOrWhiteSpace(id)) throw new UnauthorizedAccessException("Missing user id claim");
+            return Guid.Parse(id);
+        }
 
         [HttpGet]
         public async Task<IActionResult> List()

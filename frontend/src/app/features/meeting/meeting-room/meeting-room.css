@@ -2,4 +2,12 @@
   padding: 16px;
 }
 
+.toolbar { display:flex; gap:8px; margin-bottom: 12px; }
+.toolbar .primary { background:#111827; color:#fff; border:0; border-radius:8px; padding:8px 12px; cursor:pointer; }
+.layout { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items:start; }
+.panel { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding: 10px; }
+.video-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+video { width:100%; border-radius:8px; background:#11182722; }
+canvas { width:100%; height:500px; background:#fff; border-radius:8px; border:1px solid #e5e7eb; }
+
 

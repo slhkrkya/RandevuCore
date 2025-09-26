@@ -50,5 +50,11 @@ namespace RandevuCore.Application.Services
             var token = _jwtService.GenerateToken(user);
             return new AuthResponseDto { Token = token, Email = user.Email, Name = user.Name };
         }
+
+        public async Task<List<UserListItemDto>> GetAllAsync()
+        {
+            var users = await _userRepository.GetAllAsync();
+            return users.Select(u => new UserListItemDto { Id = u.Id, Email = u.Email, Name = u.Name }).ToList();
+        }
     }
 }

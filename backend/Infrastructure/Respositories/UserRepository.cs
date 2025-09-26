@@ -18,5 +18,8 @@ namespace RandevuCore.Infrastructure.Repositories
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
         }
+
+        public async Task<List<User>> GetAllAsync()
+            => await _context.Users.ToListAsync();
     }
 }

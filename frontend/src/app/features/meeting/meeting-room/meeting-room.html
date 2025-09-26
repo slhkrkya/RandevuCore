@@ -1,7 +1,59 @@
-<div class="room">
-  <h1>Toplantı: {{ meetingId }}</h1>
-  <p *ngIf="connected">Odaya bağlanıldı.</p>
-  <p *ngIf="!connected">Bağlanılıyor...</p>
+<div class="p-4 max-w-6xl mx-auto">
+  <div class="flex items-baseline justify-between mb-3">
+    <h1 class="m-0 text-xl font-semibold">Toplantı: {{ meetingId }}</h1>
+    <div class="flex gap-2">
+      <button class="rounded-lg bg-gray-900 text-white px-3 py-2" (click)="toggleMic()">
+        {{ isMicOn ? 'Mikrofon Kapat' : 'Mikrofon Aç' }}
+      </button>
+      <button class="rounded-lg bg-gray-900 text-white px-3 py-2" (click)="toggleCamera()">
+        {{ isCamOn ? 'Kamerayı Kapat' : 'Kamerayı Aç' }}
+      </button>
+      <button class="rounded-lg bg-gray-900 text-white px-3 py-2" (click)="shareScreen()">Ekran Paylaş</button>
+    </div>
+  </div>
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+    <div class="lg:col-span-2 bg-black rounded-xl p-2">
+      <div class="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
+        <video #remoteVideo autoplay playsinline class="absolute inset-0 w-full h-full object-contain"></video>
+        <video #localVideo autoplay playsinline muted
+               class="absolute rounded-md border border-white/30 shadow-lg bg-gray-800 cursor-grab"
+               [ngStyle]="{ width: isSharing ? '12rem' : '12rem', height: isSharing ? '7rem' : '7rem', transform: 'translate(' + dragX + 'px,' + dragY + 'px)' }"
+               (mousedown)="onLocalDown($event)"
+               [class.bottom-3]="!isSharing" [class.right-3]="!isSharing"
+               [class.left-3]="isSharing" [class.bottom-3]="isSharing"></video>
+        <!-- participants strip -->
+        <div class="absolute left-2 bottom-2 flex gap-2">
+          <div *ngFor="let p of participants" class="rounded-md bg-white/10 text-white text-xs px-2 py-1 backdrop-blur border border-white/20">
+            {{ p.name }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-xl p-3 lg:col-span-1">
+      <canvas #board class="w-full h-[500px] bg-white rounded-lg border border-gray-200"
+              (mousedown)="onBoardMouseDown($event)"
+              (mousemove)="onBoardMouseMove($event)"
+              (mouseup)="onBoardMouseUp()"></canvas>
+      <div class="mt-3">
+        <h2 class="m-0 text-sm font-semibold">Katılımcılar</h2>
+        <div class="mt-2 flex flex-col gap-2">
+          <div *ngFor="let p of participants" class="flex items-center justify-between gap-2">
+            <span class="text-sm">{{ p.name }}</span>
+            <div class="flex gap-1" *ngIf="p.userId === currentUserId; else controls">
+              <span class="text-xs text-gray-500">(Sensin)</span>
+            </div>
+            <ng-template #controls>
+              <div class="flex gap-1">
+                <button class="rounded bg-gray-900 text-white px-2 py-1 text-xs" (click)="signalr.grant(roomKey, p.userId, 'mic')">Mic</button>
+                <button class="rounded bg-gray-900 text-white px-2 py-1 text-xs" (click)="signalr.grant(roomKey, p.userId, 'cam')">Cam</button>
+                <button class="rounded bg-gray-900 text-white px-2 py-1 text-xs" (click)="signalr.grant(roomKey, p.userId, 'screen')">Screen</button>
+              </div>
+            </ng-template>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 

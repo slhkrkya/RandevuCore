@@ -27,6 +27,14 @@ export class SignalRService {
     return this.connection?.invoke('LeaveRoom', roomId);
   }
 
+  sendToRoom(roomId: string, eventName: string, payload: unknown) {
+    return this.connection?.invoke('SendToRoom', roomId, eventName, payload);
+  }
+
+  grant(roomId: string, targetUserId: string, permission: 'cam' | 'mic' | 'screen') {
+    return this.connection?.invoke('GrantPermission', roomId, targetUserId, permission);
+  }
+
   stop() {
     return this.connection?.stop();
   }
