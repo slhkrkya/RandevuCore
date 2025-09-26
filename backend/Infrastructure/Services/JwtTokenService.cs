@@ -23,14 +23,22 @@ namespace RandevuCore.Infrastructure.Services
                 new Claim("name", user.Name)
             };
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
+            var secret = _config["JwtSettings:Secret"];
+            var issuer = _config["JwtSettings:Issuer"];
+            var audience = _config["JwtSettings:Audience"];
+            var expMinutesString = _config["JwtSettings:ExpirationMinutes"];
+
+            if (string.IsNullOrWhiteSpace(secret))
+                throw new ArgumentNullException(nameof(secret), "JWT Secret is not configured (JwtSettings:Secret)");
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var token = new JwtSecurityToken(
-                issuer: _config["Jwt:Issuer"],
-                audience: _config["Jwt:Audience"],
+                issuer: issuer,
+                audience: audience,
                 claims: claims,
-                expires: DateTime.UtcNow.AddHours(12),
+                expires: DateTime.UtcNow.AddMinutes(int.TryParse(expMinutesString, out var m) ? m : 60),
                 signingCredentials: creds);
 
             return new JwtSecurityTokenHandler().WriteToken(token);

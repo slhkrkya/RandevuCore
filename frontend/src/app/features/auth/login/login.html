@@ -1,0 +1,34 @@
+<div class="auth-container">
+  <div class="auth-card">
+    <h1>Giriş Yap</h1>
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" formControlName="email" type="email" autocomplete="email" [class.invalid]="form.get('email')?.touched && form.get('email')?.invalid" />
+        <div class="error" *ngIf="form.get('email')?.touched && form.get('email')?.invalid">
+          <span *ngIf="form.get('email')?.errors?.['required']">Email gerekli</span>
+          <span *ngIf="form.get('email')?.errors?.['email']">Geçerli bir email girin</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="password">Şifre</label>
+        <div class="password-field">
+          <input id="password" formControlName="password" [type]="showPassword ? 'text' : 'password'" autocomplete="current-password" [class.invalid]="form.get('password')?.touched && form.get('password')?.invalid" />
+          <button type="button" class="icon" (click)="showPassword = !showPassword" [attr.aria-label]="showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'">
+            {{ showPassword ? '🙈' : '👁️' }}
+          </button>
+        </div>
+        <div class="error" *ngIf="form.get('password')?.touched && form.get('password')?.invalid">
+          <span>Şifre gerekli</span>
+        </div>
+      </div>
+
+      <button class="primary" type="submit" [disabled]="form.invalid || loading">
+        {{ loading ? 'Giriş yapılıyor...' : 'Giriş yap' }}
+      </button>
+      <p class="muted">Hesabın yok mu? <a routerLink="/register">Kayıt ol</a></p>
+      <div *ngIf="error" class="error toptip">{{ error }}</div>
+    </form>
+  </div>
+</div>
