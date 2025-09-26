@@ -139,6 +139,62 @@
   box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
 }
 
+/* Responsive video grid */
+@media (max-width: 768px) {
+  .video-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.5rem;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .video-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (min-width: 1025px) {
+  .video-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+/* Participants panel animations */
+.participants-panel {
+  transform: translateX(100%);
+  transition: transform 0.3s ease-in-out;
+}
+
+.participants-panel.open {
+  transform: translateX(0);
+}
+
+/* Screen share view */
+.screen-share-container {
+  position: relative;
+  background: #000;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.screen-share-thumbnails {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 16rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
+.screen-share-thumbnail {
+  background: #1f2937;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  height: 8rem;
+  margin-bottom: 0.5rem;
+  position: relative;
+}
+
 /* Dark mode adjustments */
 .dark .participant-item:hover {
   background: rgba(255, 255, 255, 0.05);
@@ -150,6 +206,10 @@
 
 .dark .whiteboard-container {
   background: rgba(31, 41, 55, 0.5);
+}
+
+.dark .screen-share-thumbnail {
+  background: #374151;
 }
 
 

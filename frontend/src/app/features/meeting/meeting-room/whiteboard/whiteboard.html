@@ -1,1 +1,141 @@
-<p>whiteboard works!</p>
+<div class="h-full w-full flex flex-col bg-white">
+  
+  <!-- Whiteboard Header -->
+  <div class="flex items-center justify-between p-4 bg-gray-100 border-b border-gray-300">
+    <div class="flex items-center space-x-4">
+      <h2 class="text-lg font-semibold text-gray-800">Whiteboard</h2>
+      <div class="flex items-center space-x-2">
+        <span class="text-sm text-gray-600">Status:</span>
+        <span class="px-2 py-1 text-xs rounded-full"
+              [class.bg-green-100]="whiteboardState.canDraw"
+              [class.text-green-800]="whiteboardState.canDraw"
+              [class.bg-red-100]="!whiteboardState.canDraw"
+              [class.text-red-800]="!whiteboardState.canDraw">
+          {{ whiteboardState.canDraw ? 'Can Draw' : 'View Only' }}
+        </span>
+      </div>
+    </div>
+    
+    <div class="flex items-center space-x-2">
+      <button class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+              (click)="clearCanvas()"
+              title="Clear Whiteboard">
+        <span class="material-symbols-outlined text-sm mr-1">clear_all</span>
+        Clear
+      </button>
+    </div>
+  </div>
+
+  <!-- Whiteboard Content -->
+  <div class="flex-1 flex">
+    
+    <!-- Drawing Tools Sidebar -->
+    <div class="w-16 bg-gray-50 border-r border-gray-300 flex flex-col items-center py-4 space-y-4">
+      
+      <!-- Tool Selection -->
+      <div class="flex flex-col space-y-2">
+        <div *ngFor="let tool of tools" 
+             class="p-2 rounded-lg cursor-pointer transition-colors"
+             [class.bg-blue-100]="isToolActive(tool.name)"
+             [class.text-blue-600]="isToolActive(tool.name)"
+             [class.bg-gray-100]="!isToolActive(tool.name)"
+             [class.text-gray-600]="!isToolActive(tool.name)"
+             [class.hover:bg-gray-200]="!isToolActive(tool.name)"
+             (click)="selectTool(tool.name)"
+             [title]="tool.name.charAt(0).toUpperCase() + tool.name.slice(1)">
+          <span class="material-symbols-outlined text-xl">{{ tool.icon }}</span>
+        </div>
+      </div>
+      
+      <!-- Color Selection -->
+      <div class="flex flex-col space-y-2">
+        <div *ngFor="let color of colors" 
+             class="w-8 h-8 rounded-full cursor-pointer border-2 transition-all"
+             [class.border-gray-400]="isColorActive(color)"
+             [class.border-gray-200]="!isColorActive(color)"
+             [style.background-color]="color"
+             (click)="selectColor(color)"
+             [title]="color">
+        </div>
+      </div>
+      
+      <!-- Line Width Selection -->
+      <div class="flex flex-col space-y-2">
+        <div *ngFor="let width of lineWidths" 
+             class="flex items-center justify-center cursor-pointer transition-colors"
+             [class.bg-blue-100]="isLineWidthActive(width)"
+             [class.text-blue-600]="isLineWidthActive(width)"
+             [class.bg-gray-100]="!isLineWidthActive(width)"
+             [class.text-gray-600]="!isLineWidthActive(width)"
+             [class.hover:bg-gray-200]="!isLineWidthActive(width)"
+             (click)="selectLineWidth(width)"
+             [title]="width + 'px'">
+          <div class="w-6 h-1 rounded-full bg-current"></div>
+        </div>
+      </div>
+      
+    </div>
+    
+    <!-- Canvas Area -->
+    <div class="flex-1 flex items-center justify-center p-4">
+      <div class="relative">
+        <canvas #whiteboardCanvas
+                class="border border-gray-300 rounded-lg shadow-lg cursor-crosshair"
+                (mousedown)="onMouseDown($event)"
+                (mousemove)="onMouseMove($event)"
+                (mouseup)="onMouseUp()"
+                (mouseleave)="onMouseUp()"
+                (touchstart)="onTouchStart($event)"
+                (touchmove)="onTouchMove($event)"
+                (touchend)="onTouchEnd($event)">
+        </canvas>
+        
+        <!-- Drawing Instructions -->
+        <div *ngIf="!whiteboardState.canDraw" 
+             class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg">
+          <div class="text-center text-white p-4">
+            <span class="material-symbols-outlined text-4xl mb-2">lock</span>
+            <p class="text-lg font-semibold">View Only</p>
+            <p class="text-sm">Ask the host for drawing permission</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+  
+  <!-- Whiteboard Footer -->
+  <div class="p-4 bg-gray-100 border-t border-gray-300">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center space-x-4">
+        <div class="flex items-center space-x-2">
+          <span class="text-sm text-gray-600">Tool:</span>
+          <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
+            {{ currentTool.charAt(0).toUpperCase() + currentTool.slice(1) }}
+          </span>
+        </div>
+        
+        <div class="flex items-center space-x-2">
+          <span class="text-sm text-gray-600">Color:</span>
+          <div class="w-4 h-4 rounded-full border border-gray-300"
+               [style.background-color]="whiteboardState.currentColor">
+          </div>
+        </div>
+        
+        <div class="flex items-center space-x-2">
+          <span class="text-sm text-gray-600">Size:</span>
+          <span class="px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded">
+            {{ whiteboardState.currentLineWidth }}px
+          </span>
+        </div>
+      </div>
+      
+      <div class="flex items-center space-x-2">
+        <span class="text-xs text-gray-500">
+          Click and drag to draw • Use tools on the left to change settings
+        </span>
+      </div>
+    </div>
+  </div>
+  
+</div>

@@ -1,0 +1,61 @@
+<div class="chat-panel">
+  
+  <!-- Chat Header -->
+  <div class="chat-header">
+    <div class="flex items-center justify-between">
+      <h2 class="chat-title">Chat</h2>
+      <div class="header-actions">
+        <button class="action-button" (click)="clearChat()" title="Clear Chat">
+          <span class="material-symbols-outlined">clear_all</span>
+        </button>
+        <button class="action-button" (click)="onClose()" title="Close Chat">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+    </div>
+    <div class="connection-status">
+      <div class="status-indicator" [class.connected]="isConnected" [class.disconnected]="!isConnected"></div>
+      <span class="status-text">{{ isConnected ? 'Connected' : 'Disconnected' }}</span>
+    </div>
+  </div>
+
+  <!-- Messages Container -->
+  <div class="messages-container" #messagesContainer>
+    <div *ngIf="messages.length === 0" class="empty-state">
+      <div class="empty-content">
+        <span class="material-symbols-outlined">chat</span>
+        <h3>No messages yet</h3>
+        <p>Start the conversation!</p>
+      </div>
+    </div>
+
+    <div *ngFor="let message of messages" class="message-item" [class.own-message]="message.isOwn">
+      <div class="message-content">
+        <div class="message-header">
+          <span class="sender-name">{{ message.userName }}</span>
+          <span class="message-time">{{ getMessageTime(message.timestamp) }}</span>
+        </div>
+        <div class="message-text">{{ message.message }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Message Input -->
+  <div class="message-input-container">
+    <div class="input-wrapper">
+      <input #messageInput
+             type="text"
+             class="message-input"
+             placeholder="Type a message..."
+             [(ngModel)]="newMessage"
+             (keypress)="onKeyPress($event)"
+             [disabled]="!isConnected">
+      <button class="send-button"
+              (click)="sendMessage()"
+              [disabled]="!newMessage.trim() || !isConnected">
+        <span class="material-symbols-outlined">send</span>
+      </button>
+    </div>
+  </div>
+
+</div>

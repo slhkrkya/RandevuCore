@@ -1,1 +1,114 @@
-<p>video-grid works!</p>
+<div class="h-full w-full p-4">
+  <div class="grid h-full gap-4" [ngClass]="getVideoGridClass()">
+    
+    <!-- Participant Video Tiles -->
+    <div *ngFor="let participant of participants" 
+         class="bg-gray-800 rounded-lg overflow-hidden relative group hover:shadow-lg transition-all duration-200">
+      
+      <!-- Video Stream -->
+      <video *ngIf="isParticipantVideoVisible(participant) && getParticipantVideo(participant)"
+             [srcObject]="getParticipantVideo(participant)"
+             autoplay
+             playsinline
+             [muted]="participant.userId === currentUserId"
+             class="h-full w-full object-cover">
+      </video>
+      
+      <!-- Placeholder when no video -->
+      <div *ngIf="!isParticipantVideoVisible(participant) || !getParticipantVideo(participant)"
+           class="h-full w-full flex items-center justify-center"
+           [class]="getParticipantBackgroundColor(participant)">
+        <div class="text-center">
+          <div class="text-4xl font-bold text-white mb-2">
+            {{ getParticipantInitials(participant) }}
+          </div>
+          <div class="text-sm text-white/80">
+            {{ getParticipantDisplayName(participant) }}
+          </div>
+        </div>
+      </div>
+      
+      <!-- Participant Info Overlay -->
+      <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <span class="text-white font-medium text-sm">
+              {{ getParticipantDisplayName(participant) }}
+            </span>
+            <span *ngIf="participant.isHost" class="text-yellow-400 text-xs">👑</span>
+          </div>
+          
+          <!-- Status Indicators -->
+          <div class="flex items-center space-x-1">
+            <!-- Microphone Status -->
+            <div class="w-2 h-2 rounded-full"
+                 [class.bg-green-500]="!participant.isMuted"
+                 [class.bg-red-500]="participant.isMuted"
+                 [title]="participant.isMuted ? 'Muted' : 'Unmuted'">
+            </div>
+            
+            <!-- Video Status -->
+            <div class="w-2 h-2 rounded-full"
+                 [class.bg-green-500]="participant.isVideoOn"
+                 [class.bg-red-500]="!participant.isVideoOn"
+                 [title]="participant.isVideoOn ? 'Camera On' : 'Camera Off'">
+            </div>
+            
+            <!-- Screen Share Status -->
+            <div *ngIf="participant.isScreenSharing" 
+                 class="w-2 h-2 rounded-full bg-blue-500"
+                 title="Screen Sharing">
+            </div>
+          </div>
+        </div>
+        
+        <!-- Status Text -->
+        <div *ngIf="getParticipantStatus(participant)" 
+             class="text-xs text-gray-300 mt-1">
+          {{ getParticipantStatus(participant) }}
+        </div>
+      </div>
+      
+      <!-- Hover Actions (for host) -->
+      <div *ngIf="participant.userId !== currentUserId" 
+           class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div class="flex space-x-1">
+          <button class="p-1 bg-black/50 rounded text-white hover:bg-black/70 transition-colors"
+                  [title]="participant.isMuted ? 'Unmute' : 'Mute'"
+                  (click)="toggleParticipantMute(participant)">
+            <span class="material-symbols-outlined text-sm">
+              {{ participant.isMuted ? 'mic_off' : 'mic' }}
+            </span>
+          </button>
+          
+          <button class="p-1 bg-black/50 rounded text-white hover:bg-black/70 transition-colors"
+                  [title]="participant.isVideoOn ? 'Turn Off Camera' : 'Turn On Camera'"
+                  (click)="toggleParticipantVideo(participant)">
+            <span class="material-symbols-outlined text-sm">
+              {{ participant.isVideoOn ? 'videocam_off' : 'videocam' }}
+            </span>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Active Speaker Indicator -->
+      <div *ngIf="meetingState.activeSpeaker === participant.userId"
+           class="absolute top-2 left-2 w-3 h-3 bg-green-500 rounded-full animate-pulse"
+           title="Active Speaker">
+      </div>
+      
+    </div>
+    
+  </div>
+  
+  <!-- Empty State -->
+  <div *ngIf="participants.length === 0" 
+       class="h-full flex items-center justify-center">
+    <div class="text-center text-gray-400">
+      <span class="material-symbols-outlined text-6xl mb-4">people</span>
+      <p class="text-lg">No participants yet</p>
+      <p class="text-sm">Waiting for others to join...</p>
+    </div>
+  </div>
+  
+</div>

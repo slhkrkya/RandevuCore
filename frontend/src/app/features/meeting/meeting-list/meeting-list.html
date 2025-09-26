@@ -1,13 +1,136 @@
-<div class="list">
-  <div style="margin-bottom:12px">
-    <a class="primary" routerLink="/meetings/new">Yeni Toplantı</a>
-  </div>
-  <div class="item" *ngFor="let m of items">
-    <div class="title">{{ m.title }}</div>
-    <div class="time">{{ m.startsAt | date:'short' }} - {{ m.endsAt | date:'short' }}</div>
-    <a [routerLink]="['/meetings', m.id]">Odaya Gir</a>
-  </div>
-  <div *ngIf="!items?.length" class="empty">Toplantı yok.</div>
-</div>
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Header -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Toplantılarım</h1>
+          <p class="mt-2 text-gray-600 dark:text-gray-400">
+            Toplantılarınızı yönetin ve yeni toplantılar oluşturun
+          </p>
+        </div>
+        <button 
+          routerLink="/meetings/new"
+          class="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
+        >
+          <span class="material-symbols-outlined mr-2">add</span>
+          Yeni Toplantı
+        </button>
+      </div>
+    </div>
 
-<p>meeting-list works!</p>
+    <!-- Loading State -->
+    <div *ngIf="loading" class="flex justify-center items-center py-12">
+      <div class="spinner"></div>
+      <span class="ml-3 text-gray-600 dark:text-gray-400">Toplantılar yükleniyor...</span>
+    </div>
+
+    <!-- Meetings Grid -->
+    <div *ngIf="!loading && items?.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div *ngFor="let meeting of items" class="card hover:shadow-lg transition-shadow duration-200">
+        <!-- Card Header -->
+        <div class="card-header">
+          <div class="flex items-start justify-between">
+            <div class="flex-1">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                {{ meeting.title }}
+              </h3>
+              <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                <span class="material-symbols-outlined text-base mr-1">schedule</span>
+                {{ meeting.startsAt | date:'dd MMM yyyy, HH:mm' }}
+              </div>
+            </div>
+            <div class="flex items-center">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                    [class]="getStatusClass(meeting.status)">
+                {{ getStatusText(meeting.status) }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card Body -->
+        <div class="card-body">
+          <div class="space-y-3">
+            <!-- Time Range -->
+            <div class="flex items-center text-sm text-gray-600 dark:text-gray-300">
+              <span class="material-symbols-outlined text-base mr-2">access_time</span>
+              <span>{{ meeting.startsAt | date:'HH:mm' }} - {{ meeting.endsAt | date:'HH:mm' }}</span>
+            </div>
+
+            <!-- Notes -->
+            <div *ngIf="meeting.notes" class="text-sm text-gray-600 dark:text-gray-300">
+              <span class="material-symbols-outlined text-base mr-2 align-top">note</span>
+              <span class="line-clamp-2">{{ meeting.notes }}</span>
+            </div>
+
+            <!-- Participants Count -->
+            <div class="flex items-center text-sm text-gray-600 dark:text-gray-300">
+              <span class="material-symbols-outlined text-base mr-2">people</span>
+              <span>{{ (meeting.invitees || []).length }} katılımcı</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card Footer -->
+        <div class="card-footer">
+          <div class="flex items-center justify-between">
+            <div class="flex space-x-2">
+              <button 
+                [routerLink]="['/meetings', meeting.id, 'prejoin']"
+                class="inline-flex items-center px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-md transition-colors duration-200"
+              >
+                <span class="material-symbols-outlined text-sm mr-1">video_call</span>
+                Odaya Gir
+              </button>
+              <button 
+                class="inline-flex items-center px-3 py-1.5 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-md transition-colors duration-200"
+                (click)="editMeeting(meeting)"
+              >
+                <span class="material-symbols-outlined text-sm mr-1">edit</span>
+                Düzenle
+              </button>
+            </div>
+            <button 
+              class="text-gray-400 hover:text-red-500 transition-colors duration-200"
+              (click)="deleteMeeting(meeting)"
+            >
+              <span class="material-symbols-outlined text-sm">delete</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!loading && !items?.length" class="text-center py-12">
+      <div class="mx-auto h-24 w-24 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
+        <span class="material-symbols-outlined text-gray-400 text-4xl">event</span>
+      </div>
+      <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Henüz toplantı yok</h3>
+      <p class="text-gray-600 dark:text-gray-400 mb-6">
+        İlk toplantınızı oluşturmak için aşağıdaki butona tıklayın
+      </p>
+      <button 
+        routerLink="/meetings/new"
+        class="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200"
+      >
+        <span class="material-symbols-outlined mr-2">add</span>
+        Yeni Toplantı Oluştur
+      </button>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="error" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <span class="material-symbols-outlined text-red-400">error</span>
+        </div>
+        <div class="ml-3">
+          <h3 class="text-sm font-medium text-red-800 dark:text-red-200">Hata</h3>
+          <p class="text-sm text-red-700 dark:text-red-300 mt-1">{{ error }}</p>
+        </div>
+      </div>
+  </div>
+  </div>
+</div>

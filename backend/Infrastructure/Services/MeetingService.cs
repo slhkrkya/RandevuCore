@@ -17,6 +17,7 @@ namespace RandevuCore.Infrastructure.Services
         public async Task<List<MeetingListItemDto>> GetUserMeetingsAsync(Guid userId)
         {
             var list = await _db.Meetings
+                .Include(m => m.Invitees)
                 .Where(m => m.CreatorId == userId || m.Invitees.Any(u => u.Id == userId))
                 .ToListAsync();
             return list.Select(m => new MeetingListItemDto
@@ -29,7 +30,15 @@ namespace RandevuCore.Infrastructure.Services
                 Status = m.Status,
                 CreatorId = m.CreatorId,
                 VideoSessionId = m.VideoSessionId,
-                WhiteboardSessionId = m.WhiteboardSessionId
+                WhiteboardSessionId = m.WhiteboardSessionId,
+                Invitees = m.Invitees.Select(i => new MeetingInviteeDto
+                {
+                    Id = i.Id,
+                    Name = i.Name,
+                    Email = i.Email
+                }).ToList(),
+                CreatedAt = m.CreatedAt,
+                UpdatedAt = m.UpdatedAt
             }).ToList();
         }
 

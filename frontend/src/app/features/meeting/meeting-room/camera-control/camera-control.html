@@ -1,1 +1,204 @@
-<p>camera-control works!</p>
+<div class="camera-control-container">
+  
+  <!-- Camera Status Header -->
+  <div class="camera-header">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <span class="material-symbols-outlined text-2xl text-gray-600">videocam</span>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-800">Camera Control</h3>
+          <p class="text-sm text-gray-600">{{ getSelectedCameraLabel() }}</p>
+        </div>
+      </div>
+      
+      <div class="flex items-center space-x-2">
+        <span class="px-2 py-1 text-xs rounded-full"
+              [class]="getCameraStatusBg() + ' ' + getCameraStatusColor()">
+          {{ getCameraStatus() }}
+        </span>
+        <button class="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                (click)="toggleSettings()"
+                [title]="isSettingsOpen ? 'Close Settings' : 'Open Settings'">
+          <span class="material-symbols-outlined text-gray-600">
+            {{ isSettingsOpen ? 'expand_less' : 'expand_more' }}
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Camera Preview -->
+  <div class="camera-preview" *ngIf="isPreviewVisible">
+    <video #previewVideo
+           autoplay
+           playsinline
+           muted
+           class="w-full h-full object-cover rounded-lg">
+    </video>
+    
+    <!-- Preview Overlay -->
+    <div class="preview-overlay">
+      <div class="preview-info">
+        <span class="text-sm text-white bg-black bg-opacity-50 px-2 py-1 rounded">
+          {{ getResolutionLabel() }} @ {{ cameraSettings.frameRate }}fps
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Camera Settings Panel -->
+  <div class="camera-settings" *ngIf="isSettingsOpen">
+    
+    <!-- Basic Controls -->
+    <div class="settings-section">
+      <h4 class="section-title">Basic Controls</h4>
+      
+      <!-- Camera Toggle -->
+      <div class="control-item">
+        <label class="control-label">Camera</label>
+        <button class="toggle-button"
+                [class.active]="cameraSettings.isEnabled"
+                (click)="onCameraToggle()">
+          <span class="material-symbols-outlined">
+            {{ cameraSettings.isEnabled ? 'videocam' : 'videocam_off' }}
+          </span>
+          {{ cameraSettings.isEnabled ? 'On' : 'Off' }}
+        </button>
+      </div>
+      
+      <!-- Device Selection -->
+      <div class="control-item">
+        <label class="control-label">Camera Device</label>
+        <select class="control-select"
+                [(ngModel)]="selectedCamera"
+                (change)="onDeviceChange()"
+                [disabled]="!cameraSettings.isEnabled">
+          <option *ngFor="let camera of availableCameras" [value]="camera.deviceId">
+            {{ camera.label }}
+          </option>
+        </select>
+      </div>
+      
+      <!-- Resolution Selection -->
+      <div class="control-item">
+        <label class="control-label">Resolution</label>
+        <select class="control-select"
+                [(ngModel)]="cameraSettings.resolution"
+                (change)="onResolutionChange()"
+                [disabled]="!cameraSettings.isEnabled">
+          <option *ngFor="let resolution of resolutions" [value]="resolution.value">
+            {{ resolution.label }}
+          </option>
+        </select>
+      </div>
+      
+      <!-- Frame Rate Selection -->
+      <div class="control-item">
+        <label class="control-label">Frame Rate</label>
+        <select class="control-select"
+                [(ngModel)]="cameraSettings.frameRate"
+                (change)="onFrameRateChange()"
+                [disabled]="!cameraSettings.isEnabled">
+          <option *ngFor="let rate of frameRates" [value]="rate">
+            {{ rate }} fps
+          </option>
+        </select>
+      </div>
+    </div>
+    
+    <!-- Advanced Settings Toggle -->
+    <div class="settings-section">
+      <button class="advanced-toggle"
+              (click)="toggleAdvancedSettings()">
+        <span class="material-symbols-outlined">
+          {{ showAdvancedSettings ? 'expand_less' : 'expand_more' }}
+        </span>
+        Advanced Settings
+      </button>
+    </div>
+    
+    <!-- Advanced Controls -->
+    <div class="settings-section" *ngIf="showAdvancedSettings">
+      <h4 class="section-title">Image Adjustments</h4>
+      
+      <!-- Brightness Control -->
+      <div class="control-item">
+        <label class="control-label">Brightness</label>
+        <div class="slider-container">
+          <input type="range"
+                 class="control-slider"
+                 min="-50"
+                 max="50"
+                 [(ngModel)]="cameraSettings.brightness"
+                 (input)="onBrightnessChange()"
+                 [disabled]="!cameraSettings.isEnabled">
+          <span class="slider-value">{{ cameraSettings.brightness }}</span>
+        </div>
+      </div>
+      
+      <!-- Contrast Control -->
+      <div class="control-item">
+        <label class="control-label">Contrast</label>
+        <div class="slider-container">
+          <input type="range"
+                 class="control-slider"
+                 min="-50"
+                 max="50"
+                 [(ngModel)]="cameraSettings.contrast"
+                 (input)="onContrastChange()"
+                 [disabled]="!cameraSettings.isEnabled">
+          <span class="slider-value">{{ cameraSettings.contrast }}</span>
+        </div>
+      </div>
+      
+      <!-- Saturation Control -->
+      <div class="control-item">
+        <label class="control-label">Saturation</label>
+        <div class="slider-container">
+          <input type="range"
+                 class="control-slider"
+                 min="-50"
+                 max="50"
+                 [(ngModel)]="cameraSettings.saturation"
+                 (input)="onSaturationChange()"
+                 [disabled]="!cameraSettings.isEnabled">
+          <span class="slider-value">{{ cameraSettings.saturation }}</span>
+        </div>
+      </div>
+      
+      <!-- Preset Buttons -->
+      <div class="control-item">
+        <label class="control-label">Presets</label>
+        <div class="preset-buttons">
+          <button class="preset-button"
+                  (click)="applyPreset('portrait')"
+                  [disabled]="!cameraSettings.isEnabled">
+            Portrait
+          </button>
+          <button class="preset-button"
+                  (click)="applyPreset('landscape')"
+                  [disabled]="!cameraSettings.isEnabled">
+            Landscape
+          </button>
+          <button class="preset-button"
+                  (click)="applyPreset('low-light')"
+                  [disabled]="!cameraSettings.isEnabled">
+            Low Light
+          </button>
+          <button class="preset-button"
+                  (click)="applyPreset('vivid')"
+                  [disabled]="!cameraSettings.isEnabled">
+            Vivid
+          </button>
+          <button class="preset-button"
+                  (click)="resetCameraEffects()"
+                  [disabled]="!cameraSettings.isEnabled">
+            Reset
+          </button>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+  
+</div>

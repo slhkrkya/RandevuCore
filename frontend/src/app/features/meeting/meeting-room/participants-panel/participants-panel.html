@@ -1,0 +1,89 @@
+<div class="participants-panel">
+  
+  <!-- Panel Header -->
+  <div class="panel-header">
+    <div class="flex items-center justify-between">
+      <h2 class="panel-title">Participants</h2>
+      <button class="close-button" (click)="onClose()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <p class="participants-count">{{ participants.length }} participant{{ participants.length !== 1 ? 's' : '' }}</p>
+  </div>
+
+  <!-- Participants List -->
+  <div class="participants-list">
+    <div *ngFor="let participant of participants" 
+         class="participant-item">
+      
+      <!-- Participant Avatar -->
+      <div class="participant-avatar">
+        <div class="avatar-placeholder" [class]="getParticipantBackgroundColor(participant)">
+          {{ getParticipantInitials(participant) }}
+        </div>
+        <div class="status-indicator" [class.online]="true"></div>
+      </div>
+      
+      <!-- Participant Info -->
+      <div class="participant-info">
+        <div class="participant-name">
+          {{ getParticipantDisplayName(participant) }}
+          <span *ngIf="participant.isHost" class="host-badge">👑</span>
+        </div>
+        <div class="participant-status">{{ getParticipantStatus(participant) }}</div>
+      </div>
+      
+      <!-- Participant Actions (Host Only) -->
+      <div class="participant-actions" *ngIf="isHost && participant.userId !== currentUserId">
+        <div class="action-buttons">
+          <button class="action-button"
+                  [class.active]="!participant.isMuted"
+                  [class.inactive]="participant.isMuted"
+                  (click)="onGrantPermission(participant.userId, 'mute')"
+                  [title]="participant.isMuted ? 'Unmute' : 'Mute'">
+            <span class="material-symbols-outlined">
+              {{ participant.isMuted ? 'mic_off' : 'mic' }}
+            </span>
+          </button>
+          
+          <button class="action-button"
+                  [class.active]="participant.isVideoOn"
+                  [class.inactive]="!participant.isVideoOn"
+                  (click)="onGrantPermission(participant.userId, 'video')"
+                  [title]="participant.isVideoOn ? 'Turn Off Camera' : 'Turn On Camera'">
+            <span class="material-symbols-outlined">
+              {{ participant.isVideoOn ? 'videocam' : 'videocam_off' }}
+            </span>
+          </button>
+          
+          <button class="action-button"
+                  [class.active]="participant.isScreenSharing"
+                  [class.inactive]="!participant.isScreenSharing"
+                  (click)="onGrantPermission(participant.userId, 'screen')"
+                  [title]="participant.isScreenSharing ? 'Stop Screen Share' : 'Start Screen Share'">
+            <span class="material-symbols-outlined">
+              {{ participant.isScreenSharing ? 'stop_screen_share' : 'present_to_all' }}
+            </span>
+          </button>
+          
+          <button class="action-button danger"
+                  (click)="onRemoveParticipant(participant.userId)"
+                  title="Remove Participant">
+            <span class="material-symbols-outlined">person_remove</span>
+          </button>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="participants.length === 0" class="empty-state">
+    <div class="empty-content">
+      <span class="material-symbols-outlined">people</span>
+      <h3>No participants</h3>
+      <p>Waiting for others to join...</p>
+    </div>
+  </div>
+
+</div>

@@ -31,6 +31,16 @@ namespace RandevuCore.Application.DTOs
         public Guid CreatorId { get; set; }
         public string? VideoSessionId { get; set; }
         public string? WhiteboardSessionId { get; set; }
+        public List<MeetingInviteeDto> Invitees { get; set; } = new();
+        public DateTimeOffset CreatedAt { get; set; }
+        public DateTimeOffset UpdatedAt { get; set; }
+    }
+
+    public class MeetingInviteeDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = null!;
+        public string Email { get; set; } = null!;
     }
 }
 

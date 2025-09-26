@@ -1,120 +1,114 @@
-<div class="flex h-screen w-full">
-  <!-- Main Video Area -->
-  <div class="flex flex-col flex-1 relative">
-    <!-- Video Grid -->
-    <div class="flex-1 bg-black/90 flex items-center justify-center relative">
-      <div class="grid grid-cols-2 gap-2 p-2 h-full w-full">
-        <div class="bg-gray-800 rounded-lg overflow-hidden">
-          <video #remoteVideo autoplay playsinline class="h-full w-full object-cover"></video>
-        </div>
-        <div class="bg-gray-800 rounded-lg overflow-hidden">
-          <div class="h-full w-full flex items-center justify-center text-white">
-            <span class="material-symbols-outlined text-6xl">person</span>
-          </div>
-        </div>
-        <div class="bg-gray-800 rounded-lg overflow-hidden">
-          <div class="h-full w-full flex items-center justify-center text-white">
-            <span class="material-symbols-outlined text-6xl">person</span>
-          </div>
-        </div>
-        <div class="bg-gray-800 rounded-lg overflow-hidden">
-          <div class="h-full w-full flex items-center justify-center text-white">
-            <span class="material-symbols-outlined text-6xl">person</span>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Local Video Thumbnail -->
-      <div class="absolute bottom-4 right-4 w-48 h-32 rounded-lg border-2 border-white overflow-hidden shadow-lg cursor-grab active:cursor-grabbing"
-           [ngStyle]="{ transform: 'translate(' + dragX + 'px,' + dragY + 'px)' }"
-           (mousedown)="onLocalDown($event)">
-        <video #localVideo autoplay playsinline muted class="h-full w-full object-cover"></video>
-      </div>
-      
-      <!-- Participants Strip -->
-      <div class="absolute bottom-4 left-4 glassmorphism p-3 rounded-lg shadow-lg">
-        <p class="text-white text-sm font-medium">
-          <span *ngFor="let p of participants; let last = last">{{ p.name }}<span *ngIf="!last">, </span></span>
-        </p>
-      </div>
-      
-      <!-- Control Buttons -->
-      <div class="absolute top-4 right-4 flex items-center space-x-2">
-        <button class="bg-white/20 hover:bg-white/30 p-2 rounded-full text-white transition-colors"
-                (click)="toggleMic()">
-          <span class="material-symbols-outlined">{{ isMicOn ? 'mic' : 'mic_off' }}</span>
-        </button>
-        <button class="bg-white/20 hover:bg-white/30 p-2 rounded-full text-white transition-colors"
-                (click)="toggleCamera()">
-          <span class="material-symbols-outlined">{{ isCamOn ? 'videocam' : 'videocam_off' }}</span>
-        </button>
-        <button class="bg-white/20 hover:bg-white/30 p-2 rounded-full text-white transition-colors"
-                (click)="shareScreen()">
-          <span class="material-symbols-outlined">{{ isSharing ? 'stop_screen_share' : 'present_to_all' }}</span>
-        </button>
-      </div>
-    </div>
+<div class="flex h-screen w-full bg-gray-900 text-white overflow-hidden">
+  <!-- Main Content Area -->
+  <div class="flex-1 flex flex-col relative">
     
-    <!-- Bottom Control Bar -->
-    <div class="bg-gray-50 dark:bg-gray-900 p-4 flex justify-center items-center border-t border-gray-200 dark:border-gray-700">
-      <button class="bg-red-500 text-white px-6 py-2 rounded-full flex items-center gap-2 font-semibold hover:bg-red-600 transition-colors shadow-md">
-        <span class="material-symbols-outlined">call_end</span>
-        End Call
-      </button>
+    <!-- Meeting Content -->
+    <div class="flex-1 relative">
+      
+      <!-- Video Grid View -->
+      <div *ngIf="activeView === 'grid'" class="h-full w-full">
+        <app-video-grid 
+          [participants]="participants"
+          [currentUserId]="currentUserId"
+          [localStream]="localStream"
+          [remoteStreams]="remoteStreams"
+          [meetingState]="meetingState">
+        </app-video-grid>
+      </div>
+
+      <!-- Speaker View -->
+      <div *ngIf="activeView === 'speaker'" class="h-full w-full">
+        <app-speaker-view 
+          [participants]="participants"
+          [currentUserId]="currentUserId"
+          [localStream]="localStream"
+          [remoteStreams]="remoteStreams"
+          [meetingState]="meetingState">
+        </app-speaker-view>
+      </div>
+
+      <!-- Whiteboard View -->
+      <div *ngIf="activeView === 'whiteboard'" class="h-full w-full">
+        <app-whiteboard 
+          [isActive]="meetingState.isWhiteboardActive"
+          [isHost]="isHost"
+          [roomKey]="roomKey">
+        </app-whiteboard>
+      </div>
+
+    </div>
+
+    <!-- Meeting Controls -->
+    <app-meeting-controls
+      [meetingState]="meetingState"
+      [isHost]="isHost"
+      [participantsCount]="participants.length"
+      [showParticipantsPanel]="showParticipantsPanel"
+      [showChatPanel]="showChatPanel"
+      [showWhiteboardPanel]="showWhiteboardPanel"
+      [activeView]="activeView"
+      (toggleMute)="toggleMute()"
+      (toggleVideo)="toggleVideo()"
+      (toggleScreenShare)="toggleScreenShare()"
+      (toggleParticipantsPanel)="toggleParticipantsPanel()"
+      (toggleChatPanel)="toggleChatPanel()"
+      (toggleWhiteboardPanel)="toggleWhiteboardPanel()"
+      (setActiveView)="setActiveView($event)"
+      (toggleFullscreen)="toggleFullscreen()"
+      (endMeeting)="endMeeting()">
+    </app-meeting-controls>
+
+  </div>
+
+  <!-- Participants Panel -->
+  <div class="absolute top-0 right-0 h-full w-80 bg-white dark:bg-gray-800 shadow-2xl transform transition-transform duration-300 z-50"
+       [class.translate-x-full]="!showParticipantsPanel"
+       [class.translate-x-0]="showParticipantsPanel">
+    <app-participants-panel
+      [participants]="participants"
+      [currentUserId]="currentUserId"
+      [isHost]="isHost"
+      (grantPermission)="grantPermission($event.userId, $event.permission)"
+      (removeParticipant)="removeParticipant($event)"
+      (close)="toggleParticipantsPanel()">
+    </app-participants-panel>
+  </div>
+
+  <!-- Chat Panel -->
+  <div class="absolute top-0 right-0 h-full w-80 bg-white dark:bg-gray-800 shadow-2xl transform transition-transform duration-300 z-50"
+       [class.translate-x-full]="!showChatPanel"
+       [class.translate-x-0]="showChatPanel">
+    <app-chat-panel
+      [roomKey]="roomKey"
+      [currentUserId]="currentUserId"
+      [currentUserName]="currentUserName"
+      (close)="toggleChatPanel()">
+    </app-chat-panel>
+  </div>
+
+  <!-- Overlay when panels are open -->
+  <div *ngIf="showParticipantsPanel || showChatPanel" 
+       class="absolute inset-0 bg-black/20 z-40"
+       (click)="showParticipantsPanel ? toggleParticipantsPanel() : toggleChatPanel()">
+  </div>
+
+  <!-- Connection Status -->
+  <div class="absolute top-4 left-4 z-30">
+    <div class="flex items-center space-x-2 bg-black/50 px-3 py-2 rounded-lg">
+      <div class="w-2 h-2 rounded-full" 
+           [class.bg-green-500]="connected"
+           [class.bg-red-500]="!connected">
+      </div>
+      <span class="text-sm">{{ connected ? 'Connected' : 'Connecting...' }}</span>
     </div>
   </div>
-  
-  <!-- Right Sidebar -->
-  <div class="w-1/3 flex flex-col bg-gray-50 dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700">
-    <!-- Whiteboard Section -->
-    <div class="flex-grow p-4">
-      <h2 class="text-xl font-bold mb-4 text-gray-900 dark:text-white">Whiteboard</h2>
-      <div class="bg-white dark:bg-gray-800/50 w-full h-full rounded-lg shadow-inner flex items-center justify-center relative">
-        <canvas #board class="w-full h-full rounded-lg"
-                (mousedown)="onBoardMouseDown($event)"
-                (mousemove)="onBoardMouseMove($event)"
-                (mouseup)="onBoardMouseUp()"></canvas>
-        <p class="absolute text-gray-500 dark:text-gray-400 pointer-events-none">Whiteboard Canvas</p>
-      </div>
-    </div>
-    
-    <!-- Participants Section -->
-    <div class="p-4 border-t border-gray-200 dark:border-gray-700">
-      <h2 class="text-xl font-bold mb-4 text-gray-900 dark:text-white">Participants ({{ participants.length }})</h2>
-      <div class="space-y-3">
-        <div *ngFor="let p of participants" class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <div class="relative">
-              <div class="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                <span class="material-symbols-outlined text-gray-600 dark:text-gray-300">person</span>
-              </div>
-              <span class="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-green-500 border-2 border-white dark:border-gray-900"></span>
-            </div>
-            <div>
-              <p class="font-semibold text-gray-900 dark:text-white">{{ p.name }}</p>
-              <p class="text-sm" [class]="p.userId === currentUserId ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'">
-                {{ p.userId === currentUserId ? 'You' : 'Participant' }}
-              </p>
-            </div>
-          </div>
-          <div class="flex items-center gap-2" *ngIf="p.userId !== currentUserId">
-            <button class="flex items-center justify-center size-8 rounded-full bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-colors"
-                    (click)="signalr.grant(roomKey, p.userId, 'mic')">
-              <span class="material-symbols-outlined text-base">mic</span>
-            </button>
-            <button class="flex items-center justify-center size-8 rounded-full bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-colors"
-                    (click)="signalr.grant(roomKey, p.userId, 'cam')">
-              <span class="material-symbols-outlined text-base">videocam</span>
-            </button>
-            <button class="flex items-center justify-center size-8 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
-                    (click)="signalr.grant(roomKey, p.userId, 'screen')">
-              <span class="material-symbols-outlined text-base">screen_share</span>
-            </button>
-          </div>
-        </div>
-      </div>
+
+  <!-- Meeting Info -->
+  <div class="absolute top-4 left-1/2 transform -translate-x-1/2 z-30">
+    <div class="bg-black/50 px-4 py-2 rounded-lg text-center">
+      <h1 class="text-lg font-semibold">Meeting Room</h1>
+      <p class="text-sm text-gray-300">ID: {{ meetingId }}</p>
     </div>
   </div>
+
 </div>
-
-

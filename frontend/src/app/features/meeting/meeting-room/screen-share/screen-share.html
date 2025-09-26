@@ -1,1 +1,205 @@
-<p>screen-share works!</p>
+<div class="screen-share-container">
+  
+  <!-- Screen Share Header -->
+  <div class="screen-share-header">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <span class="material-symbols-outlined text-2xl text-gray-600">present_to_all</span>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-800">Screen Share</h3>
+          <p class="text-sm text-gray-600">{{ getSelectedSourceLabel() }}</p>
+        </div>
+      </div>
+      
+      <div class="flex items-center space-x-2">
+        <span class="px-2 py-1 text-xs rounded-full"
+              [class]="getScreenShareStatusBg() + ' ' + getScreenShareStatusColor()">
+          {{ getScreenShareStatus() }}
+        </span>
+        <button class="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                (click)="toggleSettings()"
+                [title]="isSettingsOpen ? 'Close Settings' : 'Open Settings'">
+          <span class="material-symbols-outlined text-gray-600">
+            {{ isSettingsOpen ? 'expand_less' : 'expand_more' }}
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen Share Preview -->
+  <div class="screen-share-preview" *ngIf="isPreviewVisible">
+    <video #previewVideo
+           autoplay
+           playsinline
+           muted
+           class="w-full h-full object-cover rounded-lg">
+    </video>
+    
+    <!-- Preview Overlay -->
+    <div class="preview-overlay">
+      <div class="preview-info">
+        <span class="text-sm text-white bg-black bg-opacity-50 px-2 py-1 rounded">
+          {{ getResolutionLabel() }} @ {{ screenShareSettings.frameRate }}fps
+        </span>
+      </div>
+      
+      <!-- Stop Button -->
+      <div class="preview-controls">
+        <button class="stop-button"
+                (click)="stopScreenShare()"
+                title="Stop Screen Sharing">
+          <span class="material-symbols-outlined">stop</span>
+          Stop Sharing
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen Share Settings Panel -->
+  <div class="screen-share-settings" *ngIf="isSettingsOpen">
+    
+    <!-- Basic Controls -->
+    <div class="settings-section">
+      <h4 class="section-title">Screen Share Controls</h4>
+      
+      <!-- Start/Stop Button -->
+      <div class="control-item">
+        <button class="action-button"
+                [class.active]="screenShareSettings.isActive"
+                [class.inactive]="!screenShareSettings.isActive"
+                (click)="screenShareSettings.isActive ? stopScreenShare() : startScreenShare()"
+                [disabled]="isSelectingSource">
+          <span class="material-symbols-outlined">
+            {{ screenShareSettings.isActive ? 'stop' : 'play_arrow' }}
+          </span>
+          {{ screenShareSettings.isActive ? 'Stop Sharing' : 'Start Sharing' }}
+        </button>
+      </div>
+      
+      <!-- Source Type Selection -->
+      <div class="control-item">
+        <label class="control-label">Source Type</label>
+        <div class="source-type-buttons">
+          <button *ngFor="let type of sourceTypes"
+                  class="source-type-button"
+                  [class.active]="screenShareSettings.source === type.value"
+                  (click)="selectSourceType(type.value)"
+                  [disabled]="screenShareSettings.isActive">
+            <span class="material-symbols-outlined">{{ type.icon }}</span>
+            {{ type.label }}
+          </button>
+        </div>
+      </div>
+      
+      <!-- Source Selection -->
+      <div class="control-item">
+        <label class="control-label">Screen Source</label>
+        <select class="control-select"
+                [(ngModel)]="selectedSource"
+                (change)="onSourceChange()"
+                [disabled]="screenShareSettings.isActive">
+          <option *ngFor="let source of availableSources" [value]="source.id">
+            {{ source.name }}
+          </option>
+        </select>
+      </div>
+      
+      <!-- Audio Toggle -->
+      <div class="control-item">
+        <label class="control-label">Include Audio</label>
+        <button class="toggle-button"
+                [class.active]="screenShareSettings.audio"
+                (click)="onAudioToggle()"
+                [disabled]="screenShareSettings.isActive">
+          <span class="material-symbols-outlined">
+            {{ screenShareSettings.audio ? 'volume_up' : 'volume_off' }}
+          </span>
+          {{ screenShareSettings.audio ? 'On' : 'Off' }}
+        </button>
+      </div>
+    </div>
+    
+    <!-- Quality Settings -->
+    <div class="settings-section">
+      <h4 class="section-title">Quality Settings</h4>
+      
+      <!-- Resolution Selection -->
+      <div class="control-item">
+        <label class="control-label">Resolution</label>
+        <select class="control-select"
+                [(ngModel)]="screenShareSettings.resolution"
+                (change)="onResolutionChange()"
+                [disabled]="screenShareSettings.isActive">
+          <option *ngFor="let resolution of resolutions" [value]="resolution.value">
+            {{ resolution.label }}
+          </option>
+        </select>
+      </div>
+      
+      <!-- Frame Rate Selection -->
+      <div class="control-item">
+        <label class="control-label">Frame Rate</label>
+        <select class="control-select"
+                [(ngModel)]="screenShareSettings.frameRate"
+                (change)="onFrameRateChange()"
+                [disabled]="screenShareSettings.isActive">
+          <option *ngFor="let rate of frameRates" [value]="rate">
+            {{ rate }} fps
+          </option>
+        </select>
+      </div>
+      
+      <!-- Preset Buttons -->
+      <div class="control-item">
+        <label class="control-label">Presets</label>
+        <div class="preset-buttons">
+          <button class="preset-button"
+                  (click)="applyPreset('presentation')"
+                  [disabled]="screenShareSettings.isActive">
+            Presentation
+          </button>
+          <button class="preset-button"
+                  (click)="applyPreset('video')"
+                  [disabled]="screenShareSettings.isActive">
+            Video
+          </button>
+          <button class="preset-button"
+                  (click)="applyPreset('performance')"
+                  [disabled]="screenShareSettings.isActive">
+            Performance
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Screen Share Info -->
+    <div class="settings-section">
+      <h4 class="section-title">Information</h4>
+      
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="info-label">Source:</span>
+          <span class="info-value">{{ getSourceTypeLabel() }}</span>
+        </div>
+        
+        <div class="info-item">
+          <span class="info-label">Resolution:</span>
+          <span class="info-value">{{ getResolutionLabel() }}</span>
+        </div>
+        
+        <div class="info-item">
+          <span class="info-label">Frame Rate:</span>
+          <span class="info-value">{{ screenShareSettings.frameRate }} fps</span>
+        </div>
+        
+        <div class="info-item">
+          <span class="info-label">Audio:</span>
+          <span class="info-value">{{ screenShareSettings.audio ? 'Included' : 'Not Included' }}</span>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+  
+</div>
