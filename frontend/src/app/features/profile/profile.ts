@@ -26,12 +26,14 @@ export class ProfileComponent implements OnInit {
   passwordForm!: FormGroup;
   
   loading = false;
+  isLoading = false; // HTML'de kullanılan
   profileLoading = false;
   passwordLoading = false;
-  profileError: string | null = null;
-  passwordError: string | null = null;
+  
   profileSuccess = false;
+  profileError: string | null = null;
   passwordSuccess = false;
+  passwordError: string | null = null;
 
   constructor(
     private fb: FormBuilder,
@@ -209,5 +211,14 @@ export class ProfileComponent implements OnInit {
     }
     
     return errors;
+  }
+
+  resetProfileForm() {
+    this.profileForm.reset();
+    if (this.profile) {
+      this.profileForm.patchValue({
+        name: this.profile.name
+      });
+    }
   }
 }

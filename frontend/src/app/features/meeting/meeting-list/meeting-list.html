@@ -1,17 +1,28 @@
-<div class="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-8 relative overflow-hidden">
+  <!-- Background Pattern -->
+  <div class="absolute inset-0 opacity-5">
+    <div class="absolute top-1/4 left-0 w-96 h-96 bg-blue-500 rounded-full filter blur-3xl"></div>
+    <div class="absolute bottom-1/4 right-0 w-80 h-80 bg-purple-500 rounded-full filter blur-3xl"></div>
+  </div>
+  
+  <div class="container-xl relative z-10">
     <!-- Header -->
-    <div class="mb-8">
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Toplantılarım</h1>
-          <p class="mt-2 text-gray-600 dark:text-gray-400">
-            Toplantılarınızı yönetin ve yeni toplantılar oluşturun
-          </p>
+    <div class="mb-8 animate-fade-in">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
+        <div class="text-center md:text-left">
+          <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mb-4 md:mb-0 md:mr-4">
+            <span class="material-symbols-outlined text-white text-2xl">video_call</span>
+          </div>
+          <div class="inline-block md:inline">
+            <h1 class="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">Toplantılarım</h1>
+            <p class="mt-2 text-lg text-gray-600 dark:text-gray-400">
+              Toplantılarınızı yönetin ve yeni toplantılar oluşturun
+            </p>
+          </div>
         </div>
         <button 
           routerLink="/meetings/new"
-          class="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
+          class="btn btn-primary btn-lg animate-scale-in animate-delay-1"
         >
           <span class="material-symbols-outlined mr-2">add</span>
           Yeni Toplantı
@@ -20,29 +31,41 @@
     </div>
 
     <!-- Loading State -->
-    <div *ngIf="loading" class="flex justify-center items-center py-12">
-      <div class="spinner"></div>
-      <span class="ml-3 text-gray-600 dark:text-gray-400">Toplantılar yükleniyor...</span>
+    <div *ngIf="loading" class="flex justify-center items-center py-20 animate-fade-in">
+      <div class="text-center">
+        <div class="spinner spinner-lg mx-auto mb-4"></div>
+        <div class="loading-dots mx-auto mb-4">
+          <div></div>
+          <div></div>
+          <div></div>
+        </div>
+        <span class="text-gray-600 dark:text-gray-400 text-lg font-medium">Toplantılar yükleniyor...</span>
+      </div>
     </div>
 
     <!-- Meetings Grid -->
-    <div *ngIf="!loading && items?.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <div *ngFor="let meeting of items" class="card hover:shadow-lg transition-shadow duration-200">
+    <div *ngIf="!loading && items?.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div *ngFor="let meeting of items; let i = index" 
+           class="card card-elevated flex flex-col h-full animate-scale-in"
+           [class.animate-delay-1]="i % 3 === 1"
+           [class.animate-delay-2]="i % 3 === 2"
+           [class.animate-delay-3]="i % 3 === 0">
         <!-- Card Header -->
         <div class="card-header">
           <div class="flex items-start justify-between">
             <div class="flex-1">
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                {{ meeting.title }}
-              </h3>
-              <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                <span class="material-symbols-outlined text-base mr-1">schedule</span>
-                {{ meeting.startsAt | date:'dd MMM yyyy, HH:mm':'tr-TR' }}
+              <div class="flex items-center space-x-2 mb-2">
+                <span class="material-symbols-outlined text-blue-500 text-lg">calendar_today</span>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ meeting.title }}</h3>
               </div>
+              <p class="text-sm text-gray-500 dark:text-gray-400">{{ meeting.startsAt | date:'dd MMMM yyyy, HH:mm':'tr-TR' }}</p>
             </div>
+            <!-- Status Badge -->
             <div class="flex items-center">
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                    [class]="getStatusClass(meeting.status)">
+              <span class="badge"
+                    [class.badge-success]="meeting.status === 'scheduled'"
+                    [class.badge-warning]="meeting.status === 'done'"
+                    [class.badge-error]="meeting.status === 'canceled'">
                 {{ getStatusText(meeting.status) }}
               </span>
             </div>
@@ -54,37 +77,50 @@
           <div class="space-y-3">
             <!-- Time Range -->
             <div class="flex items-center text-sm text-gray-600 dark:text-gray-300">
-              <span class="material-symbols-outlined text-base mr-2">access_time</span>
+              <span class="material-symbols-outlined text-base mr-2 text-blue-500">access_time</span>
               <span>{{ meeting.startsAt | date:'HH:mm':'tr-TR' }} - {{ meeting.endsAt | date:'HH:mm':'tr-TR' }}</span>
             </div>
 
             <!-- Notes -->
-            <div *ngIf="meeting.notes" class="text-sm text-gray-600 dark:text-gray-300">
-              <span class="material-symbols-outlined text-base mr-2 align-top">note</span>
-              <span class="line-clamp-2">{{ meeting.notes }}</span>
+            <div *ngIf="meeting.notes" class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed text-clamp-2">
+              <span class="material-symbols-outlined text-xs mr-1 align-middle">notes</span>
+              {{ meeting.notes }}
             </div>
 
-            <!-- Participants Count -->
-            <div class="flex items-center text-sm text-gray-600 dark:text-gray-300">
-              <span class="material-symbols-outlined text-base mr-2">people</span>
-              <span>{{ (meeting.invitees || []).length }} katılımcı</span>
+            <!-- Participants -->
+            <div class="text-sm text-gray-600 dark:text-gray-300">
+              <div class="flex items-center mb-2">
+                <span class="material-symbols-outlined text-base mr-2 text-purple-500">people</span>
+                <span>{{ (meeting.invitees || []).length }} katılımcı</span>
+              </div>
+              <div *ngIf="meeting.invitees && meeting.invitees.length > 0" class="ml-6 text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                <div *ngFor="let invitee of meeting.invitees.slice(0, 3)" class="flex items-center">
+                  <div class="avatar avatar-sm bg-gradient-to-r from-purple-500 to-blue-500 text-white mr-2">
+                    {{ invitee.name.charAt(0) }}
+                  </div>
+                  <span>{{ invitee.name }}</span>
+                </div>
+                <div *ngIf="meeting.invitees.length > 3" class="text-gray-400 dark:text-gray-500 mt-1">
+                  +{{ meeting.invitees.length - 3 }} daha
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Card Footer -->
-        <div class="card-footer">
+        <div class="card-footer mt-auto bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/10 dark:to-purple-900/10">
           <div class="flex items-center justify-between">
-            <div class="flex space-x-2">
+            <div class="flex space-x-3">
               <button 
                 [routerLink]="['/meetings', meeting.id, 'prejoin']"
-                class="inline-flex items-center px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-md transition-colors duration-200"
+                class="btn btn-primary btn-sm"
               >
                 <span class="material-symbols-outlined text-sm mr-1">video_call</span>
                 Odaya Gir
               </button>
               <button 
-                class="inline-flex items-center px-3 py-1.5 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-md transition-colors duration-200"
+                class="btn btn-secondary btn-sm"
                 (click)="editMeeting(meeting)"
               >
                 <span class="material-symbols-outlined text-sm mr-1">edit</span>
@@ -92,8 +128,9 @@
               </button>
             </div>
             <button 
-              class="text-gray-400 hover:text-red-500 transition-colors duration-200"
+              class="btn btn-danger btn-sm p-2"
               (click)="deleteMeeting(meeting)"
+              title="Toplantıyı Sil"
             >
               <span class="material-symbols-outlined text-sm">delete</span>
             </button>
@@ -103,34 +140,36 @@
     </div>
 
     <!-- Empty State -->
-    <div *ngIf="!loading && !items?.length" class="text-center py-12">
-      <div class="mx-auto h-24 w-24 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
-        <span class="material-symbols-outlined text-gray-400 text-4xl">event</span>
+    <div *ngIf="!loading && (!items || items.length === 0)" class="text-center py-20 animate-fade-in">
+      <div class="card card-minimal max-w-lg mx-auto p-12">
+        <div class="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mx-auto mb-6 flex items-center justify-center">
+          <span class="material-symbols-outlined text-white text-3xl">video_call</span>
+        </div>
+        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Henüz Toplantı Yok</h3>
+        <p class="text-gray-600 dark:text-gray-400 mb-8 text-lg">
+          İlk toplantınızı oluşturmak için aşağıdaki butona tıklayın ve toplantılarınızı yönetmeye başlayın
+        </p>
+        <button 
+          routerLink="/meetings/new"
+          class="btn btn-primary btn-lg animate-scale-in animate-delay-1"
+        >
+          <span class="material-symbols-outlined mr-2">add</span>
+          İlk Toplantıyı Oluştur
+        </button>
       </div>
-      <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Henüz toplantı yok</h3>
-      <p class="text-gray-600 dark:text-gray-400 mb-6">
-        İlk toplantınızı oluşturmak için aşağıdaki butona tıklayın
-      </p>
-      <button 
-        routerLink="/meetings/new"
-        class="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors duration-200"
-      >
-        <span class="material-symbols-outlined mr-2">add</span>
-        Yeni Toplantı Oluştur
-      </button>
     </div>
 
     <!-- Error State -->
-    <div *ngIf="error" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-      <div class="flex">
-        <div class="flex-shrink-0">
-          <span class="material-symbols-outlined text-red-400">error</span>
+    <div *ngIf="error" class="card card-elevated max-w-2xl mx-auto p-6 animate-fade-in">
+      <div class="flex items-start space-x-4">
+        <div class="w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center flex-shrink-0">
+          <span class="material-symbols-outlined text-red-600 dark:text-red-400">error</span>
         </div>
-        <div class="ml-3">
-          <h3 class="text-sm font-medium text-red-800 dark:text-red-200">Hata</h3>
-          <p class="text-sm text-red-700 dark:text-red-300 mt-1">{{ error }}</p>
+        <div class="flex-1">
+          <h3 class="text-lg font-semibold text-red-800 dark:text-red-200 mb-2">Bir Hata Oluştu</h3>
+          <p class="text-red-700 dark:text-red-300">{{ error }}</p>
         </div>
       </div>
-  </div>
+    </div>
   </div>
 </div>

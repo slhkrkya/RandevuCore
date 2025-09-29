@@ -7,9 +7,21 @@ export class SignalRService {
 
   start(token: string) {
     if (this.connection) return;
+    
+    // Check if we're in production
+    const isProduction = window.location.hostname !== 'localhost' && 
+                        !window.location.hostname.includes('127.0.0.1') &&
+                        !window.location.hostname.includes('dev');
+    
+    // Use environment-appropriate URL
+    const wsUrl = isProduction ? 
+      `wss://${window.location.host}/ws` : 
+      'http://localhost:5125/ws';
+    
     this.connection = new signalR.HubConnectionBuilder()
-      .withUrl('http://localhost:5125/ws', { accessTokenFactory: () => token })
+      .withUrl(wsUrl, { accessTokenFactory: () => token })
       .withAutomaticReconnect()
+      .configureLogging(signalR.LogLevel.Warning) // Reduce logging to suppress method warnings
       .build();
 
     return this.connection.start();
@@ -33,6 +45,10 @@ export class SignalRService {
 
   grant(roomId: string, targetUserId: string, permission: 'cam' | 'mic' | 'screen') {
     return this.connection?.invoke('GrantPermission', roomId, targetUserId, permission);
+  }
+
+  invoke(methodName: string, ...args: any[]) {
+    return this.connection?.invoke(methodName, ...args);
   }
 
   stop() {

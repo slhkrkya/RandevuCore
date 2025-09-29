@@ -3,19 +3,19 @@
   <!-- Chat Header -->
   <div class="chat-header">
     <div class="flex items-center justify-between">
-      <h2 class="chat-title">Chat</h2>
+      <h2 class="chat-title">Sohbet</h2>
       <div class="header-actions">
-        <button class="action-button" (click)="clearChat()" title="Clear Chat">
-          <span class="material-symbols-outlined">clear_all</span>
+        <button class="action-button" (click)="clearChat()" title="Sohbeti Temizle">
+          <span class="material-symbols-outlined text-sm">clear_all</span>
         </button>
-        <button class="action-button" (click)="onClose()" title="Close Chat">
-          <span class="material-symbols-outlined">close</span>
+        <button class="action-button" (click)="onClose()" title="Sohbeti Kapat">
+          <span class="material-symbols-outlined text-sm">close</span>
         </button>
       </div>
     </div>
     <div class="connection-status">
       <div class="status-indicator" [class.connected]="isConnected" [class.disconnected]="!isConnected"></div>
-      <span class="status-text">{{ isConnected ? 'Connected' : 'Disconnected' }}</span>
+      <span class="status-text">{{ isConnected ? 'Bağlı' : 'Bağlantı Kesildi' }}</span>
     </div>
   </div>
 
@@ -24,8 +24,8 @@
     <div *ngIf="messages.length === 0" class="empty-state">
       <div class="empty-content">
         <span class="material-symbols-outlined">chat</span>
-        <h3>No messages yet</h3>
-        <p>Start the conversation!</p>
+        <h3>Henüz mesaj yok</h3>
+        <p>Sohbeti başlatın!</p>
       </div>
     </div>
 
@@ -46,7 +46,7 @@
       <input #messageInput
              type="text"
              class="message-input"
-             placeholder="Type a message..."
+             placeholder="Mesaj yazın..."
              [(ngModel)]="newMessage"
              (keypress)="onKeyPress($event)"
              [disabled]="!isConnected">

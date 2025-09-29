@@ -1,29 +1,139 @@
-<div class="auth-card" style="max-width:520px;margin:16px auto;">
-  <h1>Yeni Randevu</h1>
-  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-    <div class="field">
-      <label>Başlık</label>
-      <input formControlName="title" type="text" />
+<div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-8 relative overflow-hidden">
+  <!-- Background Pattern -->
+  <div class="absolute inset-0 opacity-5">
+    <div class="absolute top-1/4 right-1/4 w-96 h-96 bg-emerald-500 rounded-full filter blur-3xl"></div>
+    <div class="absolute bottom-1/4 left-1/4 w-80 h-80 bg-blue-500 rounded-full filter blur-3xl"></div>
+  </div>
+  
+  <div class="container relative z-10">
+    <div class="max-w-2xl mx-auto">
+      <!-- Header -->
+      <div class="text-center mb-8 animate-fade-in">
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-emerald-500 to-blue-600 rounded-full mb-6 shadow-lg">
+          <span class="material-symbols-outlined text-white text-2xl">event_note</span>
+        </div>
+        <h1 class="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent mb-2">
+          Yeni Randevu Oluştur
+        </h1>
+        <p class="text-lg text-gray-600 dark:text-gray-400">
+          Randevu detaylarını girin ve davetlileri ekleyin
+        </p>
+      </div>
+
+      <!-- Form Card -->
+      <div class="card animate-scale-in animate-delay-1">
+        <div class="card-body">
+          <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+            <div class="space-y-6">
+              <!-- Randevu Başlığı -->
+              <div>
+                <label class="form-label">
+                  <span class="material-symbols-outlined text-gray-500 mr-2 align-middle text-sm">title</span>
+                  Randevu Başlığı
+                </label>
+                <input 
+                  formControlName="title" 
+                  type="text"
+                  class="form-input"
+                  placeholder="Randevu başlığını girin"
+                  [class.border-red-500]="form.get('title')?.invalid && form.get('title')?.touched"
+                />
+                <div *ngIf="form.get('title')?.invalid && form.get('title')?.touched" class="form-error">
+                  <span>Randevu başlığı gereklidir</span>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Başlangıç Tarihi -->
+                <div>
+                  <label class="form-label">
+                    <span class="material-symbols-outlined text-gray-500 mr-2 align-middle text-sm">event_available</span>
+                    Başlangıç (Türkiye Saati)
+                  </label>
+                  <input 
+                    formControlName="startsAt" 
+                    type="datetime-local"
+                    class="form-input"
+                    [class.border-red-500]="form.get('startsAt')?.invalid && form.get('startsAt')?.touched"
+                  />
+                  <div *ngIf="form.get('startsAt')?.invalid && form.get('startsAt')?.touched" class="form-error">
+                    <span>Başlangıç tarihi gereklidir</span>
+                  </div>
+                </div>
+
+                <!-- Bitiş Tarihi -->
+                <div>
+                  <label class="form-label">
+                    <span class="material-symbols-outlined text-gray-500 mr-2 align-middle text-sm">event_busy</span>
+                    Bitiş (Türkiye Saati)
+                  </label>
+                  <input 
+                    formControlName="endsAt" 
+                    type="datetime-local"
+                    class="form-input"
+                    [class.border-red-500]="form.get('endsAt')?.invalid && form.get('endsAt')?.touched"
+                  />
+                  <div *ngIf="form.get('endsAt')?.invalid && form.get('endsAt')?.touched" class="form-error">
+                    <span>Bitiş tarihi gereklidir</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Davetli Kullanıcı -->
+              <div>
+                <label class="form-label">
+                  <span class="material-symbols-outlined text-gray-500 mr-2 align-middle text-sm">person_add</span>
+                  Davetli Kullanıcı Id
+                </label>
+                <input 
+                  formControlName="inviteeId" 
+                  type="text"
+                  class="form-input"
+                  placeholder="Davet edilecek kullanıcının ID'sini girin"
+                />
+              </div>
+
+              <!-- Notlar -->
+              <div>
+                <label class="form-label">
+                  <span class="material-symbols-outlined text-gray-500 mr-2 align-middle text-sm">note</span>
+                  Notlar
+                </label>
+                <textarea 
+                  formControlName="notes"
+                  class="form-input form-textarea"
+                  placeholder="Randevu ile ilgili notlarınızı buraya yazabilirsiniz..."
+                  rows="4"
+                ></textarea>
+              </div>
+            </div>
+
+            <!-- Error Message -->
+            <div *ngIf="error" class="form-error mt-4">
+              <span class="material-symbols-outlined mr-2">error</span>
+              {{ error }}
+            </div>
+
+            <!-- Submit Button -->
+            <div class="mt-8 flex justify-end space-x-4">
+              <button 
+                routerLink="/appointments"
+                class="btn btn-secondary">
+                <span class="material-symbols-outlined text-sm mr-1">arrow_back</span>
+                İptal
+              </button>
+              <button 
+                type="submit" 
+                class="btn btn-success btn-lg"
+                [disabled]="form.invalid || loading">
+                <span class="material-symbols-outlined text-sm mr-1" *ngIf="!loading">save</span>
+                <div class="spinner spinner-sm spinner-white" *ngIf="loading"></div>
+                {{ loading ? 'Kaydediliyor...' : 'Randevu Oluştur' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
-    <div class="field">
-      <label>Başlangıç (Türkiye Saati)</label>
-      <input formControlName="startsAt" type="datetime-local" />
-    </div>
-    <div class="field">
-      <label>Bitiş (Türkiye Saati)</label>
-      <input formControlName="endsAt" type="datetime-local" />
-    </div>
-    <div class="field">
-      <label>Davetli Kullanıcı Id</label>
-      <input formControlName="inviteeId" type="text" />
-    </div>
-    <div class="field">
-      <label>Notlar</label>
-      <textarea formControlName="notes"></textarea>
-    </div>
-    <button class="primary" type="submit" [disabled]="form.invalid || loading">
-      {{ loading ? 'Kaydediliyor...' : 'Kaydet' }}
-    </button>
-    <div class="error" *ngIf="error">{{ error }}</div>
-  </form>
+  </div>
 </div>

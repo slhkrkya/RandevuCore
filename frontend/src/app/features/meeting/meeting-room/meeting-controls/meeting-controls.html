@@ -1,37 +1,43 @@
 <!-- Meeting Controls Bar -->
-<div class="absolute bottom-0 left-0 right-0 bg-gray-800/90 backdrop-blur-sm border-t border-gray-700 p-4 z-30">
+<div class="absolute bottom-0 left-0 right-0 bg-gray-800/95 backdrop-blur-md border-t border-gray-600/50 p-4 z-30 shadow-2xl">
   <div class="flex items-center justify-between max-w-6xl mx-auto">
     
     <!-- Left Controls - Media Controls -->
     <div class="flex items-center space-x-3">
       
       <!-- Mute/Unmute Button -->
-      <button class="p-3 rounded-full text-white transition-all duration-200 hover:scale-105"
+      <button class="p-3 rounded-full text-white transition-all duration-200 hover:scale-105 shadow-lg"
               [class]="getMuteButtonClass()"
+              [class.opacity-50]="isMuteToggling"
+              [disabled]="isMuteToggling"
               (click)="onToggleMute()"
-              [title]="meetingState.isMuted ? 'Unmute' : 'Mute'">
+              [title]="isMuteToggling ? 'İşleniyor...' : (meetingState.isMuted ? 'Sesi Aç' : 'Sesi Kapat')">
         <span class="material-symbols-outlined text-xl">
-          {{ meetingState.isMuted ? 'mic_off' : 'mic' }}
+          {{ isMuteToggling ? 'hourglass_empty' : (meetingState.isMuted ? 'mic_off' : 'mic') }}
         </span>
       </button>
       
       <!-- Video On/Off Button -->
-      <button class="p-3 rounded-full text-white transition-all duration-200 hover:scale-105"
+      <button class="p-3 rounded-full text-white transition-all duration-200 hover:scale-105 shadow-lg"
               [class]="getVideoButtonClass()"
+              [class.opacity-50]="isVideoToggling"
+              [disabled]="isVideoToggling"
               (click)="onToggleVideo()"
-              [title]="meetingState.isVideoOn ? 'Turn Off Camera' : 'Turn On Camera'">
+              [title]="isVideoToggling ? 'İşleniyor...' : (meetingState.isVideoOn ? 'Kamerayı Kapat' : 'Kamerayı Aç')">
         <span class="material-symbols-outlined text-xl">
-          {{ meetingState.isVideoOn ? 'videocam' : 'videocam_off' }}
+          {{ isVideoToggling ? 'hourglass_empty' : (meetingState.isVideoOn ? 'videocam' : 'videocam_off') }}
         </span>
       </button>
       
       <!-- Screen Share Button -->
-      <button class="p-3 rounded-full text-white transition-all duration-200 hover:scale-105"
+      <button class="p-3 rounded-full text-white transition-all duration-200 hover:scale-105 shadow-lg"
               [class]="getScreenShareButtonClass()"
+              [class.opacity-50]="isScreenShareToggling"
+              [disabled]="isScreenShareToggling"
               (click)="onToggleScreenShare()"
-              [title]="meetingState.isScreenSharing ? 'Stop Sharing' : 'Share Screen'">
+              [title]="isScreenShareToggling ? 'İşleniyor...' : (meetingState.isScreenSharing ? 'Paylaşımı Durdur' : 'Ekran Paylaş')">
         <span class="material-symbols-outlined text-xl">
-          {{ meetingState.isScreenSharing ? 'stop_screen_share' : 'present_to_all' }}
+          {{ isScreenShareToggling ? 'hourglass_empty' : (meetingState.isScreenSharing ? 'stop_screen_share' : 'present_to_all') }}
         </span>
       </button>
       
@@ -41,30 +47,30 @@
     <div class="flex items-center space-x-2">
       
       <!-- Grid View Button -->
-      <button class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+      <button class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 shadow-md"
               [class]="getViewButtonClass('grid')"
               (click)="onSetActiveView('grid')"
               title="Grid View">
         <span class="material-symbols-outlined text-lg mr-2">grid_view</span>
-        Grid
+        <span class="hidden sm:inline">Grid</span>
       </button>
       
       <!-- Speaker View Button -->
-      <button class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+      <button class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 shadow-md"
               [class]="getViewButtonClass('speaker')"
               (click)="onSetActiveView('speaker')"
               title="Speaker View">
         <span class="material-symbols-outlined text-lg mr-2">person</span>
-        Speaker
+        <span class="hidden sm:inline">Speaker</span>
       </button>
       
       <!-- Whiteboard Button -->
-      <button class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+      <button class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 shadow-md"
               [class]="getViewButtonClass('whiteboard')"
               (click)="onSetActiveView('whiteboard')"
               title="Whiteboard">
         <span class="material-symbols-outlined text-lg mr-2">draw</span>
-        Whiteboard
+        <span class="hidden sm:inline">Whiteboard</span>
       </button>
       
     </div>
@@ -73,7 +79,7 @@
     <div class="flex items-center space-x-3">
       
       <!-- Participants Button -->
-      <button class="p-3 rounded-full text-white transition-all duration-200 hover:scale-105"
+      <button class="p-3 rounded-full text-white transition-all duration-200 hover:scale-105 shadow-lg relative"
               [class.bg-blue-500]="showParticipantsPanel"
               [class.bg-gray-600]="!showParticipantsPanel"
               [class.hover:bg-blue-600]="showParticipantsPanel"
@@ -82,13 +88,13 @@
               title="Participants">
         <span class="material-symbols-outlined text-xl">people</span>
         <span *ngIf="participantsCount > 0" 
-              class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+              class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center shadow-md">
           {{ participantsCount }}
         </span>
       </button>
       
       <!-- Chat Button -->
-      <button class="p-3 rounded-full text-white transition-all duration-200 hover:scale-105"
+      <button class="p-3 rounded-full text-white transition-all duration-200 hover:scale-105 shadow-lg"
               [class.bg-blue-500]="showChatPanel"
               [class.bg-gray-600]="!showChatPanel"
               [class.hover:bg-blue-600]="showChatPanel"
@@ -99,18 +105,18 @@
       </button>
       
       <!-- Fullscreen Button -->
-      <button class="p-3 rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-all duration-200 hover:scale-105"
+      <button class="p-3 rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-all duration-200 hover:scale-105 shadow-lg"
               (click)="onToggleFullscreen()"
               title="Fullscreen">
         <span class="material-symbols-outlined text-xl">fullscreen</span>
       </button>
       
       <!-- End Meeting Button -->
-      <button class="px-6 py-3 rounded-full text-white bg-red-500 hover:bg-red-600 transition-all duration-200 hover:scale-105 font-semibold"
+      <button class="px-6 py-3 rounded-full text-white bg-red-500 hover:bg-red-600 transition-all duration-200 hover:scale-105 font-semibold shadow-lg"
               (click)="onEndMeeting()"
               title="End Meeting">
         <span class="material-symbols-outlined text-lg mr-2">call_end</span>
-        End Meeting
+        <span class="hidden sm:inline">End Meeting</span>
       </button>
       
     </div>
@@ -118,25 +124,31 @@
   </div>
   
   <!-- Meeting Info Bar -->
-  <div class="mt-3 pt-3 border-t border-gray-700">
-    <div class="flex items-center justify-center space-x-6 text-sm text-gray-300">
+  <div class="mt-3 pt-3 border-t border-gray-600/50">
+    <div class="flex items-center justify-center space-x-6 text-sm text-gray-300 flex-wrap gap-2">
       
-      <!-- Participants Count -->
+      <!-- Meeting Name -->
       <div class="flex items-center space-x-2">
-        <span class="material-symbols-outlined text-sm">people</span>
-        <span>{{ participantsCount }} participant{{ participantsCount !== 1 ? 's' : '' }}</span>
+        <span class="material-symbols-outlined text-sm">video_call</span>
+        <span class="font-medium">Toplantı Odası</span>
       </div>
       
       <!-- Meeting Duration -->
       <div class="flex items-center space-x-2">
         <span class="material-symbols-outlined text-sm">schedule</span>
-        <span>00:00:00</span>
+        <span>{{ meetingDuration }}</span>
+      </div>
+      
+      <!-- Participants Count -->
+      <div class="flex items-center space-x-2">
+        <span class="material-symbols-outlined text-sm">people</span>
+        <span>{{ participantsCount }} katılımcı</span>
       </div>
       
       <!-- Connection Status -->
       <div class="flex items-center space-x-2">
         <div class="w-2 h-2 rounded-full bg-green-500"></div>
-        <span>Connected</span>
+        <span>Bağlı</span>
       </div>
       
       <!-- Host Indicator -->

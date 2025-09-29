@@ -3,10 +3,10 @@
     
     <!-- Participant Video Tiles -->
     <div *ngFor="let participant of participants" 
-         class="bg-gray-800 rounded-lg overflow-hidden relative group hover:shadow-lg transition-all duration-200">
+         class="bg-gray-800 rounded-xl overflow-hidden relative group hover:shadow-xl transition-all duration-300 hover:scale-105">
       
       <!-- Video Stream -->
-      <video *ngIf="isParticipantVideoVisible(participant) && getParticipantVideo(participant)"
+      <video *ngIf="isParticipantVideoVisible(participant)"
              [srcObject]="getParticipantVideo(participant)"
              autoplay
              playsinline
@@ -15,7 +15,7 @@
       </video>
       
       <!-- Placeholder when no video -->
-      <div *ngIf="!isParticipantVideoVisible(participant) || !getParticipantVideo(participant)"
+      <div *ngIf="!isParticipantVideoVisible(participant)"
            class="h-full w-full flex items-center justify-center"
            [class]="getParticipantBackgroundColor(participant)">
         <div class="text-center">
@@ -29,7 +29,7 @@
       </div>
       
       <!-- Participant Info Overlay -->
-      <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+      <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-3 backdrop-blur-sm">
         <div class="flex items-center justify-between">
           <div class="flex items-center space-x-2">
             <span class="text-white font-medium text-sm">
@@ -73,16 +73,16 @@
       <div *ngIf="participant.userId !== currentUserId" 
            class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
         <div class="flex space-x-1">
-          <button class="p-1 bg-black/50 rounded text-white hover:bg-black/70 transition-colors"
-                  [title]="participant.isMuted ? 'Unmute' : 'Mute'"
+          <button class="p-1.5 bg-black/60 rounded-lg text-white hover:bg-black/80 transition-all duration-200 hover:scale-110 backdrop-blur-sm"
+                  [title]="participant.isMuted ? 'Sesi Aç' : 'Sesi Kapat'"
                   (click)="toggleParticipantMute(participant)">
             <span class="material-symbols-outlined text-sm">
               {{ participant.isMuted ? 'mic_off' : 'mic' }}
             </span>
           </button>
           
-          <button class="p-1 bg-black/50 rounded text-white hover:bg-black/70 transition-colors"
-                  [title]="participant.isVideoOn ? 'Turn Off Camera' : 'Turn On Camera'"
+          <button class="p-1.5 bg-black/60 rounded-lg text-white hover:bg-black/80 transition-all duration-200 hover:scale-110 backdrop-blur-sm"
+                  [title]="participant.isVideoOn ? 'Kamerayı Kapat' : 'Kamerayı Aç'"
                   (click)="toggleParticipantVideo(participant)">
             <span class="material-symbols-outlined text-sm">
               {{ participant.isVideoOn ? 'videocam_off' : 'videocam' }}
@@ -106,8 +106,8 @@
        class="h-full flex items-center justify-center">
     <div class="text-center text-gray-400">
       <span class="material-symbols-outlined text-6xl mb-4">people</span>
-      <p class="text-lg">No participants yet</p>
-      <p class="text-sm">Waiting for others to join...</p>
+      <p class="text-lg">Henüz katılımcı yok</p>
+      <p class="text-sm">Diğerlerinin katılmasını bekliyor...</p>
     </div>
   </div>
   

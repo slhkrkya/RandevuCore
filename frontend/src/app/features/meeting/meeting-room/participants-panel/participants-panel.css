@@ -3,13 +3,16 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: white;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .panel-header {
   padding: 1.5rem;
-  border-bottom: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border-bottom: 1px solid rgba(229, 231, 235, 0.5);
+  background: rgba(248, 250, 252, 0.8);
+  backdrop-filter: blur(5px);
 }
 
 .panel-title {
@@ -22,16 +25,18 @@
 .close-button {
   padding: 0.5rem;
   border: none;
-  background: none;
+  background: rgba(107, 114, 128, 0.1);
   color: #6b7280;
   cursor: pointer;
-  border-radius: 0.375rem;
+  border-radius: 0.5rem;
   transition: all 0.2s ease;
+  backdrop-filter: blur(5px);
 }
 
 .close-button:hover {
-  background: #e5e7eb;
+  background: rgba(107, 114, 128, 0.2);
   color: #374151;
+  transform: scale(1.05);
 }
 
 .participants-count {
@@ -51,12 +56,18 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem;
-  border-radius: 0.5rem;
-  transition: background-color 0.2s ease;
+  border-radius: 0.75rem;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(229, 231, 235, 0.3);
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(5px);
 }
 
 .participant-item:hover {
-  background: #f9fafb;
+  background: rgba(249, 250, 251, 0.8);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .participant-avatar {
@@ -106,7 +117,13 @@
 }
 
 .host-badge {
+  color: #f59e0b;
   font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(245, 158, 11, 0.1);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.375rem;
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .participant-status {
@@ -128,13 +145,15 @@
   width: 2rem;
   height: 2rem;
   border: none;
-  border-radius: 0.375rem;
+  border-radius: 0.5rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
   font-size: 0.875rem;
+  backdrop-filter: blur(5px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .action-button.active {
@@ -153,8 +172,8 @@
 }
 
 .action-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .action-button.active:hover {

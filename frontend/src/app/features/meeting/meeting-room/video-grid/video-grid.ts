@@ -1,6 +1,8 @@
-import { Component, Input, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
+import { Component, Input, ViewChild, ElementRef, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Subscription } from 'rxjs';
 import { Participant, MeetingState } from '../meeting-room';
+import { ParticipantService } from '../services/participant.service';
 
 @Component({
   selector: 'app-video-grid',
@@ -9,8 +11,7 @@ import { Participant, MeetingState } from '../meeting-room';
   templateUrl: './video-grid.html',
   styleUrls: ['./video-grid.css']
 })
-export class VideoGridComponent {
-  @Input() participants: Participant[] = [];
+export class VideoGridComponent implements OnInit, OnDestroy {
   @Input() currentUserId = '';
   @Input() localStream?: MediaStream;
   @Input() remoteStreams: Map<string, MediaStream> = new Map();
@@ -21,21 +22,46 @@ export class VideoGridComponent {
     isWhiteboardActive: false
   };
 
+  participants: Participant[] = [];
+
   @ViewChild('localVideo', { static: true }) localVideo!: ElementRef<HTMLVideoElement>;
 
-  constructor(private cdr: ChangeDetectorRef) {}
+  private participantsSubscription?: Subscription;
+
+  constructor(
+    private cdr: ChangeDetectorRef,
+    private participantService: ParticipantService
+  ) {}
+
+  ngOnInit() {
+    // Subscribe to participant service updates
+    this.participantsSubscription = this.participantService.participants$.subscribe(participants => {
+      this.participants = participants;
+      this.cdr.detectChanges();
+    });
+  }
 
   ngAfterViewInit() {
     this.updateLocalVideo();
   }
 
+  ngOnDestroy() {
+    this.participantsSubscription?.unsubscribe();
+  }
+
   ngOnChanges() {
     this.updateLocalVideo();
+    this.cdr.detectChanges(); // Force change detection to update video elements
   }
 
   private updateLocalVideo() {
-    if (this.localVideo && this.localStream) {
-      this.localVideo.nativeElement.srcObject = this.localStream;
+    if (this.localVideo) {
+      if (this.localStream && this.localStream.getVideoTracks().length > 0) {
+        this.localVideo.nativeElement.srcObject = this.localStream;
+      } else {
+        // Clear video element when no video track
+        this.localVideo.nativeElement.srcObject = null;
+      }
     }
   }
 
@@ -52,10 +78,19 @@ export class VideoGridComponent {
 
   getParticipantVideo(participant: Participant): MediaStream | null {
     if (participant.userId === this.currentUserId) {
-      return this.localStream || null;
+      // For local user, only return stream if video is on and has video tracks
+      if (!!this.meetingState.isVideoOn && this.localStream && this.localStream.getVideoTracks().length > 0) {
+        return this.localStream;
+      }
+      return null;
     }
     
-    return this.remoteStreams.get(participant.userId) || null;
+    const remoteStream = this.remoteStreams.get(participant.userId);
+    // For remote users, only return stream if they have video on and stream has video tracks
+    if (!!participant.isVideoOn && remoteStream && remoteStream.getVideoTracks().length > 0) {
+      return remoteStream;
+    }
+    return null;
   }
 
   toggleParticipantMute(participant: Participant) {
@@ -68,15 +103,17 @@ export class VideoGridComponent {
 
   isParticipantVideoVisible(participant: Participant): boolean {
     if (participant.userId === this.currentUserId) {
-      return this.meetingState.isVideoOn;
+      // For local user, check if video is on and we have a video track
+      return !!(this.meetingState.isVideoOn && 
+                this.localStream && 
+                this.localStream.getVideoTracks().length > 0);
     }
     
-    // For remote participants, check if they have video on AND we have their stream
-    const hasRemoteStream = this.remoteStreams.has(participant.userId);
+    // For remote participants, check if they have video on AND we have their stream with video tracks
     const remoteStream = this.remoteStreams.get(participant.userId);
-    const hasVideoTrack = !!(hasRemoteStream && remoteStream && remoteStream.getVideoTracks().length > 0);
+    const hasVideoTrack = !!(remoteStream && remoteStream.getVideoTracks().length > 0);
     
-    return participant.isVideoOn && hasVideoTrack;
+    return !!(participant.isVideoOn && hasVideoTrack);
   }
 
   getParticipantDisplayName(participant: Participant): string {

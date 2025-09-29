@@ -6,7 +6,7 @@
       <div class="flex items-center space-x-3">
         <span class="material-symbols-outlined text-2xl text-gray-600">videocam</span>
         <div>
-          <h3 class="text-lg font-semibold text-gray-800">Camera Control</h3>
+          <h3 class="text-lg font-semibold text-gray-800">Kamera Kontrolü</h3>
           <p class="text-sm text-gray-600">{{ getSelectedCameraLabel() }}</p>
         </div>
       </div>
@@ -18,7 +18,7 @@
         </span>
         <button class="p-2 rounded-lg hover:bg-gray-100 transition-colors"
                 (click)="toggleSettings()"
-                [title]="isSettingsOpen ? 'Close Settings' : 'Open Settings'">
+                [title]="isSettingsOpen ? 'Ayarları Kapat' : 'Ayarları Aç'">
           <span class="material-symbols-outlined text-gray-600">
             {{ isSettingsOpen ? 'expand_less' : 'expand_more' }}
           </span>
@@ -51,24 +51,24 @@
     
     <!-- Basic Controls -->
     <div class="settings-section">
-      <h4 class="section-title">Basic Controls</h4>
+      <h4 class="section-title">Temel Kontroller</h4>
       
       <!-- Camera Toggle -->
       <div class="control-item">
-        <label class="control-label">Camera</label>
+        <label class="control-label">Kamera</label>
         <button class="toggle-button"
                 [class.active]="cameraSettings.isEnabled"
                 (click)="onCameraToggle()">
           <span class="material-symbols-outlined">
             {{ cameraSettings.isEnabled ? 'videocam' : 'videocam_off' }}
           </span>
-          {{ cameraSettings.isEnabled ? 'On' : 'Off' }}
+          {{ cameraSettings.isEnabled ? 'Açık' : 'Kapalı' }}
         </button>
       </div>
       
       <!-- Device Selection -->
       <div class="control-item">
-        <label class="control-label">Camera Device</label>
+        <label class="control-label">Kamera Cihazı</label>
         <select class="control-select"
                 [(ngModel)]="selectedCamera"
                 (change)="onDeviceChange()"
@@ -81,7 +81,7 @@
       
       <!-- Resolution Selection -->
       <div class="control-item">
-        <label class="control-label">Resolution</label>
+        <label class="control-label">Çözünürlük</label>
         <select class="control-select"
                 [(ngModel)]="cameraSettings.resolution"
                 (change)="onResolutionChange()"
@@ -94,7 +94,7 @@
       
       <!-- Frame Rate Selection -->
       <div class="control-item">
-        <label class="control-label">Frame Rate</label>
+        <label class="control-label">Kare Hızı</label>
         <select class="control-select"
                 [(ngModel)]="cameraSettings.frameRate"
                 (change)="onFrameRateChange()"
@@ -113,17 +113,17 @@
         <span class="material-symbols-outlined">
           {{ showAdvancedSettings ? 'expand_less' : 'expand_more' }}
         </span>
-        Advanced Settings
+        Gelişmiş Ayarlar
       </button>
     </div>
     
     <!-- Advanced Controls -->
     <div class="settings-section" *ngIf="showAdvancedSettings">
-      <h4 class="section-title">Image Adjustments</h4>
+      <h4 class="section-title">Görüntü Ayarları</h4>
       
       <!-- Brightness Control -->
       <div class="control-item">
-        <label class="control-label">Brightness</label>
+        <label class="control-label">Parlaklık</label>
         <div class="slider-container">
           <input type="range"
                  class="control-slider"

@@ -1,6 +1,8 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Subscription } from 'rxjs';
 import { Participant } from '../meeting-room';
+import { ParticipantService } from '../services/participant.service';
 
 @Component({
   selector: 'app-participants-panel',
@@ -9,14 +11,29 @@ import { Participant } from '../meeting-room';
   templateUrl: './participants-panel.html',
   styleUrls: ['./participants-panel.css']
 })
-export class ParticipantsPanelComponent {
-  @Input() participants: Participant[] = [];
+export class ParticipantsPanelComponent implements OnInit, OnDestroy {
   @Input() currentUserId = '';
   @Input() isHost = false;
+
+  participants: Participant[] = [];
+  private participantsSubscription?: Subscription;
 
   @Output() grantPermission = new EventEmitter<{ userId: string; permission: string }>();
   @Output() removeParticipant = new EventEmitter<string>();
   @Output() close = new EventEmitter<void>();
+
+  constructor(private participantService: ParticipantService) {}
+
+  ngOnInit() {
+    // Subscribe to participant service updates
+    this.participantsSubscription = this.participantService.participants$.subscribe(participants => {
+      this.participants = participants;
+    });
+  }
+
+  ngOnDestroy() {
+    this.participantsSubscription?.unsubscribe();
+  }
 
   getParticipantInitials(participant: Participant): string {
     const name = participant.name || 'User';

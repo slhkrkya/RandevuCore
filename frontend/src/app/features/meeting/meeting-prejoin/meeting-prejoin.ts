@@ -62,7 +62,7 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
         video: true, 
         audio: true 
       });
-      // Immediately stop the stream
+      // Immediately stop the stream to turn off camera LED
       stream.getTracks().forEach(track => track.stop());
     } catch (error) {
       console.error('Permission request failed:', error);

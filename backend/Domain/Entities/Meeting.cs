@@ -12,6 +12,7 @@ namespace RandevuCore.Domain.Entities
         public string? VideoSessionId { get; set; }
         public string? WhiteboardSessionId { get; set; }
         public AppointmentStatus Status { get; set; } = AppointmentStatus.Scheduled;
+        public DateTimeOffset? ActualStartTime { get; set; } // When the meeting actually started
 
         public Guid CreatorId { get; set; }
         public User Creator { get; set; } = null!;

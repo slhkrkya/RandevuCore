@@ -1,6 +1,8 @@
-import { Component, Input, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
+import { Component, Input, ViewChild, ElementRef, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Subscription } from 'rxjs';
 import { Participant, MeetingState } from '../meeting-room';
+import { ParticipantService } from '../services/participant.service';
 
 @Component({
   selector: 'app-speaker-view',
@@ -9,8 +11,7 @@ import { Participant, MeetingState } from '../meeting-room';
   templateUrl: './speaker-view.html',
   styleUrls: ['./speaker-view.css']
 })
-export class SpeakerViewComponent {
-  @Input() participants: Participant[] = [];
+export class SpeakerViewComponent implements OnInit, OnDestroy {
   @Input() currentUserId = '';
   @Input() localStream?: MediaStream;
   @Input() remoteStreams: Map<string, MediaStream> = new Map();
@@ -21,9 +22,27 @@ export class SpeakerViewComponent {
     isWhiteboardActive: false
   };
 
+  participants: Participant[] = [];
+  private participantsSubscription?: Subscription;
+
   @ViewChild('mainVideo', { static: true }) mainVideo!: ElementRef<HTMLVideoElement>;
 
-  constructor(private cdr: ChangeDetectorRef) {}
+  constructor(
+    private cdr: ChangeDetectorRef,
+    private participantService: ParticipantService
+  ) {}
+
+  ngOnInit() {
+    // Subscribe to participant service updates
+    this.participantsSubscription = this.participantService.participants$.subscribe(participants => {
+      this.participants = participants;
+      this.cdr.detectChanges();
+    });
+  }
+
+  ngOnDestroy() {
+    this.participantsSubscription?.unsubscribe();
+  }
 
   getActiveSpeaker(): Participant | null {
     // Find the participant who is currently speaking

@@ -8,16 +8,23 @@
 .video-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 8px;
-  padding: 8px;
+  gap: 12px;
+  padding: 12px;
 }
 
 .video-container {
   position: relative;
   background: #1f2937;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
   aspect-ratio: 16/9;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.video-container:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
 .video-container video {
@@ -32,12 +39,12 @@
   right: 16px;
   width: 192px;
   height: 128px;
-  border-radius: 8px;
+  border-radius: 12px;
   border: 2px solid white;
   overflow: hidden;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
   cursor: grab;
-  transition: transform 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .local-video:active {
@@ -143,19 +150,35 @@
 @media (max-width: 768px) {
   .video-grid {
     grid-template-columns: 1fr !important;
-    gap: 0.5rem;
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+  
+  .local-video {
+    width: 160px;
+    height: 106px;
+    bottom: 12px;
+    right: 12px;
   }
 }
 
 @media (min-width: 769px) and (max-width: 1024px) {
   .video-grid {
     grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1rem;
   }
 }
 
 @media (min-width: 1025px) {
   .video-grid {
     grid-template-columns: repeat(3, 1fr) !important;
+    gap: 1rem;
+  }
+}
+
+@media (min-width: 1440px) {
+  .video-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
   }
 }
 

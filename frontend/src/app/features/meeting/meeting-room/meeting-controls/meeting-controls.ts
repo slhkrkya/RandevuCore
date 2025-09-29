@@ -23,6 +23,10 @@ export class MeetingControlsComponent {
   @Input() showChatPanel = false;
   @Input() showWhiteboardPanel = false;
   @Input() activeView: 'grid' | 'speaker' | 'whiteboard' = 'grid';
+  @Input() isMuteToggling = false;
+  @Input() isVideoToggling = false;
+  @Input() isScreenShareToggling = false;
+  @Input() meetingDuration = '00:00:00';
 
   @Output() toggleMute = new EventEmitter<void>();
   @Output() toggleVideo = new EventEmitter<void>();

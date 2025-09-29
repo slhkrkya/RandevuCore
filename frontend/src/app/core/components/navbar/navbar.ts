@@ -12,8 +12,10 @@ import { filter } from 'rxjs/operators';
   styleUrls: ['./navbar.css']
 })
 export class NavbarComponent {
-  isAuthenticated = computed(() => !!this.auth.getToken());
+  isAuthenticated = computed(() => this.auth.isAuthenticated());
   currentRoute = '';
+  isMobileMenuOpen = false;
+  isClosing = false;
 
   constructor(private auth: AuthService, private router: Router) {
     // Track current route for page title
@@ -21,6 +23,7 @@ export class NavbarComponent {
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe((event: NavigationEnd) => {
         this.currentRoute = event.url;
+        this.isMobileMenuOpen = false; // Close mobile menu on route change
       });
   }
 
@@ -55,6 +58,18 @@ export class NavbarComponent {
   logout() {
     this.auth.logout();
     this.router.navigate(['/login']);
+  }
+
+  toggleMobileMenu() {
+    this.isMobileMenuOpen = !this.isMobileMenuOpen;
+  }
+
+  closeMobileMenu() {
+    this.isClosing = true;
+    setTimeout(() => {
+      this.isMobileMenuOpen = false;
+      this.isClosing = false;
+    }, 400); // Animation duration
   }
 }
 

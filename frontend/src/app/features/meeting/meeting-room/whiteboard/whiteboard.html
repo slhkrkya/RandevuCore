@@ -3,15 +3,15 @@
   <!-- Whiteboard Header -->
   <div class="flex items-center justify-between p-4 bg-gray-100 border-b border-gray-300">
     <div class="flex items-center space-x-4">
-      <h2 class="text-lg font-semibold text-gray-800">Whiteboard</h2>
+      <h2 class="text-lg font-semibold text-gray-800">Beyaz Tahta</h2>
       <div class="flex items-center space-x-2">
-        <span class="text-sm text-gray-600">Status:</span>
+        <span class="text-sm text-gray-600">Durum:</span>
         <span class="px-2 py-1 text-xs rounded-full"
               [class.bg-green-100]="whiteboardState.canDraw"
               [class.text-green-800]="whiteboardState.canDraw"
               [class.bg-red-100]="!whiteboardState.canDraw"
               [class.text-red-800]="!whiteboardState.canDraw">
-          {{ whiteboardState.canDraw ? 'Can Draw' : 'View Only' }}
+          {{ whiteboardState.canDraw ? 'Çizim Yapabilir' : 'Sadece Görüntüle' }}
         </span>
       </div>
     </div>
@@ -19,9 +19,9 @@
     <div class="flex items-center space-x-2">
       <button class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
               (click)="clearCanvas()"
-              title="Clear Whiteboard">
+              title="Beyaz Tahtayı Temizle">
         <span class="material-symbols-outlined text-sm mr-1">clear_all</span>
-        Clear
+        Temizle
       </button>
     </div>
   </div>

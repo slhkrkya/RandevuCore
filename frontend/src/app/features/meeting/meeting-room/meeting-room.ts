@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef 
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { SignalRService } from '../../../core/services/signalr';
+import { ParticipantService } from './services/participant.service';
 import { VideoGridComponent } from './video-grid/video-grid';
 import { SpeakerViewComponent } from './speaker-view/speaker-view';
 import { WhiteboardComponent } from './whiteboard/whiteboard';
@@ -65,6 +66,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   localStream?: MediaStream;
   remoteStreams: Map<string, MediaStream> = new Map();
   peerConnections: Map<string, RTCPeerConnection> = new Map();
+  pendingIceCandidates: Map<string, RTCIceCandidate[]> = new Map();
 
   // UI state
   showParticipantsPanel = false;
@@ -72,6 +74,14 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   showWhiteboardPanel = false;
   isFullscreen = false;
   activeView: 'grid' | 'speaker' | 'whiteboard' = 'grid';
+
+  // Control states to prevent rapid clicking
+  isVideoToggling = false;
+  isScreenShareToggling = false;
+  isMuteToggling = false;
+
+  // Meeting duration tracking
+  meetingDuration = '00:00:00';
 
   // ViewChild references
   @ViewChild('localVideo', { static: true }) localVideo!: ElementRef<HTMLVideoElement>;
@@ -81,13 +91,18 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute, 
     private router: Router,
     public signalr: SignalRService,
+    private participantService: ParticipantService,
     private cdr: ChangeDetectorRef
   ) {}
 
   async ngOnInit() {
     this.initializeMeeting();
-    this.setupSignalRListeners();
     await this.initializeMedia();
+    
+    // Subscribe to participant service updates
+    this.participantService.participants$.subscribe(participants => {
+      this.participants = participants;
+    });
   }
 
   async ngOnDestroy() {
@@ -104,16 +119,27 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       const payload = JSON.parse(atob(token.split('.')[1] || ''));
       this.currentUserId = payload.sub;
       this.currentUserName = payload.name || payload.email || 'User';
+      
+      // Check if current user is the meeting host
+      await this.checkHostStatus();
     } catch (error) {
       console.error('Error parsing token:', error);
       this.router.navigate(['/login']);
       return;
     }
 
-    // Connect to SignalR
+    // Connect to SignalR first
     await this.signalr.start(token);
-    await this.signalr.joinRoom(this.roomKey);
     this.connected = true;
+
+    // Setup SignalR listeners after connection is established
+    this.setupSignalRListeners();
+
+    // Join room after listeners are set up
+    await this.signalr.joinRoom(this.roomKey);
+
+    // Request current meeting duration after connection is established
+    this.signalr.invoke('GetMeetingDuration', this.roomKey);
 
     // Current user will be added via presence update from server
   }
@@ -140,6 +166,17 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   }
 
   private setupSignalRListeners() {
+    // Meeting duration updates from backend
+    this.signalr.on('meeting-duration', (duration: string) => {
+      this.meetingDuration = duration;
+      this.triggerChangeDetection();
+    });
+
+    // Listen for meeting ended event
+    this.signalr.on('meeting-ended', () => {
+      this.router.navigate(['/meetings']);
+    });
+
     // Presence updates
     this.signalr.on<any>('presence', (participants) => {
       this.handlePresenceUpdate(participants);
@@ -164,7 +201,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     });
 
     // Permission grants
-    this.signalr.on<any>('permission-granted', async (permission) => {
+    this.signalr.on<any>('perm-granted', async (permission) => {
       await this.handlePermissionGrant(permission);
     });
 
@@ -182,90 +219,139 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   private async initializeMedia() {
     try {
       // Load pre-join settings
-    const cameraEnabled = localStorage.getItem('cameraEnabled') === 'true';
-    const microphoneEnabled = localStorage.getItem('microphoneEnabled') === 'true';
-    
+      const cameraEnabled = localStorage.getItem('cameraEnabled') === 'true';
+      const microphoneEnabled = localStorage.getItem('microphoneEnabled') === 'true';
+      
       this.meetingState.isVideoOn = cameraEnabled;
       this.meetingState.isMuted = !microphoneEnabled;
 
-      // Get user media
-      await this.ensureLocalStream();
+      // Only try to get media if at least one is enabled
+      if (cameraEnabled || microphoneEnabled) {
+        await this.ensureLocalStream();
+      } else {
+        // Both camera and mic are disabled, user can join without media
+        console.log('User joining without camera or microphone');
+      }
     } catch (error) {
       console.error('Error initializing media:', error);
+      // If media fails, continue without media - user can still participate
+      this.meetingState.isVideoOn = false;
+      this.meetingState.isMuted = true;
     }
   }
 
   private async ensureLocalStream() {
-    if (this.localStream) {
-      this.localStream.getTracks().forEach(track => track.stop());
-    }
+    try {
+      // Clean up existing stream
+      if (this.localStream) {
+        this.localStream.getTracks().forEach(track => {
+          track.stop();
+        });
+        this.localStream = undefined;
+      }
 
-    const constraints: MediaStreamConstraints = {
-      video: true,
-      audio: true
-    };
+      // Use current meeting state instead of localStorage
+      const cameraEnabled = this.meetingState.isVideoOn;
+      const microphoneEnabled = !this.meetingState.isMuted;
+      
+      // If both are disabled, enable audio by default
+      const finalAudioEnabled = microphoneEnabled || (!cameraEnabled && !microphoneEnabled);
+      
+      const constraints: MediaStreamConstraints = {
+        video: cameraEnabled,
+        audio: finalAudioEnabled
+      };
 
-    // Add device preferences
-    const preferredCamera = localStorage.getItem('preferredCamera');
-    const preferredMicrophone = localStorage.getItem('preferredMicrophone');
-    
-    if (preferredCamera) {
-      (constraints.video as any) = { deviceId: { exact: preferredCamera } };
-    }
-    if (preferredMicrophone) {
-      (constraints.audio as any) = { deviceId: { exact: preferredMicrophone } };
-    }
+      // Add device preferences with error handling
+      const preferredCamera = localStorage.getItem('preferredCamera');
+      const preferredMicrophone = localStorage.getItem('preferredMicrophone');
+      
+      if (preferredCamera && cameraEnabled) {
+        (constraints.video as any) = { deviceId: { exact: preferredCamera } };
+      }
+      if (preferredMicrophone && finalAudioEnabled) {
+        (constraints.audio as any) = { deviceId: { exact: preferredMicrophone } };
+      }
 
-    this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
-    
-    // Set track states
-    if (this.localStream.getVideoTracks()[0]) {
-      this.localStream.getVideoTracks()[0].enabled = this.meetingState.isVideoOn;
+      this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      // Set track states based on current meeting state
+      const videoTrack = this.localStream.getVideoTracks()[0];
+      const audioTrack = this.localStream.getAudioTracks()[0];
+      
+      if (videoTrack) {
+        videoTrack.enabled = cameraEnabled;
+      }
+      if (audioTrack) {
+        audioTrack.enabled = microphoneEnabled;
+      }
+      
+      // Update local video element
+      if (this.localVideo?.nativeElement) {
+        this.localVideo.nativeElement.srcObject = this.localStream;
+        this.localVideo.nativeElement.style.display = cameraEnabled ? 'block' : 'none';
+      }
+      
+      // Update all peer connections
+      await this.updateAllPeerConnections();
+      
+      // Send offers to any participants who don't have connections yet
+      await this.sendOffersToNewParticipants();
+    } catch (error) {
+      console.error('Error ensuring local stream:', error);
+      // Fallback to audio-only if video fails
+      if (this.meetingState.isVideoOn) {
+        this.meetingState.isVideoOn = false;
+        this.meetingState.isMuted = false;
+        // Retry with audio only
+        await this.ensureLocalStream();
+      }
     }
-    if (this.localStream.getAudioTracks()[0]) {
-      this.localStream.getAudioTracks()[0].enabled = !this.meetingState.isMuted;
-    }
-    
-    // Update local video element
-    if (this.localVideo) {
-      this.localVideo.nativeElement.srcObject = this.localStream;
-    }
-    
-    // Update all peer connections
-    this.updateAllPeerConnections();
-    
-    // Send offers to any participants who don't have connections yet
-    this.sendOffersToNewParticipants();
   }
 
-  private updateAllPeerConnections() {
-    if (!this.localStream) return;
-
+  private async updateAllPeerConnections() {
     // Batch renegotiation to avoid multiple simultaneous offers
     const renegotiationPromises: Promise<void>[] = [];
 
     this.peerConnections.forEach((pc, userId) => {
+      // Check if connection is still valid
+      if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+        return;
+      }
+
       // Remove existing tracks
       const senders = pc.getSenders();
       senders.forEach(sender => {
         if (sender.track) {
-          pc.removeTrack(sender);
+          try {
+            pc.removeTrack(sender);
+          } catch (error) {
+            console.warn('Error removing track:', error);
+          }
         }
       });
       
-      // Add new tracks
-      this.localStream!.getTracks().forEach(track => {
-        pc.addTrack(track, this.localStream!);
-      });
+      // Add new tracks if local stream exists
+      if (this.localStream) {
+        this.localStream.getTracks().forEach(track => {
+          try {
+            pc.addTrack(track, this.localStream!);
+          } catch (error) {
+            console.warn('Error adding track:', error);
+          }
+        });
+      }
       
       // Queue renegotiation
       renegotiationPromises.push(this.renegotiateConnection(userId));
     });
 
-    // Execute all renegotiations in parallel
-    Promise.all(renegotiationPromises).catch(error => {
+    // Execute all renegotiations in parallel with error handling
+    try {
+      await Promise.allSettled(renegotiationPromises);
+    } catch (error) {
       console.error('Error during batch renegotiation:', error);
-    });
+    }
   }
 
   private async renegotiateConnection(userId: string) {
@@ -288,12 +374,21 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   private async sendOffersToNewParticipants() {
     if (!this.localStream) return;
 
-    for (const participant of this.participants) {
-      if (participant.userId !== this.currentUserId && !this.peerConnections.has(participant.userId)) {
-        await this.createPeerConnection(participant.userId);
-        await this.sendOffer(participant.userId);
-      }
-    }
+    const connectionPromises = this.participants
+      .filter(participant => 
+        participant.userId !== this.currentUserId && 
+        !this.peerConnections.has(participant.userId)
+      )
+      .map(async (participant) => {
+        try {
+          await this.createPeerConnection(participant.userId);
+          await this.sendOffer(participant.userId);
+        } catch (error) {
+          console.error(`Error creating connection for ${participant.userId}:`, error);
+        }
+      });
+
+    await Promise.allSettled(connectionPromises);
   }
 
   private updateParticipantStateFromTracks(userId: string, stream: MediaStream) {
@@ -304,67 +399,167 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     const audioTrack = stream.getAudioTracks()[0];
 
     // Update participant state based on actual track states
-    if (videoTrack) {
-      participant.isVideoOn = videoTrack.enabled;
-    }
+    const isVideoOn = videoTrack ? videoTrack.enabled : false;
+    const isMuted = audioTrack ? !audioTrack.enabled : true;
+    const isScreenSharing = videoTrack && videoTrack.label.includes('screen');
 
-    if (audioTrack) {
-      participant.isMuted = !audioTrack.enabled;
-    }
+    // Update via participant service
+    this.participantService.updateParticipantState(userId, {
+      isVideoOn,
+      isMuted,
+      isScreenSharing
+    });
+  }
 
-    // Check if it's screen sharing (screen track has different label)
-    if (videoTrack && videoTrack.label.includes('screen')) {
-      participant.isScreenSharing = true;
+  private handleTrackEnded(userId: string, track: MediaStreamTrack) {
+    console.log(`Track ended for user ${userId}:`, track.kind);
+    
+    if (track.kind === 'video') {
+      // Remove video track from stream and update state
+      const stream = this.remoteStreams.get(userId);
+      if (stream) {
+        stream.removeTrack(track);
+        
+        // Update participant state to reflect video is off
+        this.participantService.updateVideoState(userId, false);
+        
+        // If no video tracks left, remove the stream
+        if (stream.getVideoTracks().length === 0) {
+          this.remoteStreams.delete(userId);
+        }
+      }
     }
+    
+    this.triggerChangeDetection();
   }
 
   // Meeting controls
   async toggleMute() {
-    this.meetingState.isMuted = !this.meetingState.isMuted;
+    if (this.isMuteToggling) return;
     
-    if (this.localStream && this.localStream.getAudioTracks()[0]) {
-      this.localStream.getAudioTracks()[0].enabled = !this.meetingState.isMuted;
-    }
+    this.isMuteToggling = true;
+    
+    try {
+      this.meetingState.isMuted = !this.meetingState.isMuted;
+      
+      if (this.localStream && this.localStream.getAudioTracks()[0]) {
+        this.localStream.getAudioTracks()[0].enabled = !this.meetingState.isMuted;
+      } else if (!this.meetingState.isMuted) {
+        // Try to get microphone access if not available
+        try {
+          await this.ensureLocalStream();
+        } catch (error) {
+          console.error('Failed to get microphone access:', error);
+          this.meetingState.isMuted = true;
+          return;
+        }
+      }
 
-    // Update participant state
-    const currentParticipant = this.participants.find(p => p.userId === this.currentUserId);
-    if (currentParticipant) {
-      currentParticipant.isMuted = this.meetingState.isMuted;
-    }
+      // Update participant state via service
+      this.participantService.updateMuteState(this.currentUserId, this.meetingState.isMuted);
 
-    // Broadcast state change
-    await this.broadcastStateChange();
-    this.triggerChangeDetection();
+      // Broadcast state change
+      await this.broadcastStateChange();
+      this.triggerChangeDetection();
+    } catch (error) {
+      console.error('Error toggling mute:', error);
+    } finally {
+      // Add small delay to prevent rapid clicking
+      setTimeout(() => {
+        this.isMuteToggling = false;
+      }, 500);
+    }
   }
 
   async toggleVideo() {
-    this.meetingState.isVideoOn = !this.meetingState.isVideoOn;
+    if (this.isVideoToggling) return;
     
-    if (this.localStream && this.localStream.getVideoTracks()[0]) {
-      this.localStream.getVideoTracks()[0].enabled = this.meetingState.isVideoOn;
-    }
+    this.isVideoToggling = true;
+    
+    try {
+      this.meetingState.isVideoOn = !this.meetingState.isVideoOn;
+      
+      if (this.meetingState.isVideoOn) {
+        // Turn on camera - ensure we have a video track
+        if (!this.localStream || !this.localStream.getVideoTracks()[0]) {
+          try {
+            await this.ensureLocalStream();
+          } catch (error) {
+            console.error('Failed to get camera access:', error);
+            this.meetingState.isVideoOn = false;
+            return;
+          }
+        } else {
+          // Enable existing video track
+          const videoTrack = this.localStream.getVideoTracks()[0];
+          videoTrack.enabled = true;
+        }
+      } else {
+        // Turn off camera - stop the video track to turn off camera LED
+        if (this.localStream && this.localStream.getVideoTracks()[0]) {
+          const videoTrack = this.localStream.getVideoTracks()[0];
+          videoTrack.stop(); // This will turn off the camera LED
+          
+          // Remove the track from the stream
+          this.localStream.removeTrack(videoTrack);
+          
+          // Create a new stream without video for audio-only
+          const audioTracks = this.localStream.getAudioTracks();
+          if (audioTracks.length > 0) {
+            const newStream = new MediaStream(audioTracks);
+            this.localStream = newStream;
+          }
+        }
+      }
 
-    // Update local video visibility
-    if (this.localVideo) {
-      this.localVideo.nativeElement.style.display = this.meetingState.isVideoOn ? 'block' : 'none';
-    }
+      // Update local video visibility
+      if (this.localVideo) {
+        this.localVideo.nativeElement.style.display = this.meetingState.isVideoOn ? 'block' : 'none';
+        if (this.meetingState.isVideoOn && this.localStream) {
+          this.localVideo.nativeElement.srcObject = this.localStream;
+        } else {
+          // Clear video element when camera is off
+          this.localVideo.nativeElement.srcObject = null;
+        }
+      }
 
-    // Update participant state
-    const currentParticipant = this.participants.find(p => p.userId === this.currentUserId);
-    if (currentParticipant) {
-      currentParticipant.isVideoOn = this.meetingState.isVideoOn;
-    }
+      // Update participant state via service
+      this.participantService.updateVideoState(this.currentUserId, this.meetingState.isVideoOn);
 
-    // Broadcast state change
-    await this.broadcastStateChange();
-    this.triggerChangeDetection();
+      // Update all peer connections with new stream
+      this.updateAllPeerConnections();
+
+      // Broadcast state change
+      await this.broadcastStateChange();
+      this.triggerChangeDetection();
+    } catch (error) {
+      console.error('Error toggling video:', error);
+    } finally {
+      // Add delay to prevent rapid clicking
+      setTimeout(() => {
+        this.isVideoToggling = false;
+      }, 1000); // Video operations can take longer
+    }
   }
 
   async toggleScreenShare() {
-    if (this.meetingState.isScreenSharing) {
-      await this.stopScreenShare();
-    } else {
-      await this.startScreenShare();
+    if (this.isScreenShareToggling) return;
+    
+    this.isScreenShareToggling = true;
+    
+    try {
+      if (this.meetingState.isScreenSharing) {
+        await this.stopScreenShare();
+      } else {
+        await this.startScreenShare();
+      }
+    } catch (error) {
+      console.error('Error toggling screen share:', error);
+    } finally {
+      // Add delay to prevent rapid clicking
+      setTimeout(() => {
+        this.isScreenShareToggling = false;
+      }, 1500); // Screen share operations can take longer
     }
   }
 
@@ -387,11 +582,8 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
 
       this.meetingState.isScreenSharing = true;
       
-      // Update participant state
-      const currentParticipant = this.participants.find(p => p.userId === this.currentUserId);
-      if (currentParticipant) {
-        currentParticipant.isScreenSharing = true;
-      }
+      // Update participant state via service
+      this.participantService.updateScreenShareState(this.currentUserId, true);
 
       // Handle screen share end
       screenTrack.onended = async () => {
@@ -408,11 +600,8 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   private async stopScreenShare() {
     this.meetingState.isScreenSharing = false;
     
-    // Update participant state
-    const currentParticipant = this.participants.find(p => p.userId === this.currentUserId);
-    if (currentParticipant) {
-      currentParticipant.isScreenSharing = false;
-    }
+    // Update participant state via service
+    this.participantService.updateScreenShareState(this.currentUserId, false);
 
     // Restore camera track
     if (this.localStream) {
@@ -493,13 +682,18 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   // WebRTC methods
   private async handlePresenceUpdate(participants: any[]) {
     // Update participants list and ensure all participants have required properties
-    this.participants = participants.map(p => ({
+    const updatedParticipants = participants.map(p => ({
       ...p,
       isVideoOn: p.isVideoOn ?? false,
       isMuted: p.isMuted ?? false,
       isScreenSharing: p.isScreenSharing ?? false,
-      isWhiteboardEnabled: p.isWhiteboardEnabled ?? false
+      isWhiteboardEnabled: p.isWhiteboardEnabled ?? false,
+      isHost: p.userId === this.currentUserId ? this.isHost : false
     }));
+    
+    // Update participant service
+    this.participantService.setParticipants(updatedParticipants);
+    this.participants = updatedParticipants;
     
     // Ensure current user is in the list (only if not already present)
     const currentUserExists = this.participants.some(p => p.userId === this.currentUserId);
@@ -535,6 +729,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         pc.close();
         this.peerConnections.delete(userId);
         this.remoteStreams.delete(userId);
+        this.pendingIceCandidates.delete(userId);
       }
     }
     
@@ -543,7 +738,10 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
 
   private async createPeerConnection(userId: string) {
     const pc = new RTCPeerConnection({ 
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] 
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
     });
 
     pc.onicecandidate = (event) => {
@@ -551,7 +749,17 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         this.signalr.sendToRoom(this.roomKey, 'webrtc-ice', { 
           candidate: event.candidate, 
           targetUserId: userId 
+        })?.catch(error => {
+          console.error('Error sending ICE candidate:', error);
         });
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      console.log(`Connection state for ${userId}:`, pc.connectionState);
+      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+        // Clean up failed connections
+        this.cleanupPeerConnection(userId);
       }
     };
 
@@ -561,6 +769,11 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       
       // Update participant state based on received tracks
       this.updateParticipantStateFromTracks(userId, stream);
+      
+      // Add track event listeners for cleanup
+      event.track.onended = () => {
+        this.handleTrackEnded(userId, event.track);
+      };
       
       this.triggerChangeDetection();
     };
@@ -598,22 +811,41 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       pc = await this.createPeerConnection(fromUserId);
     }
 
-    // Add local tracks to the peer connection
-    if (this.localStream) {
-      this.localStream.getTracks().forEach(track => {
-        pc.addTrack(track, this.localStream!);
-      });
-    }
-
     try {
-    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    
-    await this.signalr.sendToRoom(this.roomKey, 'webrtc-answer', { 
-      sdp: pc.localDescription, 
-      targetUserId: fromUserId 
-    });
+      // Check if peer connection is still in a valid state
+      if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+        return;
+      }
+
+      // Check if we already have a remote description
+      if (pc.remoteDescription) {
+        return;
+      }
+
+      // Check if we're in the right state to handle offer
+      if (pc.signalingState !== 'stable') {
+        return;
+      }
+
+      // Add local tracks to the peer connection
+      if (this.localStream) {
+        this.localStream.getTracks().forEach(track => {
+          pc.addTrack(track, this.localStream!);
+        });
+      }
+
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      
+      // Process pending ICE candidates
+      await this.processPendingIceCandidates(fromUserId);
+      
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      
+      await this.signalr.sendToRoom(this.roomKey, 'webrtc-answer', { 
+        sdp: pc.localDescription, 
+        targetUserId: fromUserId 
+      });
     } catch (error) {
       console.error('Error handling offer:', error);
     }
@@ -630,7 +862,30 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     }
 
     try {
+      // Check if peer connection is still in a valid state
+      if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+        return;
+      }
+
+      // Check if we already have a remote description
+      if (pc.remoteDescription) {
+        return;
+      }
+
+      // Check if local description is set (required for answer)
+      if (!pc.localDescription) {
+        return;
+      }
+
+      // Check if we're in the right state to set remote description
+      if (pc.signalingState !== 'have-local-offer') {
+        return;
+      }
+
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      
+      // Process pending ICE candidates
+      await this.processPendingIceCandidates(fromUserId);
     } catch (error) {
       console.error('Error handling answer:', error);
     }
@@ -648,7 +903,21 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
 
     if (candidate) {
       try {
+      // Check if peer connection is still in a valid state
+      if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+        return;
+      }
+
+      // Check if remote description is set before adding ICE candidate
+      if (pc.remoteDescription) {
         await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } else {
+        // Store candidate for later when remote description is set
+        if (!this.pendingIceCandidates.has(fromUserId)) {
+          this.pendingIceCandidates.set(fromUserId, []);
+        }
+        this.pendingIceCandidates.get(fromUserId)!.push(new RTCIceCandidate(candidate));
+      }
       } catch (error) {
         console.error('Error handling ICE candidate:', error);
       }
@@ -656,7 +925,17 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   }
 
   private async handleMeetingStateUpdate(state: any) {
-    // Handle meeting state updates from other participants
+    // Update participant state from received state via service
+    // Handle both direct state and nested state structures
+    const stateData = state.state || state;
+    
+    this.participantService.updateParticipantState(state.userId, {
+      isVideoOn: stateData.isVideoOn ?? false,
+      isMuted: stateData.isMuted ?? false,
+      isScreenSharing: stateData.isScreenSharing ?? false,
+      isWhiteboardEnabled: stateData.isWhiteboardEnabled ?? false
+    });
+    
     this.triggerChangeDetection();
   }
 
@@ -704,6 +983,10 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
 
   async endMeeting() {
     try {
+      // Notify backend to end the meeting (only if host)
+      if (this.isHost) {
+        await this.signalr.invoke('EndMeeting', this.roomKey);
+      }
       await this.signalr.leaveRoom(this.roomKey);
       await this.cleanup();
       this.router.navigate(['/meetings']);
@@ -714,25 +997,121 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   }
 
   private async cleanup() {
+    try {
+      // Clear change detection timeout
+      if (this.changeDetectionTimeout) {
+        clearTimeout(this.changeDetectionTimeout);
+        this.changeDetectionTimeout = null;
+      }
+
       // Close all peer connections
-      this.peerConnections.forEach(pc => pc.close());
+      this.peerConnections.forEach((pc, userId) => {
+        try {
+          pc.close();
+        } catch (error) {
+          console.warn(`Error closing peer connection for ${userId}:`, error);
+        }
+      });
       this.peerConnections.clear();
       this.remoteStreams.clear();
+      this.pendingIceCandidates.clear();
       
-      // Stop local media tracks
-      this.localStream?.getTracks().forEach(track => track.stop());
-      this.localStream = undefined;
+      // Stop local media tracks to turn off camera LED
+      if (this.localStream) {
+        this.localStream.getTracks().forEach(track => {
+          try {
+            track.stop(); // This will turn off camera LED
+          } catch (error) {
+            console.warn('Error stopping track:', error);
+          }
+        });
+        this.localStream = undefined;
+      }
+
+      // Clear video elements
+      if (this.localVideo?.nativeElement) {
+        this.localVideo.nativeElement.srcObject = null;
+      }
+      if (this.remoteVideo?.nativeElement) {
+        this.remoteVideo.nativeElement.srcObject = null;
+      }
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+    }
+  }
+
+  private cleanupPeerConnection(userId: string) {
+    const pc = this.peerConnections.get(userId);
+    if (pc) {
+      try {
+        pc.close();
+      } catch (error) {
+        console.warn(`Error closing peer connection for ${userId}:`, error);
+      }
+    }
+    this.peerConnections.delete(userId);
+    this.remoteStreams.delete(userId);
+    this.pendingIceCandidates.delete(userId);
   }
 
   private changeDetectionTimeout: any = null;
+  private readonly changeDetectionDelay = 16; // ~60fps
 
   triggerChangeDetection() {
     // Use setTimeout to avoid excessive change detection cycles
     if (!this.changeDetectionTimeout) {
       this.changeDetectionTimeout = setTimeout(() => {
-    this.cdr.detectChanges();
+        this.cdr.detectChanges();
         this.changeDetectionTimeout = null;
-      }, 0);
+      }, this.changeDetectionDelay);
     }
   }
+
+  private async processPendingIceCandidates(userId: string) {
+    const pc = this.peerConnections.get(userId);
+    if (!pc) return;
+
+    const pendingCandidates = this.pendingIceCandidates.get(userId);
+    if (pendingCandidates && pendingCandidates.length > 0) {
+      for (const candidate of pendingCandidates) {
+        try {
+          await pc.addIceCandidate(candidate);
+        } catch (error) {
+          console.error('Error adding pending ICE candidate:', error);
+        }
+      }
+      
+      // Clear processed candidates
+      this.pendingIceCandidates.delete(userId);
+    }
+  }
+
+  private async checkHostStatus() {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        this.isHost = false;
+        return;
+      }
+
+      const response = await fetch(`http://localhost:5125/api/meetings/${this.meetingId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const meeting = await response.json();
+        this.isHost = meeting.creatorId === this.currentUserId;
+      } else {
+        console.warn('Failed to check host status:', response.status);
+        this.isHost = false;
+      }
+    } catch (error) {
+      console.error('Error checking host status:', error);
+      this.isHost = false;
+    }
+  }
+
 }

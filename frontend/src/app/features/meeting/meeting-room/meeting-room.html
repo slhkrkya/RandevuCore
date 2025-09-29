@@ -1,6 +1,7 @@
-<div class="flex h-screen w-full bg-gray-900 text-white overflow-hidden">
+<div class="flex h-screen w-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white overflow-hidden">
   <!-- Main Content Area -->
-  <div class="flex-1 flex flex-col relative">
+  <div class="flex-1 flex flex-col relative transition-all duration-300"
+       [class.mr-80]="showParticipantsPanel || showChatPanel">
     
     <!-- Meeting Content -->
     <div class="flex-1 relative">
@@ -8,7 +9,6 @@
       <!-- Video Grid View -->
       <div *ngIf="activeView === 'grid'" class="h-full w-full">
         <app-video-grid 
-          [participants]="participants"
           [currentUserId]="currentUserId"
           [localStream]="localStream"
           [remoteStreams]="remoteStreams"
@@ -19,7 +19,6 @@
       <!-- Speaker View -->
       <div *ngIf="activeView === 'speaker'" class="h-full w-full">
         <app-speaker-view 
-          [participants]="participants"
           [currentUserId]="currentUserId"
           [localStream]="localStream"
           [remoteStreams]="remoteStreams"
@@ -47,6 +46,10 @@
       [showChatPanel]="showChatPanel"
       [showWhiteboardPanel]="showWhiteboardPanel"
       [activeView]="activeView"
+      [isMuteToggling]="isMuteToggling"
+      [isVideoToggling]="isVideoToggling"
+      [isScreenShareToggling]="isScreenShareToggling"
+      [meetingDuration]="meetingDuration"
       (toggleMute)="toggleMute()"
       (toggleVideo)="toggleVideo()"
       (toggleScreenShare)="toggleScreenShare()"
@@ -61,11 +64,10 @@
   </div>
 
   <!-- Participants Panel -->
-  <div class="absolute top-0 right-0 h-full w-80 bg-white dark:bg-gray-800 shadow-2xl transform transition-transform duration-300 z-50"
+  <div class="fixed top-0 right-0 h-full w-80 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md shadow-2xl transform transition-transform duration-300 z-50 border-l border-gray-200 dark:border-gray-700"
        [class.translate-x-full]="!showParticipantsPanel"
        [class.translate-x-0]="showParticipantsPanel">
     <app-participants-panel
-      [participants]="participants"
       [currentUserId]="currentUserId"
       [isHost]="isHost"
       (grantPermission)="grantPermission($event.userId, $event.permission)"
@@ -75,7 +77,7 @@
   </div>
 
   <!-- Chat Panel -->
-  <div class="absolute top-0 right-0 h-full w-80 bg-white dark:bg-gray-800 shadow-2xl transform transition-transform duration-300 z-50"
+  <div class="fixed top-0 right-0 h-full w-80 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md shadow-2xl transform transition-transform duration-300 z-50 border-l border-gray-200 dark:border-gray-700"
        [class.translate-x-full]="!showChatPanel"
        [class.translate-x-0]="showChatPanel">
     <app-chat-panel
@@ -86,29 +88,16 @@
     </app-chat-panel>
   </div>
 
-  <!-- Overlay when panels are open -->
-  <div *ngIf="showParticipantsPanel || showChatPanel" 
-       class="absolute inset-0 bg-black/20 z-40"
-       (click)="showParticipantsPanel ? toggleParticipantsPanel() : toggleChatPanel()">
-  </div>
-
   <!-- Connection Status -->
-  <div class="absolute top-4 left-4 z-30">
+  <div class="absolute top-20 left-4 z-30">
     <div class="flex items-center space-x-2 bg-black/50 px-3 py-2 rounded-lg">
       <div class="w-2 h-2 rounded-full" 
            [class.bg-green-500]="connected"
            [class.bg-red-500]="!connected">
       </div>
-      <span class="text-sm">{{ connected ? 'Connected' : 'Connecting...' }}</span>
+      <span class="text-sm">{{ connected ? 'Bağlı' : 'Bağlanıyor...' }}</span>
     </div>
   </div>
 
-  <!-- Meeting Info -->
-  <div class="absolute top-4 left-1/2 transform -translate-x-1/2 z-30">
-    <div class="bg-black/50 px-4 py-2 rounded-lg text-center">
-      <h1 class="text-lg font-semibold">Meeting Room</h1>
-      <p class="text-sm text-gray-300">ID: {{ meetingId }}</p>
-    </div>
-  </div>
 
 </div>

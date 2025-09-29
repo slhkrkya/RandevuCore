@@ -6,7 +6,7 @@
       <div class="flex items-center space-x-3">
         <span class="material-symbols-outlined text-2xl text-gray-600">present_to_all</span>
         <div>
-          <h3 class="text-lg font-semibold text-gray-800">Screen Share</h3>
+          <h3 class="text-lg font-semibold text-gray-800">Ekran Paylaşımı</h3>
           <p class="text-sm text-gray-600">{{ getSelectedSourceLabel() }}</p>
         </div>
       </div>
@@ -18,7 +18,7 @@
         </span>
         <button class="p-2 rounded-lg hover:bg-gray-100 transition-colors"
                 (click)="toggleSettings()"
-                [title]="isSettingsOpen ? 'Close Settings' : 'Open Settings'">
+                [title]="isSettingsOpen ? 'Ayarları Kapat' : 'Ayarları Aç'">
           <span class="material-symbols-outlined text-gray-600">
             {{ isSettingsOpen ? 'expand_less' : 'expand_more' }}
           </span>
@@ -48,9 +48,9 @@
       <div class="preview-controls">
         <button class="stop-button"
                 (click)="stopScreenShare()"
-                title="Stop Screen Sharing">
+                title="Ekran Paylaşımını Durdur">
           <span class="material-symbols-outlined">stop</span>
-          Stop Sharing
+          Paylaşımı Durdur
         </button>
       </div>
     </div>
@@ -61,7 +61,7 @@
     
     <!-- Basic Controls -->
     <div class="settings-section">
-      <h4 class="section-title">Screen Share Controls</h4>
+      <h4 class="section-title">Ekran Paylaşım Kontrolleri</h4>
       
       <!-- Start/Stop Button -->
       <div class="control-item">
@@ -73,13 +73,13 @@
           <span class="material-symbols-outlined">
             {{ screenShareSettings.isActive ? 'stop' : 'play_arrow' }}
           </span>
-          {{ screenShareSettings.isActive ? 'Stop Sharing' : 'Start Sharing' }}
+          {{ screenShareSettings.isActive ? 'Paylaşımı Durdur' : 'Paylaşımı Başlat' }}
         </button>
       </div>
       
       <!-- Source Type Selection -->
       <div class="control-item">
-        <label class="control-label">Source Type</label>
+        <label class="control-label">Kaynak Türü</label>
         <div class="source-type-buttons">
           <button *ngFor="let type of sourceTypes"
                   class="source-type-button"
@@ -94,7 +94,7 @@
       
       <!-- Source Selection -->
       <div class="control-item">
-        <label class="control-label">Screen Source</label>
+        <label class="control-label">Ekran Kaynağı</label>
         <select class="control-select"
                 [(ngModel)]="selectedSource"
                 (change)="onSourceChange()"
@@ -107,7 +107,7 @@
       
       <!-- Audio Toggle -->
       <div class="control-item">
-        <label class="control-label">Include Audio</label>
+        <label class="control-label">Ses Dahil Et</label>
         <button class="toggle-button"
                 [class.active]="screenShareSettings.audio"
                 (click)="onAudioToggle()"
@@ -115,18 +115,18 @@
           <span class="material-symbols-outlined">
             {{ screenShareSettings.audio ? 'volume_up' : 'volume_off' }}
           </span>
-          {{ screenShareSettings.audio ? 'On' : 'Off' }}
+          {{ screenShareSettings.audio ? 'Açık' : 'Kapalı' }}
         </button>
       </div>
     </div>
     
     <!-- Quality Settings -->
     <div class="settings-section">
-      <h4 class="section-title">Quality Settings</h4>
+      <h4 class="section-title">Kalite Ayarları</h4>
       
       <!-- Resolution Selection -->
       <div class="control-item">
-        <label class="control-label">Resolution</label>
+        <label class="control-label">Çözünürlük</label>
         <select class="control-select"
                 [(ngModel)]="screenShareSettings.resolution"
                 (change)="onResolutionChange()"

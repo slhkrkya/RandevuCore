@@ -3,12 +3,12 @@
   <!-- Panel Header -->
   <div class="panel-header">
     <div class="flex items-center justify-between">
-      <h2 class="panel-title">Participants</h2>
+      <h2 class="panel-title">Katılımcılar</h2>
       <button class="close-button" (click)="onClose()">
-        <span class="material-symbols-outlined">close</span>
+        <span class="material-symbols-outlined text-sm">close</span>
       </button>
     </div>
-    <p class="participants-count">{{ participants.length }} participant{{ participants.length !== 1 ? 's' : '' }}</p>
+    <p class="participants-count">{{ participants.length }} katılımcı</p>
   </div>
 
   <!-- Participants List -->
@@ -25,13 +25,13 @@
       </div>
       
       <!-- Participant Info -->
-      <div class="participant-info">
-        <div class="participant-name">
-          {{ getParticipantDisplayName(participant) }}
-          <span *ngIf="participant.isHost" class="host-badge">👑</span>
+        <div class="participant-info">
+          <div class="participant-name">
+            {{ getParticipantDisplayName(participant) }}
+            <span *ngIf="participant.isHost" class="host-badge">👑 Host</span>
+          </div>
+          <div class="participant-status">{{ getParticipantStatus(participant) }}</div>
         </div>
-        <div class="participant-status">{{ getParticipantStatus(participant) }}</div>
-      </div>
       
       <!-- Participant Actions (Host Only) -->
       <div class="participant-actions" *ngIf="isHost && participant.userId !== currentUserId">
@@ -81,8 +81,8 @@
   <div *ngIf="participants.length === 0" class="empty-state">
     <div class="empty-content">
       <span class="material-symbols-outlined">people</span>
-      <h3>No participants</h3>
-      <p>Waiting for others to join...</p>
+      <h3>Katılımcı yok</h3>
+      <p>Diğerlerinin katılmasını bekliyor...</p>
     </div>
   </div>
 

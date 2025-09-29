@@ -1,5 +1,55 @@
 /* Meeting Prejoin Styles */
 
+/* Animations */
+.animate-fade-in {
+  animation: fadeIn 0.8s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Gradient Background Helpers */
+.bg-gradient-primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+}
+
+.bg-gradient-success {
+  background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+}
+
+.bg-gradient-warning {
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+}
+
+/* Glassmorphism Effect */
+.glass-card {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass-card {
+  background: rgba(17, 24, 39, 0.5);
+  border: 1px solid rgba(75, 85, 99, 0.3);
+}
+
+/* Enhanced Shadow Effects */
+.shadow-3xl {
+  box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.25);
+}
+
+.dark .shadow-3xl {
+  box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.5);
+}
+
 /* Toggle Switch Styles */
 .toggle-switch {
   position: relative;
@@ -151,14 +201,71 @@ input:checked + .toggle-slider:before {
   border-radius: 12px;
 }
 
-/* Responsive Design */
-@media (max-width: 1024px) {
-  .grid-cols-1.lg\\:grid-cols-2 {
-    grid-template-columns: 1fr;
+/* Enhanced Responsive Design */
+@media (max-width: 1280px) {
+  .xl\\:grid-cols-3 {
+    grid-template-columns: 1fr !important;
   }
   
-  .space-y-6 > * + * {
+  .xl\\:col-span-2 {
+    grid-column: span 1 !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .lg\\:gap-12 {
+    gap: 1rem !important;
+  }
+  
+  .space-y-8 > * + * {
     margin-top: 1.5rem;
+  }
+  
+  .text-4xl.lg\\:text-5xl {
+    font-size: 2rem !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .max-w-6xl {
+    max-width: 100%;
+    padding: 1rem;
+  }
+  
+  .rounded-2xl {
+    border-radius: 1rem !important;
+  }
+  
+  .text-2xl {
+    font-size: 1.5rem !important;
+  }
+  
+  .space-y-8 {
+    gap: 1rem !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .aspect-video {
+    aspect-ratio: 4/3 !important;
+  }
+  
+  .w-full.max-w-6xl {
+    padding: 0.5rem !important;
+  }
+  
+  .px-6 {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+  
+  .py-4 {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+  }
+  
+  .gap-8.lg\\:gap-12 {
+    gap: 0.75rem !important;
   }
 }
 
@@ -224,18 +331,158 @@ select:focus {
   }
 }
 
+/* Modern Button Styles */
+.modern-btn {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modern-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.modern-btn:hover::before {
+  left: 100%;
+}
+
+.modern-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.modern-btn:active {
+  transform: translateY(0);
+}
+
+/* Glass Effect */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass-effect {
+  background: rgba(17, 24, 39, 0.3);
+  border: 1px solid rgba(75, 85, 99, 0.3);
+}
+
+/* Pulse Animation for Active States */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+.pulse-animation {
+  animation: pulse 2s infinite;
+}
+
+/* Loading Spinner Enhancement */
+.modern-spinner {
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top: 3px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Card Hover Effects */
+.modern-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(229, 231, 235, 0.5);
+}
+
+.modern-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.dark .modern-card {
+  border-color: rgba(75, 85, 99, 0.5);
+}
+
+.dark .modern-card:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* Toggle Switch Enhancement */
+.modern-toggle {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  background: #e5e7eb;
+  border-radius: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.modern-toggle.active {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+.modern-toggle-slider {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.modern-toggle.active .modern-toggle-slider {
+  transform: translateX(20px);
+}
+
 /* Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
   .toggle-slider,
   .toggle-slider:before,
   .audio-level-bar,
   .join-button,
-  .back-button {
+  .back-button,
+  .modern-btn,
+  .modern-card,
+  .modern-toggle,
+  .modern-toggle-slider {
     transition: none;
+    animation: none;
   }
   
   .fade-in,
-  .slide-up {
+  .slide-up,
+  .pulse-animation {
     animation: none;
+  }
+  
+  .modern-btn:hover,
+  .modern-card:hover {
+    transform: none;
   }
 }

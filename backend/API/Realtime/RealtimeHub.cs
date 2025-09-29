@@ -11,6 +11,8 @@ namespace RandevuCore.API.Realtime
     {
         private static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, Participant>> RoomIdToParticipants = new();
         private static readonly ConcurrentDictionary<string, string> ConnectionIdToRoom = new();
+        private static readonly ConcurrentDictionary<string, DateTimeOffset> RoomStartTimes = new();
+        private static readonly ConcurrentDictionary<string, Timer> RoomDurationTimers = new();
         private readonly RandevuDbContext _db;
 
         public RealtimeHub(RandevuDbContext db)
@@ -42,7 +44,18 @@ namespace RandevuCore.API.Realtime
                 var members = RoomIdToParticipants.GetOrAdd(roomId, _ => new());
                 members[Context.ConnectionId] = new Participant(Context.ConnectionId, uid, name);
                 ConnectionIdToRoom[Context.ConnectionId] = roomId;
+                
+                // Set room start time if this is the first participant
+                if (members.Count == 1)
+                {
+                    // Reset start time and timer for new meeting session
+                    RoomStartTimes[roomId] = DateTimeOffset.UtcNow;
+                    await UpdateMeetingActualStartTime(roomId);
+                    StartDurationTimer(roomId);
+                }
+                
                 await BroadcastPresence(roomId, members);
+                await BroadcastMeetingDuration(roomId);
             }
         }
 
@@ -54,7 +67,22 @@ namespace RandevuCore.API.Realtime
                 if (RoomIdToParticipants.TryGetValue(roomId, out var members))
                 {
                     members.TryRemove(Context.ConnectionId, out _);
-                    await BroadcastPresence(roomId, members);
+                    
+                    // Stop duration timer if no participants left
+                    if (members.Count == 0)
+                    {
+                        StopDurationTimer(roomId);
+                        RoomStartTimes.TryRemove(roomId, out _);
+                    }
+                    
+                    try
+                    {
+                        await BroadcastPresence(roomId, members);
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // Hub is disposed, ignore
+                    }
                 }
                 ConnectionIdToRoom.TryRemove(Context.ConnectionId, out _);
             }
@@ -92,7 +120,22 @@ namespace RandevuCore.API.Realtime
                 if (RoomIdToParticipants.TryGetValue(roomId, out var members))
                 {
                     members.TryRemove(Context.ConnectionId, out _);
-                    await BroadcastPresence(roomId, members);
+                    
+                    // Stop duration timer if no participants left
+                    if (members.Count == 0)
+                    {
+                        StopDurationTimer(roomId);
+                        RoomStartTimes.TryRemove(roomId, out _);
+                    }
+                    
+                    try
+                    {
+                        await BroadcastPresence(roomId, members);
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // Hub is disposed, ignore
+                    }
                 }
             }
             await base.OnDisconnectedAsync(exception);
@@ -102,6 +145,103 @@ namespace RandevuCore.API.Realtime
         {
             var list = members.Values.Select(p => new { connectionId = p.ConnectionId, userId = p.UserId, name = p.Name }).ToList();
             return Clients.Group(roomId).SendAsync("presence", list);
+        }
+
+        private async Task UpdateMeetingActualStartTime(string roomId)
+        {
+            var meetingIdStr = roomId[8..]; // Remove "meeting-" prefix
+            if (Guid.TryParse(meetingIdStr, out var meetingId))
+            {
+                var meeting = await _db.Meetings.FindAsync(meetingId);
+                if (meeting != null)
+                {
+                    // Always update ActualStartTime for new meeting sessions
+                    meeting.ActualStartTime = DateTimeOffset.UtcNow;
+                    await _db.SaveChangesAsync();
+                }
+            }
+        }
+
+        private async Task BroadcastMeetingDuration(string roomId)
+        {
+            try
+            {
+                if (RoomStartTimes.TryGetValue(roomId, out var startTime))
+                {
+                    var duration = DateTimeOffset.UtcNow - startTime;
+                    var durationString = $"{duration.Hours:D2}:{duration.Minutes:D2}:{duration.Seconds:D2}";
+                    await Clients.Group(roomId).SendAsync("meeting-duration", durationString);
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                // Hub is disposed, stop the timer for this room
+                StopDurationTimer(roomId);
+            }
+        }
+
+        public async Task GetMeetingDuration(string roomId)
+        {
+            await BroadcastMeetingDuration(roomId);
+        }
+
+        public async Task EndMeeting(string roomId)
+        {
+            if (roomId.StartsWith("meeting-"))
+            {
+                // Only meeting creator can end the meeting
+                var (callerId, _) = GetUser();
+                var meetingIdStr = roomId[8..]; // Remove "meeting-" prefix
+                if (Guid.TryParse(meetingIdStr, out var meetingId))
+                {
+                    var meeting = await _db.Meetings.FindAsync(meetingId);
+                    if (meeting == null || meeting.CreatorId != callerId) 
+                    {
+                        return; // Not authorized to end meeting
+                    }
+                }
+
+                // Stop all timers and clear room data
+                StopDurationTimer(roomId);
+                RoomStartTimes.TryRemove(roomId, out _);
+                RoomIdToParticipants.TryRemove(roomId, out _);
+                
+                // Notify all participants that meeting has ended
+                await Clients.Group(roomId).SendAsync("meeting-ended");
+            }
+        }
+
+        private void StartDurationTimer(string roomId)
+        {
+            // Stop existing timer if any
+            StopDurationTimer(roomId);
+            
+            // Start new timer with error handling
+            var timer = new Timer(async _ => 
+            {
+                try
+                {
+                    await BroadcastMeetingDuration(roomId);
+                }
+                catch (Exception ex)
+                {
+                    // Log error and stop timer if hub is disposed
+                    if (ex is ObjectDisposedException)
+                    {
+                        StopDurationTimer(roomId);
+                    }
+                }
+            }, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+            
+            RoomDurationTimers[roomId] = timer;
+        }
+
+        private void StopDurationTimer(string roomId)
+        {
+            if (RoomDurationTimers.TryRemove(roomId, out var timer))
+            {
+                timer.Dispose();
+            }
         }
     }
 }
