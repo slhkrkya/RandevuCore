@@ -37,7 +37,7 @@
               </h3>
               <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">
                 <span class="material-symbols-outlined text-base mr-1">schedule</span>
-                {{ meeting.startsAt | date:'dd MMM yyyy, HH:mm' }}
+                {{ meeting.startsAt | date:'dd MMM yyyy, HH:mm':'tr-TR' }}
               </div>
             </div>
             <div class="flex items-center">
@@ -55,7 +55,7 @@
             <!-- Time Range -->
             <div class="flex items-center text-sm text-gray-600 dark:text-gray-300">
               <span class="material-symbols-outlined text-base mr-2">access_time</span>
-              <span>{{ meeting.startsAt | date:'HH:mm' }} - {{ meeting.endsAt | date:'HH:mm' }}</span>
+              <span>{{ meeting.startsAt | date:'HH:mm':'tr-TR' }} - {{ meeting.endsAt | date:'HH:mm':'tr-TR' }}</span>
             </div>
 
             <!-- Notes -->

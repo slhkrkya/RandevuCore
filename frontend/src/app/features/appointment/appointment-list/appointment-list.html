@@ -4,7 +4,7 @@
   </div>
   <div class="item" *ngFor="let a of items">
     <div class="title">{{ a.title }}</div>
-    <div class="time">{{ a.startsAt | date:'short' }} - {{ a.endsAt | date:'short' }}</div>
+    <div class="time">{{ a.startsAt | date:'short':'tr-TR' }} - {{ a.endsAt | date:'short':'tr-TR' }}</div>
     <div class="meta">Durum: {{ a.status }}</div>
   </div>
   <div *ngIf="!items?.length" class="empty">Randevu bulunamadı.</div>

@@ -112,20 +112,20 @@ export class ChatPanelComponent implements OnInit, OnDestroy {
     const days = Math.floor(diff / 86400000);
 
     if (minutes < 1) {
-      return 'Just now';
+      return 'Az önce';
     } else if (minutes < 60) {
-      return `${minutes}m ago`;
+      return `${minutes} dk önce`;
     } else if (hours < 24) {
-      return `${hours}h ago`;
+      return `${hours} saat önce`;
     } else if (days < 7) {
-      return `${days}d ago`;
+      return `${days} gün önce`;
     } else {
-      return timestamp.toLocaleDateString();
+      return timestamp.toLocaleDateString('tr-TR');
     }
   }
 
   getMessageTime(timestamp: Date): string {
-    return timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return timestamp.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
   }
 
   onClose() {
