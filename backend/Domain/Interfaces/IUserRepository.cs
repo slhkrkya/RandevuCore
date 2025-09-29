@@ -7,5 +7,7 @@ namespace RandevuCore.Domain.Interfaces
         Task<User?> GetByEmailAsync(string email);
         Task AddAsync(User user);
         Task<List<User>> GetAllAsync();
+        Task<User?> GetByIdAsync(Guid id);
+        Task UpdateAsync(User user);
     }
 }

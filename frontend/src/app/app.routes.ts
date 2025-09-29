@@ -8,6 +8,7 @@ import { MeetingListComponent } from './features/meeting/meeting-list/meeting-li
 import { MeetingRoomComponent } from './features/meeting/meeting-room/meeting-room';
 import { MeetingCreateComponent } from './features/meeting/meeting-create/meeting-create';
 import { MeetingPrejoinComponent } from './features/meeting/meeting-prejoin/meeting-prejoin';
+import { ProfileComponent } from './features/profile/profile';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent, canActivate: [guestGuard] },
@@ -18,5 +19,6 @@ export const routes: Routes = [
   { path: 'meetings/new', component: MeetingCreateComponent, canActivate: [authGuard] },
   { path: 'meetings/:id/prejoin', component: MeetingPrejoinComponent, canActivate: [authGuard] },
   { path: 'meetings/:id', component: MeetingRoomComponent, canActivate: [authGuard] },
+  { path: 'profile', component: ProfileComponent, canActivate: [authGuard] },
   { path: '', redirectTo: 'appointments', pathMatch: 'full' }
 ];

@@ -56,5 +56,69 @@ namespace RandevuCore.Application.Services
             var users = await _userRepository.GetAllAsync();
             return users.Select(u => new UserListItemDto { Id = u.Id, Email = u.Email, Name = u.Name }).ToList();
         }
+
+        // Profil metodları
+        public async Task<ProfileDto?> GetProfileAsync(Guid userId)
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null) return null;
+
+            return new ProfileDto
+            {
+                Id = user.Id,
+                Name = user.Name,
+                Email = user.Email,
+                CreatedAt = user.CreatedAt,
+                UpdatedAt = user.UpdatedAt
+            };
+        }
+
+        public async Task<(bool success, string? error)> UpdateProfileAsync(Guid userId, UpdateProfileDto dto)
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null) return (false, "Kullanıcı bulunamadı");
+
+            if (string.IsNullOrWhiteSpace(dto.Name))
+                return (false, "İsim boş olamaz");
+
+            if (dto.Name.Length > 100)
+                return (false, "İsim en fazla 100 karakter olabilir");
+
+            user.Name = dto.Name.Trim();
+            user.UpdatedAt = DateTimeOffset.UtcNow;
+
+            await _userRepository.UpdateAsync(user);
+            return (true, null);
+        }
+
+        public async Task<(bool success, string? error)> ChangePasswordAsync(Guid userId, ChangePasswordDto dto)
+        {
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null) return (false, "Kullanıcı bulunamadı");
+
+            if (string.IsNullOrWhiteSpace(dto.CurrentPassword))
+                return (false, "Mevcut şifre boş olamaz");
+
+            if (string.IsNullOrWhiteSpace(dto.NewPassword))
+                return (false, "Yeni şifre boş olamaz");
+
+            if (dto.NewPassword.Length < 6)
+                return (false, "Yeni şifre en az 6 karakter olmalı");
+
+            if (dto.NewPassword != dto.ConfirmPassword)
+                return (false, "Yeni şifreler uyuşmuyor");
+
+            // Mevcut şifreyi kontrol et
+            var currentPasswordResult = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, dto.CurrentPassword);
+            if (currentPasswordResult == PasswordVerificationResult.Failed)
+                return (false, "Mevcut şifre yanlış");
+
+            // Yeni şifreyi hashle ve kaydet
+            user.PasswordHash = _passwordHasher.HashPassword(user, dto.NewPassword);
+            user.UpdatedAt = DateTimeOffset.UtcNow;
+
+            await _userRepository.UpdateAsync(user);
+            return (true, null);
+        }
     }
 }
