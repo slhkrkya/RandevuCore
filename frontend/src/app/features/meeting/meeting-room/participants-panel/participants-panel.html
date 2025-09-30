@@ -1,88 +1,106 @@
-<div class="participants-panel">
+<div class="h-full flex flex-col bg-white dark:bg-slate-800">
   
   <!-- Panel Header -->
-  <div class="panel-header">
+  <div class="p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-800 border-b border-slate-200 dark:border-slate-600">
     <div class="flex items-center justify-between">
-      <h2 class="panel-title">Katılımcılar</h2>
-      <button class="close-button" (click)="onClose()">
-        <span class="material-symbols-outlined text-sm">close</span>
+      <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Katılımcılar</h2>
+      <button class="p-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors" (click)="onClose()">
+        <span class="material-symbols-outlined text-sm text-slate-600 dark:text-slate-300">close</span>
       </button>
     </div>
-    <p class="participants-count">{{ participants.length }} katılımcı</p>
+    <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">{{ participants.length }} katılımcı</p>
   </div>
 
   <!-- Participants List -->
-  <div class="participants-list">
+  <div class="flex-1 overflow-y-auto p-4 space-y-3">
     <div *ngFor="let participant of participants" 
-         class="participant-item">
+         class="flex items-center space-x-3 p-3 bg-slate-50 dark:bg-slate-700 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors">
       
       <!-- Participant Avatar -->
-      <div class="participant-avatar">
-        <div class="avatar-placeholder" [class]="getParticipantBackgroundColor(participant)">
+      <div class="relative">
+        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm" [class]="getParticipantBackgroundColor(participant)">
           {{ getParticipantInitials(participant) }}
         </div>
-        <div class="status-indicator" [class.online]="true"></div>
+        <div class="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-800"></div>
       </div>
       
       <!-- Participant Info -->
-        <div class="participant-info">
-          <div class="participant-name">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center space-x-2">
+          <span class="text-sm font-medium text-slate-900 dark:text-white truncate">
             {{ getParticipantDisplayName(participant) }}
-            <span *ngIf="participant.isHost" class="host-badge">👑 Host</span>
-          </div>
-          <div class="participant-status">{{ getParticipantStatus(participant) }}</div>
+          </span>
+          <span *ngIf="participant.isHost" class="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 px-2 py-1 rounded-full">👑 Host</span>
         </div>
+        <div class="text-xs text-slate-500 dark:text-slate-400">{{ getParticipantStatus(participant) }}</div>
+      </div>
       
       <!-- Participant Actions (Host Only) -->
-      <div class="participant-actions" *ngIf="isHost && participant.userId !== currentUserId">
-        <div class="action-buttons">
-          <button class="action-button"
-                  [class.active]="!participant.isMuted"
-                  [class.inactive]="participant.isMuted"
-                  (click)="onGrantPermission(participant.userId, 'mute')"
-                  [title]="participant.isMuted ? 'Unmute' : 'Mute'">
-            <span class="material-symbols-outlined">
-              {{ participant.isMuted ? 'mic_off' : 'mic' }}
-            </span>
-          </button>
-          
-          <button class="action-button"
-                  [class.active]="participant.isVideoOn"
-                  [class.inactive]="!participant.isVideoOn"
-                  (click)="onGrantPermission(participant.userId, 'video')"
-                  [title]="participant.isVideoOn ? 'Turn Off Camera' : 'Turn On Camera'">
-            <span class="material-symbols-outlined">
-              {{ participant.isVideoOn ? 'videocam' : 'videocam_off' }}
-            </span>
-          </button>
-          
-          <button class="action-button"
-                  [class.active]="participant.isScreenSharing"
-                  [class.inactive]="!participant.isScreenSharing"
-                  (click)="onGrantPermission(participant.userId, 'screen')"
-                  [title]="participant.isScreenSharing ? 'Stop Screen Share' : 'Start Screen Share'">
-            <span class="material-symbols-outlined">
-              {{ participant.isScreenSharing ? 'stop_screen_share' : 'present_to_all' }}
-            </span>
-          </button>
-          
-          <button class="action-button danger"
-                  (click)="onRemoveParticipant(participant.userId)"
-                  title="Remove Participant">
-            <span class="material-symbols-outlined">person_remove</span>
-          </button>
-        </div>
+      <div class="flex items-center space-x-1" *ngIf="isHost && participant.userId !== currentUserId">
+        <button class="p-2 rounded-lg transition-colors"
+                [class.bg-emerald-100]="!participant.isMuted"
+                [class.text-emerald-600]="!participant.isMuted"
+                [class.bg-red-100]="participant.isMuted"
+                [class.text-red-600]="participant.isMuted"
+                [class.dark:bg-emerald-900/30]="!participant.isMuted"
+                [class.dark:text-emerald-400]="!participant.isMuted"
+                [class.dark:bg-red-900/30]="participant.isMuted"
+                [class.dark:text-red-400]="participant.isMuted"
+                (click)="onGrantPermission(participant.userId, 'mute')"
+                [title]="participant.isMuted ? 'Unmute' : 'Mute'">
+          <span class="material-symbols-outlined text-sm">
+            {{ participant.isMuted ? 'mic_off' : 'mic' }}
+          </span>
+        </button>
+        
+        <button class="p-2 rounded-lg transition-colors"
+                [class.bg-emerald-100]="participant.isVideoOn"
+                [class.text-emerald-600]="participant.isVideoOn"
+                [class.bg-red-100]="!participant.isVideoOn"
+                [class.text-red-600]="!participant.isVideoOn"
+                [class.dark:bg-emerald-900/30]="participant.isVideoOn"
+                [class.dark:text-emerald-400]="participant.isVideoOn"
+                [class.dark:bg-red-900/30]="!participant.isVideoOn"
+                [class.dark:text-red-400]="!participant.isVideoOn"
+                (click)="onGrantPermission(participant.userId, 'video')"
+                [title]="participant.isVideoOn ? 'Turn Off Camera' : 'Turn On Camera'">
+          <span class="material-symbols-outlined text-sm">
+            {{ participant.isVideoOn ? 'videocam' : 'videocam_off' }}
+          </span>
+        </button>
+        
+        <button class="p-2 rounded-lg transition-colors"
+                [class.bg-blue-100]="participant.isScreenSharing"
+                [class.text-blue-600]="participant.isScreenSharing"
+                [class.bg-slate-100]="!participant.isScreenSharing"
+                [class.text-slate-600]="!participant.isScreenSharing"
+                [class.dark:bg-blue-900/30]="participant.isScreenSharing"
+                [class.dark:text-blue-400]="participant.isScreenSharing"
+                [class.dark:bg-slate-700]="!participant.isScreenSharing"
+                [class.dark:text-slate-400]="!participant.isScreenSharing"
+                (click)="onGrantPermission(participant.userId, 'screen')"
+                [title]="participant.isScreenSharing ? 'Stop Screen Share' : 'Start Screen Share'">
+          <span class="material-symbols-outlined text-sm">
+            {{ participant.isScreenSharing ? 'stop_screen_share' : 'present_to_all' }}
+          </span>
+        </button>
+        
+        <button class="p-2 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-lg transition-colors"
+                (click)="onRemoveParticipant(participant.userId)"
+                title="Remove Participant">
+          <span class="material-symbols-outlined text-sm">person_remove</span>
+        </button>
       </div>
       
     </div>
-  </div>
-
-  <!-- Empty State -->
-  <div *ngIf="participants.length === 0" class="empty-state">
-    <div class="empty-content">
-      <span class="material-symbols-outlined">people</span>
-      <h3>Katılımcı yok</h3>
-      <p>Diğerlerinin katılmasını bekliyor...</p>
+    
+    <!-- Empty State -->
+    <div *ngIf="participants.length === 0" class="h-full flex items-center justify-center">
+      <div class="text-center text-slate-500 dark:text-slate-400">
+        <span class="material-symbols-outlined text-4xl mb-2">people</span>
+        <h3 class="text-lg font-medium">Katılımcı yok</h3>
+        <p class="text-sm">Diğerlerinin katılmasını bekliyor...</p>
+      </div>
     </div>
   </div>
 

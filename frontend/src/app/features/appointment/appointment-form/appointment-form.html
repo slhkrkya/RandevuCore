@@ -1,4 +1,4 @@
-<div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-8 relative overflow-hidden">
+<div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 py-8 pt-20 relative overflow-hidden">
   <!-- Background Pattern -->
   <div class="absolute inset-0 opacity-5">
     <div class="absolute top-1/4 right-1/4 w-96 h-96 bg-emerald-500 rounded-full filter blur-3xl"></div>
@@ -12,33 +12,33 @@
         <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-emerald-500 to-blue-600 rounded-full mb-6 shadow-lg">
           <span class="material-symbols-outlined text-white text-2xl">event_note</span>
         </div>
-        <h1 class="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent mb-2">
+        <h1 class="text-4xl font-bold bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent mb-2">
           Yeni Randevu Oluştur
         </h1>
-        <p class="text-lg text-gray-600 dark:text-gray-400">
+        <p class="text-lg text-slate-600 dark:text-slate-400">
           Randevu detaylarını girin ve davetlileri ekleyin
         </p>
       </div>
 
       <!-- Form Card -->
-      <div class="card animate-scale-in animate-delay-1">
-        <div class="card-body">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 animate-scale-in animate-delay-1">
+        <div class="p-6">
           <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
             <div class="space-y-6">
               <!-- Randevu Başlığı -->
               <div>
-                <label class="form-label">
-                  <span class="material-symbols-outlined text-gray-500 mr-2 align-middle text-sm">title</span>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  <span class="material-symbols-outlined text-slate-500 dark:text-slate-400 mr-2 align-middle text-sm">title</span>
                   Randevu Başlığı
                 </label>
                 <input 
                   formControlName="title" 
                   type="text"
-                  class="form-input"
+                  class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                   placeholder="Randevu başlığını girin"
                   [class.border-red-500]="form.get('title')?.invalid && form.get('title')?.touched"
                 />
-                <div *ngIf="form.get('title')?.invalid && form.get('title')?.touched" class="form-error">
+                <div *ngIf="form.get('title')?.invalid && form.get('title')?.touched" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 px-3 py-2 rounded-lg mt-2 text-sm">
                   <span>Randevu başlığı gereklidir</span>
                 </div>
               </div>
@@ -46,34 +46,34 @@
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Başlangıç Tarihi -->
                 <div>
-                  <label class="form-label">
-                    <span class="material-symbols-outlined text-gray-500 mr-2 align-middle text-sm">event_available</span>
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    <span class="material-symbols-outlined text-slate-500 dark:text-slate-400 mr-2 align-middle text-sm">event_available</span>
                     Başlangıç (Türkiye Saati)
                   </label>
                   <input 
                     formControlName="startsAt" 
                     type="datetime-local"
-                    class="form-input"
+                    class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                     [class.border-red-500]="form.get('startsAt')?.invalid && form.get('startsAt')?.touched"
                   />
-                  <div *ngIf="form.get('startsAt')?.invalid && form.get('startsAt')?.touched" class="form-error">
+                  <div *ngIf="form.get('startsAt')?.invalid && form.get('startsAt')?.touched" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 px-3 py-2 rounded-lg mt-2 text-sm">
                     <span>Başlangıç tarihi gereklidir</span>
                   </div>
                 </div>
 
                 <!-- Bitiş Tarihi -->
                 <div>
-                  <label class="form-label">
-                    <span class="material-symbols-outlined text-gray-500 mr-2 align-middle text-sm">event_busy</span>
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    <span class="material-symbols-outlined text-slate-500 dark:text-slate-400 mr-2 align-middle text-sm">event_busy</span>
                     Bitiş (Türkiye Saati)
                   </label>
                   <input 
                     formControlName="endsAt" 
                     type="datetime-local"
-                    class="form-input"
+                    class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                     [class.border-red-500]="form.get('endsAt')?.invalid && form.get('endsAt')?.touched"
                   />
-                  <div *ngIf="form.get('endsAt')?.invalid && form.get('endsAt')?.touched" class="form-error">
+                  <div *ngIf="form.get('endsAt')?.invalid && form.get('endsAt')?.touched" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 px-3 py-2 rounded-lg mt-2 text-sm">
                     <span>Bitiş tarihi gereklidir</span>
                   </div>
                 </div>
@@ -81,27 +81,27 @@
 
               <!-- Davetli Kullanıcı -->
               <div>
-                <label class="form-label">
-                  <span class="material-symbols-outlined text-gray-500 mr-2 align-middle text-sm">person_add</span>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  <span class="material-symbols-outlined text-slate-500 dark:text-slate-400 mr-2 align-middle text-sm">person_add</span>
                   Davetli Kullanıcı Id
                 </label>
                 <input 
                   formControlName="inviteeId" 
                   type="text"
-                  class="form-input"
+                  class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                   placeholder="Davet edilecek kullanıcının ID'sini girin"
                 />
               </div>
 
               <!-- Notlar -->
               <div>
-                <label class="form-label">
-                  <span class="material-symbols-outlined text-gray-500 mr-2 align-middle text-sm">note</span>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  <span class="material-symbols-outlined text-slate-500 dark:text-slate-400 mr-2 align-middle text-sm">note</span>
                   Notlar
                 </label>
                 <textarea 
                   formControlName="notes"
-                  class="form-input form-textarea"
+                  class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-vertical min-h-[100px]"
                   placeholder="Randevu ile ilgili notlarınızı buraya yazabilirsiniz..."
                   rows="4"
                 ></textarea>
@@ -109,7 +109,7 @@
             </div>
 
             <!-- Error Message -->
-            <div *ngIf="error" class="form-error mt-4">
+            <div *ngIf="error" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 px-4 py-3 rounded-lg mt-4 flex items-center">
               <span class="material-symbols-outlined mr-2">error</span>
               {{ error }}
             </div>
@@ -118,13 +118,13 @@
             <div class="mt-8 flex justify-end space-x-4">
               <button 
                 routerLink="/appointments"
-                class="btn btn-secondary">
+                class="px-6 py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-all duration-200 font-medium">
                 <span class="material-symbols-outlined text-sm mr-1">arrow_back</span>
                 İptal
               </button>
               <button 
                 type="submit" 
-                class="btn btn-success btn-lg"
+                class="px-8 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold rounded-xl transition-all duration-200 hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 [disabled]="form.invalid || loading">
                 <span class="material-symbols-outlined text-sm mr-1" *ngIf="!loading">save</span>
                 <div class="spinner spinner-sm spinner-white" *ngIf="loading"></div>

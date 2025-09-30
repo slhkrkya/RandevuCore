@@ -30,6 +30,10 @@
   transition: width 0.2s ease;
 }
 
+.dark .nav-link::after {
+  background: #60a5fa;
+}
+
 .nav-link:hover::after,
 .nav-link.active::after {
   width: 100%;
@@ -53,6 +57,10 @@
   transition: left 0.5s ease;
 }
 
+.dark .nav-button::before {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+}
+
 .nav-button:hover::before {
   left: 100%;
 }
@@ -70,7 +78,7 @@
 
 /* Dark Mode Enhancements */
 .dark .nav-button:hover {
-  background: rgba(59, 130, 246, 0.1);
+  background: rgba(96, 165, 250, 0.1);
 }
 
 /* Focus States for Accessibility */
@@ -78,6 +86,11 @@
 .nav-link:focus {
   outline: 2px solid #3b82f6;
   outline-offset: 2px;
+}
+
+.dark .nav-button:focus,
+.dark .nav-link:focus {
+  outline: 2px solid #60a5fa;
 }
 
 /* Smooth Transitions */

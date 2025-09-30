@@ -1,9 +1,9 @@
-<div class="h-full w-full p-4">
-  <div class="grid h-full gap-4" [ngClass]="getVideoGridClass()">
+<div class="h-full w-full flex items-center justify-center p-4">
+  <div class="grid w-full h-full" [ngClass]="getVideoGridClass()">
     
     <!-- Participant Video Tiles -->
     <div *ngFor="let participant of participants" 
-         class="bg-gray-800 rounded-xl overflow-hidden relative group hover:shadow-xl transition-all duration-300 hover:scale-105">
+         class="rounded-xl overflow-hidden relative group hover:shadow-xl transition-all duration-300 hover:scale-105 mb-2 aspect-video">
       
       <!-- Video Stream -->
       <video *ngIf="isParticipantVideoVisible(participant)"
@@ -11,69 +11,29 @@
              autoplay
              playsinline
              [muted]="participant.userId === currentUserId"
-             class="h-full w-full object-cover">
+             class="w-full object-cover aspect-video rounded-xl">
       </video>
       
       <!-- Placeholder when no video -->
       <div *ngIf="!isParticipantVideoVisible(participant)"
-           class="h-full w-full flex items-center justify-center"
+           class="w-full flex items-center justify-center aspect-video bg-gradient-to-br from-slate-300 to-slate-400 dark:from-slate-700 dark:to-slate-800"
            [class]="getParticipantBackgroundColor(participant)">
         <div class="text-center">
-          <div class="text-4xl font-bold text-white mb-2">
+          <div class="text-4xl font-bold text-slate-700 dark:text-white mb-2 drop-shadow-lg">
             {{ getParticipantInitials(participant) }}
           </div>
-          <div class="text-sm text-white/80">
+          <div class="text-sm text-slate-600 dark:text-slate-200">
             {{ getParticipantDisplayName(participant) }}
           </div>
         </div>
       </div>
       
-      <!-- Participant Info Overlay -->
-      <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-3 backdrop-blur-sm">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-2">
-            <span class="text-white font-medium text-sm">
-              {{ getParticipantDisplayName(participant) }}
-            </span>
-            <span *ngIf="participant.isHost" class="text-yellow-400 text-xs">👑</span>
-          </div>
-          
-          <!-- Status Indicators -->
-          <div class="flex items-center space-x-1">
-            <!-- Microphone Status -->
-            <div class="w-2 h-2 rounded-full"
-                 [class.bg-green-500]="!participant.isMuted"
-                 [class.bg-red-500]="participant.isMuted"
-                 [title]="participant.isMuted ? 'Muted' : 'Unmuted'">
-            </div>
-            
-            <!-- Video Status -->
-            <div class="w-2 h-2 rounded-full"
-                 [class.bg-green-500]="participant.isVideoOn"
-                 [class.bg-red-500]="!participant.isVideoOn"
-                 [title]="participant.isVideoOn ? 'Camera On' : 'Camera Off'">
-            </div>
-            
-            <!-- Screen Share Status -->
-            <div *ngIf="participant.isScreenSharing" 
-                 class="w-2 h-2 rounded-full bg-blue-500"
-                 title="Screen Sharing">
-            </div>
-          </div>
-        </div>
-        
-        <!-- Status Text -->
-        <div *ngIf="getParticipantStatus(participant)" 
-             class="text-xs text-gray-300 mt-1">
-          {{ getParticipantStatus(participant) }}
-        </div>
-      </div>
       
       <!-- Hover Actions (for host) -->
       <div *ngIf="participant.userId !== currentUserId" 
            class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
         <div class="flex space-x-1">
-          <button class="p-1.5 bg-black/60 rounded-lg text-white hover:bg-black/80 transition-all duration-200 hover:scale-110 backdrop-blur-sm"
+          <button class="p-1.5 bg-slate-800/80 dark:bg-slate-900/90 rounded-lg text-white hover:bg-slate-700/90 dark:hover:bg-slate-800/90 transition-all duration-200 hover:scale-110 backdrop-blur-sm border border-slate-600/50"
                   [title]="participant.isMuted ? 'Sesi Aç' : 'Sesi Kapat'"
                   (click)="toggleParticipantMute(participant)">
             <span class="material-symbols-outlined text-sm">
@@ -81,7 +41,7 @@
             </span>
           </button>
           
-          <button class="p-1.5 bg-black/60 rounded-lg text-white hover:bg-black/80 transition-all duration-200 hover:scale-110 backdrop-blur-sm"
+          <button class="p-1.5 bg-slate-800/80 dark:bg-slate-900/90 rounded-lg text-white hover:bg-slate-700/90 dark:hover:bg-slate-800/90 transition-all duration-200 hover:scale-110 backdrop-blur-sm border border-slate-600/50"
                   [title]="participant.isVideoOn ? 'Kamerayı Kapat' : 'Kamerayı Aç'"
                   (click)="toggleParticipantVideo(participant)">
             <span class="material-symbols-outlined text-sm">
@@ -93,7 +53,7 @@
       
       <!-- Active Speaker Indicator -->
       <div *ngIf="meetingState.activeSpeaker === participant.userId"
-           class="absolute top-2 left-2 w-3 h-3 bg-green-500 rounded-full animate-pulse"
+           class="absolute top-2 left-2 w-3 h-3 bg-emerald-500 dark:bg-emerald-400 rounded-full animate-pulse shadow-lg"
            title="Active Speaker">
       </div>
       
@@ -104,10 +64,10 @@
   <!-- Empty State -->
   <div *ngIf="participants.length === 0" 
        class="h-full flex items-center justify-center">
-    <div class="text-center text-gray-400">
-      <span class="material-symbols-outlined text-6xl mb-4">people</span>
-      <p class="text-lg">Henüz katılımcı yok</p>
-      <p class="text-sm">Diğerlerinin katılmasını bekliyor...</p>
+    <div class="text-center text-slate-500 dark:text-slate-400">
+      <span class="material-symbols-outlined text-6xl mb-4 opacity-60">people</span>
+      <p class="text-lg font-medium">Henüz katılımcı yok</p>
+      <p class="text-sm opacity-80">Diğerlerinin katılmasını bekliyor...</p>
     </div>
   </div>
   

@@ -37,8 +37,8 @@
 }
 
 .dark .glass-card {
-  background: rgba(17, 24, 39, 0.5);
-  border: 1px solid rgba(75, 85, 99, 0.3);
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(71, 85, 105, 0.3);
 }
 
 /* Enhanced Shadow Effects */
@@ -143,9 +143,9 @@ input:checked + .toggle-slider:before {
 }
 
 .dark .device-select {
-  background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
-  border-color: #4b5563;
-  color: #f9fafb;
+  background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+  border-color: #475569;
+  color: #f1f5f9;
 }
 
 .dark .device-select:focus {
@@ -180,11 +180,11 @@ input:checked + .toggle-slider:before {
 }
 
 .dark .back-button {
-  background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+  background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
 }
 
 .dark .back-button:hover {
-  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+  background: linear-gradient(135deg, #475569 0%, #334155 100%);
 }
 
 /* Loading Animation */
@@ -375,8 +375,8 @@ select:focus {
 }
 
 .dark .glass-effect {
-  background: rgba(17, 24, 39, 0.3);
-  border: 1px solid rgba(75, 85, 99, 0.3);
+  background: rgba(30, 41, 59, 0.3);
+  border: 1px solid rgba(71, 85, 105, 0.3);
 }
 
 /* Pulse Animation for Active States */
@@ -421,7 +421,7 @@ select:focus {
 }
 
 .dark .modern-card {
-  border-color: rgba(75, 85, 99, 0.5);
+  border-color: rgba(71, 85, 105, 0.5);
 }
 
 .dark .modern-card:hover {

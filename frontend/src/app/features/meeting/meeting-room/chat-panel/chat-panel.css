@@ -8,6 +8,10 @@
   -webkit-backdrop-filter: blur(10px);
 }
 
+.dark .chat-panel {
+  background: rgba(30, 41, 59, 0.95);
+}
+
 .chat-header {
   padding: 1.5rem;
   border-bottom: 1px solid rgba(229, 231, 235, 0.5);
@@ -15,11 +19,20 @@
   backdrop-filter: blur(5px);
 }
 
+.dark .chat-header {
+  border-bottom: 1px solid rgba(71, 85, 105, 0.5);
+  background: rgba(51, 65, 85, 0.8);
+}
+
 .chat-title {
   font-size: 1.25rem;
   font-weight: 600;
   color: #1f2937;
   margin: 0;
+}
+
+.dark .chat-title {
+  color: #f1f5f9;
 }
 
 .header-actions {
@@ -38,10 +51,20 @@
   backdrop-filter: blur(5px);
 }
 
+.dark .action-button {
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+}
+
 .action-button:hover {
   background: rgba(107, 114, 128, 0.2);
   color: #374151;
   transform: scale(1.05);
+}
+
+.dark .action-button:hover {
+  background: rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
 }
 
 .connection-status {
@@ -58,8 +81,16 @@
   background: #6b7280;
 }
 
+.dark .status-indicator {
+  background: #94a3b8;
+}
+
 .status-indicator.connected {
   background: #10b981;
+}
+
+.dark .status-indicator.connected {
+  background: #34d399;
 }
 
 .status-indicator.disconnected {
@@ -69,6 +100,10 @@
 .status-text {
   font-size: 0.75rem;
   color: #6b7280;
+}
+
+.dark .status-text {
+  color: #94a3b8;
 }
 
 .messages-container {
@@ -86,6 +121,10 @@
   align-items: center;
   justify-content: center;
   color: #9ca3af;
+}
+
+.dark .empty-state {
+  color: #6b7280;
 }
 
 .empty-content {
@@ -126,8 +165,18 @@
   color: #1f2937;
 }
 
+.dark .message-content {
+  background: #374151;
+  color: #f1f5f9;
+}
+
 .message-item.own-message .message-content {
   background: #3b82f6;
+  color: white;
+}
+
+.dark .message-item.own-message .message-content {
+  background: #2563eb;
   color: white;
 }
 
@@ -161,6 +210,11 @@
   background: #f8fafc;
 }
 
+.dark .message-input-container {
+  border-top: 1px solid #475569;
+  background: #334155;
+}
+
 .input-wrapper {
   display: flex;
   gap: 0.5rem;
@@ -178,16 +232,32 @@
   transition: border-color 0.2s ease;
 }
 
+.dark .message-input {
+  border: 1px solid #475569;
+  color: #f1f5f9;
+  background: #1e293b;
+}
+
 .message-input:focus {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+.dark .message-input:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+}
+
 .message-input:disabled {
   background: #f9fafb;
   color: #9ca3af;
   cursor: not-allowed;
+}
+
+.dark .message-input:disabled {
+  background: #374151;
+  color: #6b7280;
 }
 
 .send-button {
@@ -203,15 +273,27 @@
   justify-content: center;
 }
 
+.dark .send-button {
+  background: #2563eb;
+}
+
 .send-button:hover:not(:disabled) {
   background: #2563eb;
   transform: translateY(-1px);
+}
+
+.dark .send-button:hover:not(:disabled) {
+  background: #1d4ed8;
 }
 
 .send-button:disabled {
   background: #9ca3af;
   cursor: not-allowed;
   transform: none;
+}
+
+.dark .send-button:disabled {
+  background: #6b7280;
 }
 
 /* Responsive Design */

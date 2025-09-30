@@ -68,12 +68,22 @@ export class VideoGridComponent implements OnInit, OnDestroy {
   getVideoGridClass(): string {
     const totalParticipants = this.participants.length;
     
-    if (totalParticipants <= 1) return 'grid-cols-1';
-    if (totalParticipants <= 2) return 'grid-cols-2';
-    if (totalParticipants <= 4) return 'grid-cols-2';
-    if (totalParticipants <= 6) return 'grid-cols-3';
-    if (totalParticipants <= 9) return 'grid-cols-3';
-    return 'grid-cols-4';
+    if (totalParticipants <= 1) {
+      return 'grid-cols-1 gap-4 max-w-4xl mx-auto';
+    }
+  if (totalParticipants <= 2) {
+    return 'grid-cols-2 gap-x-6 gap-y-6 max-w-4xl mx-auto items-center justify-center';
+  }
+  if (totalParticipants <= 4) {
+    return 'grid-cols-2 gap-4 gap-y-4 max-w-4xl mx-auto';
+  }
+  if (totalParticipants <= 6) {
+    return 'grid-cols-3 gap-3 gap-y-3 max-w-4xl mx-auto';
+  }
+  if (totalParticipants <= 9) {
+    return 'grid-cols-3 gap-2 gap-y-2 max-w-3xl mx-auto';
+  }
+    return 'grid-cols-4 gap-2 gap-y-2 max-w-4xl mx-auto';
   }
 
   getParticipantVideo(participant: Participant): MediaStream | null {
@@ -155,10 +165,20 @@ export class VideoGridComponent implements OnInit, OnDestroy {
   }
 
   getParticipantBackgroundColor(participant: Participant): string {
-    // Generate consistent color based on user ID
+    // Generate consistent color based on user ID - modern gradient colors
     const colors = [
-      'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-pink-500',
-      'bg-indigo-500', 'bg-yellow-500', 'bg-red-500', 'bg-teal-500'
+      'bg-gradient-to-br from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800',
+      'bg-gradient-to-br from-emerald-600 to-emerald-700 dark:from-emerald-700 dark:to-emerald-800',
+      'bg-gradient-to-br from-purple-600 to-purple-700 dark:from-purple-700 dark:to-purple-800',
+      'bg-gradient-to-br from-pink-600 to-pink-700 dark:from-pink-700 dark:to-pink-800',
+      'bg-gradient-to-br from-indigo-600 to-indigo-700 dark:from-indigo-700 dark:to-indigo-800',
+      'bg-gradient-to-br from-amber-600 to-amber-700 dark:from-amber-700 dark:to-amber-800',
+      'bg-gradient-to-br from-red-600 to-red-700 dark:from-red-700 dark:to-red-800',
+      'bg-gradient-to-br from-teal-600 to-teal-700 dark:from-teal-700 dark:to-teal-800',
+      'bg-gradient-to-br from-slate-600 to-slate-700 dark:from-slate-700 dark:to-slate-800',
+      'bg-gradient-to-br from-orange-600 to-orange-700 dark:from-orange-700 dark:to-orange-800',
+      'bg-gradient-to-br from-cyan-600 to-cyan-700 dark:from-cyan-700 dark:to-cyan-800',
+      'bg-gradient-to-br from-violet-600 to-violet-700 dark:from-violet-700 dark:to-violet-800'
     ];
     
     const hash = participant.userId.split('').reduce((a, b) => {

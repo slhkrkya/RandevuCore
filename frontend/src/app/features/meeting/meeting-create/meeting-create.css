@@ -11,10 +11,21 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* Dark mode styles */
+.dark .card {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(71, 85, 105, 0.3);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
 .card-header {
   padding: 0 0 20px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   margin-bottom: 24px;
+}
+
+.dark .card-header {
+  border-bottom: 1px solid rgba(71, 85, 105, 0.3);
 }
 
 .card-body {
@@ -30,6 +41,10 @@
   margin-bottom: 8px;
 }
 
+.dark .form-label {
+  color: #cbd5e1;
+}
+
 .form-input {
   width: 100%;
   background: rgba(255, 255, 255, 0.05);
@@ -43,14 +58,30 @@
   backdrop-filter: blur(10px);
 }
 
+.dark .form-input {
+  background: rgba(51, 65, 85, 0.8);
+  border: 1px solid rgba(71, 85, 105, 0.5);
+  color: #f1f5f9;
+}
+
 .form-input::placeholder {
   color: rgba(255, 255, 255, 0.5);
+}
+
+.dark .form-input::placeholder {
+  color: rgba(241, 245, 249, 0.5);
 }
 
 .form-input:focus {
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
   background: rgba(255, 255, 255, 0.08);
+}
+
+.dark .form-input:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+  background: rgba(51, 65, 85, 0.9);
 }
 
 .form-textarea {
@@ -111,9 +142,19 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+.dark .btn-secondary {
+  background: rgba(71, 85, 105, 0.5);
+  color: #cbd5e1;
+  border: 1px solid rgba(71, 85, 105, 0.7);
+}
+
 .btn-secondary:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.15);
   transform: translateY(-1px);
+}
+
+.dark .btn-secondary:hover:not(:disabled) {
+  background: rgba(71, 85, 105, 0.7);
 }
 
 .btn-primary {

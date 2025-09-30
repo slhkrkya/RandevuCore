@@ -7,6 +7,10 @@
 	padding: 24px;
 }
 
+.dark .auth-container {
+	background: linear-gradient(135deg, #1e40af 0%, #4f46e5 100%);
+}
+
 .auth-card {
 	width: 100%;
 	max-width: 380px;
@@ -16,15 +20,27 @@
 	padding: 28px;
 }
 
+.dark .auth-card {
+	background: #1e293b;
+	box-shadow: 0 10px 30px rgba(0,0,0,.3);
+}
+
 .auth-card h1 {
 	margin: 0 0 18px;
 	font-size: 22px;
 	font-weight: 700;
 }
 
+.dark .auth-card h1 {
+	color: #f1f5f9;
+}
+
 .tabs { display: flex; gap: 12px; margin-bottom: 12px; }
 .tabs a { font-size: 12px; color: #6b7280; text-decoration: none; padding-bottom: 4px; }
 .tabs a.active { color: #111827; border-bottom: 2px solid #111827; }
+
+.dark .tabs a { color: #94a3b8; }
+.dark .tabs a.active { color: #f1f5f9; border-bottom: 2px solid #f1f5f9; }
 
 .field { margin-bottom: 16px; }
 .field label { display: block; font-size: 12px; color: #374151; margin-bottom: 6px; }
@@ -36,8 +52,17 @@
 	outline: none;
 	transition: border-color .2s, box-shadow .2s;
 }
+
+.dark .field label { color: #cbd5e1; }
+.dark .field input {
+	border: 1px solid #475569;
+	background: #334155;
+	color: #f1f5f9;
+}
 .field input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.2); }
 .field input.invalid { border-color: #ef4444; }
+
+.dark .field input:focus { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129,140,248,.3); }
 
 .password-field { position: relative; }
 .password-field .icon {
@@ -66,6 +91,9 @@
 
 .muted { color: #6b7280; font-size: 12px; text-align: center; margin-top: 12px; }
 .muted a { color: #111827; text-decoration: underline; }
+
+.dark .muted { color: #94a3b8; }
+.dark .muted a { color: #f1f5f9; }
 
 .error { color: #b91c1c; font-size: 12px; margin-top: 6px; }
 .toptip { text-align: center; }

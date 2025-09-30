@@ -1,12 +1,12 @@
-<div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+<div class="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 py-12 px-4 sm:px-6 lg:px-8 pt-20">
   <div class="max-w-md w-full space-y-8">
     <!-- Header -->
     <div class="text-center">
       <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900">
         <span class="material-symbols-outlined text-primary-600 dark:text-primary-400 text-2xl">login</span>
       </div>
-      <h2 class="mt-6 text-3xl font-bold text-gray-900 dark:text-white">Giriş Yap</h2>
-      <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+      <h2 class="mt-6 text-3xl font-bold text-slate-900 dark:text-white">Giriş Yap</h2>
+      <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
         Hesabınıza giriş yapın
       </p>
     </div>
@@ -22,7 +22,7 @@
             formControlName="email" 
             type="email" 
             autocomplete="email" 
-            class="form-input"
+            class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
             [class.border-red-500]="form.get('email')?.touched && form.get('email')?.invalid"
             placeholder="ornek@email.com"
           />
@@ -41,7 +41,7 @@
               formControlName="password" 
               [type]="showPassword ? 'text' : 'password'" 
               autocomplete="current-password" 
-              class="form-input pr-10"
+              class="w-full px-4 py-3 pr-10 border border-slate-300 dark:border-slate-600 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
               [class.border-red-500]="form.get('password')?.touched && form.get('password')?.invalid"
               placeholder="••••••••"
             />
@@ -51,7 +51,7 @@
               (click)="showPassword = !showPassword"
               [attr.aria-label]="showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'"
             >
-              <span class="material-symbols-outlined text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+              <span class="material-symbols-outlined text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
                 {{ showPassword ? 'visibility_off' : 'visibility' }}
               </span>
             </button>
@@ -81,7 +81,7 @@
 
       <!-- Links -->
       <div class="text-center">
-        <p class="text-sm text-gray-600 dark:text-gray-400">
+        <p class="text-sm text-slate-600 dark:text-slate-400">
           Hesabın yok mu? 
           <a routerLink="/register" class="font-medium text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300 transition-colors">
             Kayıt ol

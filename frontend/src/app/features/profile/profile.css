@@ -69,26 +69,75 @@ input:focus {
   }
 }
 
-/* Dark mode considerations */
-@media (prefers-color-scheme: dark) {
-  .bg-white {
-    background-color: #1f2937;
-    color: #f9fafb;
-  }
-  
-  .text-gray-900 {
-    color: #f9fafb;
-  }
-  
-  .text-gray-700 {
-    color: #d1d5db;
-  }
-  
-  .border-gray-300 {
-    border-color: #4b5563;
-  }
-  
-  .bg-gray-50 {
-    background-color: #374151;
-  }
+/* Dark mode styles */
+.dark .card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  box-shadow: 0 10px 30px rgba(0,0,0,.3);
+}
+
+.dark .card-header {
+  background: rgba(51, 65, 85, 0.8);
+  border-bottom: 1px solid #334155;
+}
+
+.dark .card-body {
+  background: #1e293b;
+}
+
+.dark .card-footer {
+  background: rgba(51, 65, 85, 0.8);
+  border-top: 1px solid #334155;
+}
+
+.dark .form-label {
+  color: #cbd5e1;
+}
+
+.dark .form-input {
+  border: 1px solid #475569;
+  background: #334155;
+  color: #f1f5f9;
+}
+
+.dark .form-input:focus {
+  border-color: #818cf8;
+  box-shadow: 0 0 0 3px rgba(129,140,248,.3);
+}
+
+.dark .form-input:disabled {
+  background: #374151;
+  color: #6b7280;
+}
+
+.dark .btn {
+  background: #2563eb;
+  color: white;
+}
+
+.dark .btn:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.dark .btn:disabled {
+  background: #6b7280;
+  color: #9ca3af;
+}
+
+.dark .btn-danger {
+  background: #dc2626;
+}
+
+.dark .btn-danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.dark .form-error {
+  background: #7f1d1d;
+  color: #fca5a5;
+  border: 1px solid #dc2626;
+}
+
+.dark .btn-animate:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }

@@ -76,25 +76,25 @@ export class MeetingControlsComponent {
 
   getMuteButtonClass(): string {
     return this.meetingState.isMuted 
-      ? 'bg-red-500 hover:bg-red-600' 
-      : 'bg-gray-600 hover:bg-gray-700';
+      ? 'bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-500' 
+      : 'bg-slate-600 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600';
   }
 
   getVideoButtonClass(): string {
     return this.meetingState.isVideoOn 
-      ? 'bg-gray-600 hover:bg-gray-700' 
-      : 'bg-red-500 hover:bg-red-600';
+      ? 'bg-slate-600 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600' 
+      : 'bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-500';
   }
 
   getScreenShareButtonClass(): string {
     return this.meetingState.isScreenSharing 
-      ? 'bg-blue-500 hover:bg-blue-600' 
-      : 'bg-gray-600 hover:bg-gray-700';
+      ? 'bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500' 
+      : 'bg-slate-600 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600';
   }
 
   getViewButtonClass(view: 'grid' | 'speaker' | 'whiteboard'): string {
     return this.activeView === view 
-      ? 'bg-blue-500 text-white' 
-      : 'bg-gray-600 hover:bg-gray-700 text-gray-300';
+      ? 'bg-blue-500 text-white dark:bg-blue-600 dark:text-white' 
+      : 'bg-slate-600 hover:bg-slate-700 text-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200';
   }
 }
