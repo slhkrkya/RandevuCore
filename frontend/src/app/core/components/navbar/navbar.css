@@ -98,4 +98,153 @@
   transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
 }
 
+/* Settings Menu Styles */
+.settings-dropdown {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Slider Styles */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  outline: none;
+}
+
+.slider::-webkit-slider-track {
+  background: #e2e8f0;
+  height: 8px;
+  border-radius: 4px;
+  border: none;
+}
+
+.dark .slider::-webkit-slider-track {
+  background: #475569;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: #3b82f6;
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  margin-top: -6px;
+  transition: all 0.2s ease;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  background: #2563eb;
+  transform: scale(1.1);
+}
+
+.dark .slider::-webkit-slider-thumb {
+  border: 3px solid #1e293b;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.dark .slider::-webkit-slider-thumb:hover {
+  background: #60a5fa;
+}
+
+.slider::-moz-range-track {
+  background: #e2e8f0;
+  height: 8px;
+  border-radius: 4px;
+  border: none;
+}
+
+.dark .slider::-moz-range-track {
+  background: #475569;
+}
+
+.slider::-moz-range-thumb {
+  background: #3b82f6;
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+.slider::-moz-range-thumb:hover {
+  background: #2563eb;
+  transform: scale(1.1);
+}
+
+.dark .slider::-moz-range-thumb {
+  border: 3px solid #1e293b;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.dark .slider::-moz-range-thumb:hover {
+  background: #60a5fa;
+}
+
+/* Volume Label Styles */
+.volume-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.dark .volume-label {
+  color: #94a3b8;
+}
+
+.volume-percentage {
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+.dark .volume-percentage {
+  color: #60a5fa;
+}
+
+/* Mobile Settings Panel Animation */
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+
+/* Settings Menu Hover Effects */
+.settings-option:hover {
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.dark .settings-option:hover {
+  background: rgba(96, 165, 250, 0.1);
+}
+
+/* Focus States for Settings */
+.settings-option:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.dark .settings-option:focus {
+  outline: 2px solid #60a5fa;
+}
+
 

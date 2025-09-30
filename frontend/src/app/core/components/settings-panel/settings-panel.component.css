@@ -1,0 +1,31 @@
+/* Settings Panel Styles */
+.volume-label {
+  @apply flex items-center justify-between text-[14px] text-slate-600 dark:text-slate-400 mb-1;
+}
+
+.volume-percentage {
+  @apply text-[14px] font-medium text-slate-700 dark:text-slate-300;
+}
+
+.slider {
+  @apply appearance-none h-2 bg-slate-200 dark:bg-slate-700 rounded-lg outline-none;
+}
+
+.slider::-webkit-slider-thumb {
+  @apply appearance-none w-4 h-4 bg-blue-500 rounded-full cursor-pointer;
+}
+
+.slider::-moz-range-thumb {
+  @apply w-4 h-4 bg-blue-500 rounded-full cursor-pointer border-0;
+}
+
+/* Mobile specific styles */
+@media (max-width: 1024px) {
+  .volume-label {
+    @apply text-sm;
+  }
+  
+  .volume-percentage {
+    @apply text-sm;
+  }
+}

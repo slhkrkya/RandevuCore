@@ -1,13 +1,14 @@
-import { Component, computed } from '@angular/core';
+import { Component, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { AuthService } from '../../../core/services/auth';
+import { SettingsPanelComponent } from '../settings-panel/settings-panel.component';
 import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-navbar',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, SettingsPanelComponent],
   templateUrl: './navbar.html',
   styleUrls: ['./navbar.css']
 })
@@ -16,14 +17,19 @@ export class NavbarComponent {
   currentRoute = '';
   isMobileMenuOpen = false;
   isClosing = false;
+  isSettingsMenuOpen = signal(false);
 
-  constructor(private auth: AuthService, private router: Router) {
+  constructor(
+    private auth: AuthService, 
+    private router: Router
+  ) {
     // Track current route for page title
     this.router.events
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe((event: NavigationEnd) => {
         this.currentRoute = event.url;
         this.isMobileMenuOpen = false; // Close mobile menu on route change
+        this.isSettingsMenuOpen.set(false); // Close settings menu on route change
       });
   }
 
@@ -71,6 +77,13 @@ export class NavbarComponent {
       this.isClosing = false;
     }, 400); // Animation duration
   }
+
+  // Settings menu methods
+  toggleSettingsMenu() {
+    this.isSettingsMenuOpen.set(!this.isSettingsMenuOpen());
+  }
+
+  closeSettingsMenu() {
+    this.isSettingsMenuOpen.set(false);
+  }
 }
-
-
