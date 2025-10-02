@@ -1,100 +1,84 @@
-/* Basit modern form stilleri */
-.auth-container {
-	display: grid;
-	place-items: center;
-	min-height: 100dvh;
-	background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
-	padding: 24px;
-}
+/* Login Component Styles - TailwindCSS v4 Reference */
+@reference "tailwindcss";
 
-.dark .auth-container {
-	background: linear-gradient(135deg, #1e40af 0%, #4f46e5 100%);
+/* Modern Auth Styles with TailwindCSS v4 */
+
+.auth-container {
+  @apply grid place-items-center min-h-screen bg-gradient-to-br from-blue-400 to-indigo-600 dark:from-blue-900 dark:to-indigo-800 p-6;
 }
 
 .auth-card {
-	width: 100%;
-	max-width: 380px;
-	background: #fff;
-	border-radius: 14px;
-	box-shadow: 0 10px 30px rgba(0,0,0,.12);
-	padding: 28px;
-}
-
-.dark .auth-card {
-	background: #1e293b;
-	box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  @apply w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-white/20 dark:border-slate-700 p-7 backdrop-blur-sm;
 }
 
 .auth-card h1 {
-	margin: 0 0 18px;
-	font-size: 22px;
-	font-weight: 700;
+  @apply m-0 mb-5 text-2xl font-bold text-slate-900 dark:text-slate-100;
 }
 
-.dark .auth-card h1 {
-	color: #f1f5f9;
+.tabs {
+  @apply flex gap-3 mb-3;
 }
 
-.tabs { display: flex; gap: 12px; margin-bottom: 12px; }
-.tabs a { font-size: 12px; color: #6b7280; text-decoration: none; padding-bottom: 4px; }
-.tabs a.active { color: #111827; border-bottom: 2px solid #111827; }
+.tabs a {
+  @apply text-xs text-slate-600 dark:text-slate-400 no-underline pb-1 transition-colors;
+}
 
-.dark .tabs a { color: #94a3b8; }
-.dark .tabs a.active { color: #f1f5f9; border-bottom: 2px solid #f1f5f9; }
+.tabs a.active {
+  @apply text-slate-900 dark:text-slate-100 border-b-2 border-slate-900 dark:border-slate-100;
+}
 
-.field { margin-bottom: 16px; }
-.field label { display: block; font-size: 12px; color: #374151; margin-bottom: 6px; }
+.field {
+  @apply mb-4;
+}
+
+.field label {
+  @apply block text-xs text-slate-700 dark:text-slate-300 mb-1.5;
+}
+
 .field input {
-	width: 100%;
-	padding: 10px 12px;
-	border: 1px solid #e5e7eb;
-	border-radius: 8px;
-	outline: none;
-	transition: border-color .2s, box-shadow .2s;
+  @apply w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg outline-none transition-all duration-300 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100;
 }
 
-.dark .field label { color: #cbd5e1; }
-.dark .field input {
-	border: 1px solid #475569;
-	background: #334155;
-	color: #f1f5f9;
+.field input:focus {
+  @apply border-indigo-500 dark:border-indigo-400 ring-4 ring-indigo-500/20 dark:ring-indigo-400/20;
 }
-.field input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.2); }
-.field input.invalid { border-color: #ef4444; }
 
-.dark .field input:focus { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129,140,248,.3); }
+.field input.invalid {
+  @apply border-red-500 dark:border-red-400 ring-4 ring-red-500/20 dark:ring-red-400/20;
+}
 
-.password-field { position: relative; }
+.password-field {
+  @apply relative;
+}
+
 .password-field .icon {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: transparent;
-  border: 0;
-  cursor: pointer;
+  @apply absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-0 cursor-pointer;
 }
 
 .primary {
-	width: 100%;
-	background: #6366f1;
-	color: #fff;
-	border: 0;
-	border-radius: 10px;
-	padding: 10px 14px;
-	font-weight: 600;
-	cursor: pointer;
-	transition: transform .05s ease, opacity .2s ease;
+  @apply w-full bg-indigo-600 dark:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg transition-all duration-300 hover:bg-indigo-700 dark:hover:bg-indigo-600 hover:shadow-lg;
 }
-.primary:disabled { opacity: .6; cursor: not-allowed; }
-.primary:not(:disabled):active { transform: translateY(1px); }
+.primary:disabled {
+  @apply opacity-60 cursor-not-allowed;
+}
 
-.muted { color: #6b7280; font-size: 12px; text-align: center; margin-top: 12px; }
-.muted a { color: #111827; text-decoration: underline; }
+.primary:not(:disabled):active {
+  @apply transform translate-y-0.5;
+}
 
-.dark .muted { color: #94a3b8; }
-.dark .muted a { color: #f1f5f9; }
+.muted {
+  @apply text-slate-600 dark:text-slate-400 text-xs text-center mt-3;
+}
 
-.error { color: #b91c1c; font-size: 12px; margin-top: 6px; }
-.toptip { text-align: center; }
+.muted a {
+  @apply text-slate-900 dark:text-slate-100 underline;
+}
+
+.error {
+  @apply text-red-600 dark:text-red-400 text-xs mt-1.5;
+}
+
+.toptip {
+  @apply text-center;
+}
 

@@ -1,0 +1,89 @@
+<div class="min-h-screen bg-white dark:bg-slate-900 settings-fade-in">
+  <div class="max-w-4xl mx-auto px-4 py-8 xs:px-2 3xl:px-8">
+    <!-- Breadcrumb Navigation -->
+    <div class="flex items-center gap-4 mb-8 pb-6 border-b border-slate-200 dark:border-slate-700">
+      <button 
+        (click)="goBack()"
+        class="btn btn-secondary btn-sm"
+      >
+        <span class="material-symbols-outlined text-sm mr-1">arrow_back</span>
+        Geri
+      </button>
+      <h1 class="text-3xl font-bold text-slate-800 dark:text-slate-200">Ayarlar</h1>
+    </div>
+
+    <!-- Settings Sections -->
+    <div class="space-y-8">
+      <!-- General Settings -->
+      <div class="settings-card bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div class="p-6">
+          <div class="mb-6">
+            <h2 class="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-2">Genel Ayarlar</h2>
+            <p class="text-sm text-slate-600 dark:text-slate-400">Tema ve görünüm ayarlarınızı yönetin</p>
+          </div>
+          <app-settings-panel></app-settings-panel>
+        </div>
+      </div>
+
+      <!-- About Section -->
+      <div class="settings-card bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div class="p-6">
+          <div class="mb-4">
+            <h2 class="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-2">Hakkında</h2>
+            <p class="text-sm text-slate-600 dark:text-slate-400">RandevuCore uygulaması hakkında bilgiler</p>
+          </div>
+          
+          <div class="space-y-4">
+            <div class="flex justify-between items-center py-3 px-4 bg-slate-50 dark:bg-slate-700 rounded-lg">
+              <span class="font-medium text-slate-800 dark:text-slate-200">Sürüm</span>
+              <span class="text-sm text-slate-600 dark:text-slate-400">1.0.0</span>
+            </div>
+            
+            <div class="flex justify-between items-center py-3 px-4 bg-slate-50 dark:bg-slate-700 rounded-lg">
+              <span class="font-medium text-slate-800 dark:text-slate-200">Geliştirici</span>
+              <span class="text-sm text-slate-600 dark:text-slate-400">RandevuCore Team</span>
+            </div>
+            
+            <div class="flex justify-between items-center py-3 px-4 bg-slate-50 dark:bg-slate-700 rounded-lg">
+              <span class="font-medium text-slate-800 dark:text-slate-200">Toplantı Teknolojisi</span>
+              <span class="text-sm text-slate-600 dark:text-slate-400">WebRTC</span>
+            </div>
+            
+            <div class="flex justify-between items-center py-3 px-4 bg-slate-50 dark:bg-slate-700 rounded-lg">
+              <span class="font-medium text-slate-800 dark:text-slate-200">UI Framework</span>
+              <span class="text-sm text-slate-600 dark:text-slate-400">Angular + TailwindCSS v4</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Legal Section -->
+      <div class="settings-card bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div class="p-6">
+          <div class="mb-4">
+            <h2 class="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-2">Yasal Bilgiler</h2>
+            <p class="text-sm text-slate-600 dark:text-slate-400">Kullanım koşulları ve gizlilik politikası</p>
+          </div>
+          
+          <div class="space-y-3">
+            <button 
+              type="button"
+              class="btn btn-secondary w-full text-left"
+            >
+              <span class="material-symbols-outlined text-sm mr-2">gavel</span>
+              Kullanım Koşulları
+            </button>
+            
+            <button 
+              type="button"
+              class="btn btn-secondary w-full text-left"
+            >
+              <span class="material-symbols-outlined text-sm mr-2">shield</span>
+              Gizlilik Politikası
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -41,6 +41,8 @@ export class NavbarComponent {
         return 'Toplantı Yönetimi';
       case '/profile':
         return 'Profil Ayarları';
+      case '/settings':
+        return 'Ayarlar';
       case '/login':
         return 'Giriş Yap';
       case '/register':

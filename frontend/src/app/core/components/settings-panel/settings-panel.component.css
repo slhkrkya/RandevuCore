@@ -1,3 +1,6 @@
+/* Settings Panel Component Styles - TailwindCSS v4 Reference */
+@reference "tailwindcss";
+
 /* Settings Panel Styles */
 .volume-label {
   @apply flex items-center justify-between text-[14px] text-slate-600 dark:text-slate-400 mb-1;

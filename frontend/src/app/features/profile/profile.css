@@ -1,3 +1,6 @@
+/* Profile Component Styles - TailwindCSS v4 Reference */
+@reference "tailwindcss";
+
 /* Profil sayfası özel stilleri */
 .material-symbols-outlined {
   font-variation-settings:
@@ -69,75 +72,68 @@ input:focus {
   }
 }
 
-/* Dark mode styles */
-.dark .card {
-  background: #1e293b;
-  border: 1px solid #334155;
-  box-shadow: 0 10px 30px rgba(0,0,0,.3);
+/* Legacy styles removed - now using TailwindCSS v4 @apply directives above */
+
+/* Modern TailwindCSS v4 Compatible Styles */
+
+/* Card Components */
+.card {
+  @apply bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg;
 }
 
-.dark .card-header {
-  background: rgba(51, 65, 85, 0.8);
-  border-bottom: 1px solid #334155;
+.card-header {
+  @apply bg-slate-50/80 dark:bg-slate-700/80 border-b border-slate-200 dark:border-slate-600;
 }
 
-.dark .card-body {
-  background: #1e293b;
+.card-body {
+  @apply bg-white dark:bg-slate-800;
 }
 
-.dark .card-footer {
-  background: rgba(51, 65, 85, 0.8);
-  border-top: 1px solid #334155;
+.card-footer {
+  @apply bg-slate-50/80 dark:bg-slate-700/80 border-t border-slate-200 dark:border-slate-600;
 }
 
-.dark .form-label {
-  color: #cbd5e1;
+/* Form Elements */
+.form-label {
+  @apply text-slate-700 dark:text-slate-300;
 }
 
-.dark .form-input {
-  border: 1px solid #475569;
-  background: #334155;
-  color: #f1f5f9;
+.form-input {
+  @apply border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100;
 }
 
-.dark .form-input:focus {
-  border-color: #818cf8;
-  box-shadow: 0 0 0 3px rgba(129,140,248,.3);
+.form-input:focus {
+  @apply border-indigo-500 dark:border-indigo-400 ring-4 ring-indigo-500/10 dark:ring-indigo-400/10;
 }
 
-.dark .form-input:disabled {
-  background: #374151;
-  color: #6b7280;
+.form-input:disabled {
+  @apply bg-slate-200 dark:bg-slate-600 text-slate-500 dark:text-slate-400;
 }
 
-.dark .btn {
-  background: #2563eb;
-  color: white;
+/* Button Styles */
+.btn {
+  @apply bg-indigo-600 dark:bg-indigo-700 text-white;
 }
 
-.dark .btn:hover:not(:disabled) {
-  background: #1d4ed8;
+.btn:hover:not(:disabled) {
+  @apply bg-indigo-700 dark:bg-indigo-600;
 }
 
-.dark .btn:disabled {
-  background: #6b7280;
-  color: #9ca3af;
+.btn:disabled {
+  @apply bg-slate-400 dark:bg-slate-600 text-slate-200 dark:text-slate-300;
 }
 
-.dark .btn-danger {
-  background: #dc2626;
+/* All button styles now handled by TailwindCSS v4 @apply directives above */
+
+/* Danger and error styles */
+.btn-danger {
+  @apply bg-red-600 dark:bg-red-700 text-white;
 }
 
-.dark .btn-danger:hover:not(:disabled) {
-  background: #b91c1c;
+.btn-danger:hover:not(:disabled) {
+  @apply bg-red-700 dark:bg-red-600;
 }
 
-.dark .form-error {
-  background: #7f1d1d;
-  color: #fca5a5;
-  border: 1px solid #dc2626;
-}
-
-.dark .btn-animate:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+.form-error {
+  @apply bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border border-red-300 dark:border-red-700;
 }

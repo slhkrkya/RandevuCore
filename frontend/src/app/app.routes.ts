@@ -9,6 +9,7 @@ import { MeetingRoomComponent } from './features/meeting/meeting-room/meeting-ro
 import { MeetingCreateComponent } from './features/meeting/meeting-create/meeting-create';
 import { MeetingPrejoinComponent } from './features/meeting/meeting-prejoin/meeting-prejoin';
 import { ProfileComponent } from './features/profile/profile';
+import { SettingsComponent } from './features/settings/settings';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent, canActivate: [guestGuard] },
@@ -20,5 +21,6 @@ export const routes: Routes = [
   { path: 'meetings/:id/prejoin', component: MeetingPrejoinComponent, canActivate: [authGuard] },
   { path: 'meetings/:id', component: MeetingRoomComponent, canActivate: [authGuard] },
   { path: 'profile', component: ProfileComponent, canActivate: [authGuard] },
+  { path: 'settings', component: SettingsComponent, canActivate: [authGuard] },
   { path: '', redirectTo: 'appointments', pathMatch: 'full' }
 ];
