@@ -92,11 +92,19 @@ export class SettingsService {
 
   private applyTheme(isDark: boolean): void {
     const html = document.documentElement;
+    html.classList.remove('dark'); // Her seferinde temizle
+    
     if (isDark) {
       html.classList.add('dark');
-    } else {
-      html.classList.remove('dark');
     }
+    
+    // Force CSS refresh - browser cache problemi için
+    setTimeout(() => {
+      const themeBefore = html.className;
+      html.className = '';
+      html.offsetHeight; // Force repaint
+      html.className = themeBefore;
+    }, 0);
   }
 
   // Public methods
@@ -104,6 +112,25 @@ export class SettingsService {
     this._settings.update(current => ({ ...current, theme }));
     this.saveSettings();
     this.initializeTheme();
+    
+    // Browser-specific fix for Edge/Chrome theme switching
+    setTimeout(() => {
+      this.forceThemeUpdate();
+    }, 100);
+  }
+  
+  private forceThemeUpdate(): void {
+    const isDark = this.isDarkMode();
+    const html = document.documentElement;
+    
+    // Force attribute update for better browser compatibility
+    html.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    
+    // Additional DOM manipulation for stubborn browsers
+    const event = new Event('themechange');
+    window.dispatchEvent(event);
+    
+    console.log(`Theme switched to: ${this._settings().theme} (dark: ${isDark})`);
   }
 
   setCameraDevice(deviceId: string | null): void {

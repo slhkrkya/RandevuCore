@@ -1,5 +1,5 @@
 <!doctype html>
-<html class="dark" lang="en">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <title>RandevuCore - Video Conference</title>
@@ -10,6 +10,28 @@
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+  <script>
+    // Prevent FOUC (Flash of Unstyled Content)
+    (function() {
+      function applyTheme() {
+        const isDark = localStorage.randevucore_settings ? 
+          JSON.parse(localStorage.randevucore_settings).theme === "dark" ||
+          (JSON.parse(localStorage.randevucore_settings).theme === "system" && window.matchMedia('(prefers-color-scheme: dark)').matches) :
+          window.matchMedia('(prefers-color-scheme: dark)').matches;
+          
+        const html = document.documentElement;
+        html.classList.toggle("dark", isDark);
+        html.setAttribute('data-theme', isDark ? 'dark' : 'light');
+      }
+      
+      applyTheme();
+      
+      // Listen for system theme changes
+      if (window.matchMedia) {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+      }
+    })();
+  </script>
   <style>
     .material-symbols-outlined {
       font-variation-settings:

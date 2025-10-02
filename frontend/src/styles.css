@@ -1,5 +1,6 @@
 /* Global Styles for RandevuCore */
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *, [data-theme=dark], [data-theme=dark] *));
 
 /* Custom Design Tokens for RandevuCore */
 @theme {
