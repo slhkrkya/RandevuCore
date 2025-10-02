@@ -1,4 +1,4 @@
-import { Component, computed, signal, inject } from '@angular/core';
+import { Component, computed, signal, inject, HostListener, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SettingsService } from '../../services/settings.service';
@@ -11,7 +11,7 @@ import { AudioService } from '../../services/audio.service';
   templateUrl: './settings-panel.component.html',
   styleUrls: ['./settings-panel.component.css']
 })
-export class SettingsPanelComponent {
+export class SettingsPanelComponent implements OnDestroy {
   private settings = inject(SettingsService);
   private audioService = inject(AudioService);
   
@@ -19,6 +19,7 @@ export class SettingsPanelComponent {
   isDarkMode = computed(() => this.settings.isDarkMode());
   currentTheme = computed(() => this.settings.currentTheme());
   deviceSettings = computed(() => this.settings.deviceSettings());
+  speakerMonitorVolume = computed(() => this.settings.speakerMonitorVolume());
   
   // Audio related
   isAudioListening = computed(() => this.audioService.isListening());
@@ -36,7 +37,57 @@ export class SettingsPanelComponent {
 
   constructor() {
     this.loadAvailableDevices();
+    // Listen for OS-level device changes (plug/unplug)
+    if (navigator && (navigator as any).mediaDevices && typeof (navigator.mediaDevices as any).addEventListener === 'function') {
+      (navigator.mediaDevices as any).addEventListener('devicechange', this.handleDeviceChange);
+    } else if (navigator && (navigator as any).mediaDevices) {
+      // Fallback: older browsers may expose ondevicechange
+      try {
+        (navigator.mediaDevices as any).ondevicechange = this.handleDeviceChange as any;
+      } catch {}
+    }
   }
+
+  // Stop monitoring on global pointer up (in case user releases outside the button)
+  @HostListener('document:pointerup')
+  onGlobalPointerUp() {
+    if (this.isAudioListening()) {
+      this.stopAudioMonitoring();
+    }
+  }
+
+  // Stop monitoring if page/tab becomes hidden
+  @HostListener('document:visibilitychange')
+  onVisibilityChange() {
+    if (document.hidden && this.isAudioListening()) {
+      this.stopAudioMonitoring();
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.isAudioListening()) {
+      this.stopAudioMonitoring();
+    }
+    if (navigator && (navigator as any).mediaDevices && typeof (navigator.mediaDevices as any).removeEventListener === 'function') {
+      (navigator.mediaDevices as any).removeEventListener('devicechange', this.handleDeviceChange);
+    } else if (navigator && (navigator as any).mediaDevices) {
+      try {
+        (navigator.mediaDevices as any).ondevicechange = null;
+      } catch {}
+    }
+  }
+
+  // Safely handle device changes to avoid breaking the UI when devices appear/disappear
+  private handleDeviceChange = async () => {
+    try {
+      await this.loadAvailableDevices();
+      // Re-apply output sink to selected speaker or default if none
+      const current = this.deviceSettings();
+      await this.audioService.setOutputDevice(current.speakerDeviceId || '');
+    } catch (err) {
+      console.warn('Device change handling failed:', err);
+    }
+  };
 
   // Theme methods
   setTheme(theme: 'light' | 'dark' | 'system') {
@@ -130,10 +181,16 @@ export class SettingsPanelComponent {
 
   setSpeakerDevice(deviceId: string | null) {
     this.settings.setSpeakerDevice(deviceId);
+    // Also update monitoring sink immediately
+    this.audioService.setOutputDevice(deviceId || '');
   }
 
   setMicrophoneVolume(volume: number) {
     this.settings.setMicrophoneVolume(volume);
+  }
+
+  setSpeakerMonitorVolume(volume: number) {
+    this.settings.setSpeakerMonitorVolume(volume);
   }
 
   getDeviceName(device: MediaDeviceInfo): string {
@@ -191,8 +248,10 @@ export class SettingsPanelComponent {
       const success = await this.audioService.initializeAudio(deviceSettings.microphoneDeviceId || undefined);
       if (success) {
         this.audioService.setVolume(deviceSettings.microphoneVolume);
-        // Set monitoring volume to 30% for safety
-        this.audioService.setMonitoringVolume(30);
+        // Apply global monitoring volume
+        this.audioService.setMonitoringVolume(this.speakerMonitorVolume());
+        // Ensure output sink follows selected speaker
+        await this.audioService.setOutputDevice(deviceSettings.speakerDeviceId || '');
       }
     }
   }

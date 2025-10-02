@@ -106,22 +106,29 @@
     </div>
 
     <!-- Empty State -->
-    <div *ngIf="!loading && (!items || items.length === 0)" class="text-center py-20 animate-fade-in">
-      <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 max-w-lg mx-auto p-12">
-        <div class="w-20 h-20 bg-gradient-to-r from-emerald-500 to-blue-600 rounded-full mx-auto mb-6 flex items-center justify-center">
-          <span class="material-symbols-outlined text-white text-3xl">event_available</span>
+    <div *ngIf="!loading && (!items || items.length === 0)" class="py-20 animate-fade-in">
+      <div class="max-w-3xl mx-auto">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-8 md:p-10">
+          <div class="flex flex-col md:flex-row items-center gap-8">
+            <div class="w-24 h-24 bg-gradient-to-r from-emerald-500 to-blue-600 rounded-full flex items-center justify-center shrink-0">
+              <span class="material-symbols-outlined text-white text-4xl">event_available</span>
+            </div>
+            <div class="text-center md:text-left flex-1">
+              <h3 class="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-2">Henüz Randevu Yok</h3>
+              <p class="text-slate-600 dark:text-slate-400 mb-6 text-base md:text-lg">
+                İlk randevunuzu oluşturmak için aşağıdaki butona tıklayın ve randevularınızı yönetmeye başlayın.
+              </p>
+              <div class="flex justify-center md:justify-start">
+                <button 
+                  routerLink="/appointments/new"
+                  class="btn btn-success btn-lg">
+                  <span class="material-symbols-outlined mr-2">add</span>
+                  İlk Randevuyu Oluştur
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-        <h3 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">Henüz Randevu Yok</h3>
-        <p class="text-slate-600 dark:text-slate-400 mb-8 text-lg">
-          İlk randevunuzu oluşturmak için aşağıdaki butona tıklayın ve randevularınızı yönetmeye başlayın
-        </p>
-        <button 
-          routerLink="/appointments/new"
-          class="btn btn-success btn-lg animate-scale-in animate-delay-1"
-        >
-          <span class="material-symbols-outlined mr-2">add</span>
-          İlk Randevuyu Oluştur
-        </button>
       </div>
     </div>
   </div>

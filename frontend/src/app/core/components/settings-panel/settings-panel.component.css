@@ -14,6 +14,24 @@
   @apply appearance-none h-2 bg-slate-200 dark:bg-slate-700 rounded-lg outline-none;
 }
 
+/* Overlayed live level bar inside the slider area */
+.slider-wrapper {
+  position: relative;
+}
+
+.level-overlay {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 0.5rem; /* match slider height */
+  border-radius: 0.5rem;
+  background: linear-gradient(90deg, #22c55e, #f59e0b, #ef4444);
+  transition: width 100ms ease-in-out;
+  pointer-events: none; /* do not block slider interactions */
+  opacity: 0.85;
+}
+
 .slider::-webkit-slider-thumb {
   @apply appearance-none w-4 h-4 bg-blue-500 rounded-full cursor-pointer;
 }

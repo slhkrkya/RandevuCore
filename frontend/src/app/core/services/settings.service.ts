@@ -7,6 +7,7 @@ export interface DeviceSettings {
   microphoneDeviceId: string | null;
   speakerDeviceId: string | null;
   microphoneVolume: number; // 0-100
+  speakerMonitorVolume: number; // 0-100, app-wide
 }
 
 export interface AppSettings {
@@ -36,6 +37,7 @@ export class SettingsService {
   
   public currentTheme = computed(() => this._settings().theme);
   public deviceSettings = computed(() => this._settings().devices);
+  public speakerMonitorVolume = computed(() => this._settings().devices.speakerMonitorVolume);
 
   constructor() {
     this.loadSettings();
@@ -50,7 +52,8 @@ export class SettingsService {
         cameraDeviceId: null,
         microphoneDeviceId: null,
         speakerDeviceId: null,
-        microphoneVolume: 80
+        microphoneVolume: 50,
+        speakerMonitorVolume: 50
       }
     };
   }
@@ -174,6 +177,18 @@ export class SettingsService {
       devices: { ...current.devices, speakerDeviceId: deviceId }
     }));
     this.saveSettings();
+  }
+
+  // Speaker monitoring volume (app-wide)
+  setSpeakerMonitorVolume(volume: number): void {
+    const clampedVolume = Math.max(0, Math.min(100, volume));
+    this._settings.update(current => ({
+      ...current,
+      devices: { ...current.devices, speakerMonitorVolume: clampedVolume }
+    }));
+    this.saveSettings();
+    // Apply immediately if monitoring is active
+    this.audioService.setMonitoringVolume(clampedVolume);
   }
 
   resetToDefaults(): void {

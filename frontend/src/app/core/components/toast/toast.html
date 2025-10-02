@@ -1,0 +1,13 @@
+<div class="toast-container">
+  <div *ngFor="let t of toasts()" class="toast" [class.toast-info]="t.type==='info'" [class.toast-success]="t.type==='success'" [class.toast-warning]="t.type==='warning'" [class.toast-error]="t.type==='error'">
+    <div class="toast-body">
+      <span class="material-symbols-outlined icon" aria-hidden="true">
+        {{ t.type === 'success' ? 'check_circle' : t.type === 'warning' ? 'warning' : t.type === 'error' ? 'error' : 'info' }}
+      </span>
+      <span class="message">{{ t.message }}</span>
+      <button class="close" (click)="dismiss(t.id)" title="Kapat">×</button>
+    </div>
+  </div>
+</div>
+
+
