@@ -5,7 +5,19 @@
   height: 100%;
   align-content: center;
   justify-content: center;
-  padding: 1rem;
+  padding: clamp(0.5rem, 3vw, 2rem);
+}
+
+/* Container-based responsive grid */
+.video-grid-responsive {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  padding: clamp(0.5rem, 3vw, 2rem);
+  gap: clamp(0.5rem, 2vw, 1.5rem);
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  align-content: center;
+  justify-content: center;
 }
 
 .video-tile {

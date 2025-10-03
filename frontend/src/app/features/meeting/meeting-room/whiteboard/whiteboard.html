@@ -1,4 +1,4 @@
-<div class="h-full w-full flex flex-col bg-white">
+<div class="whiteboard-container h-full w-full flex flex-col bg-white">
   
   <!-- Whiteboard Header -->
   <div class="flex items-center justify-between p-4 bg-gray-100 border-b border-gray-300">
@@ -27,7 +27,7 @@
   </div>
 
   <!-- Whiteboard Content -->
-  <div class="flex-1 flex">
+  <div class="whiteboard-content flex-1 flex pb-8">
     
     <!-- Drawing Tools Sidebar -->
     <div class="w-16 bg-gray-50 border-r border-gray-300 flex flex-col items-center py-4 space-y-4">
@@ -77,7 +77,7 @@
     </div>
     
     <!-- Canvas Area -->
-    <div class="flex-1 flex items-center justify-center p-4">
+    <div class="canvas-container flex-1 flex items-center justify-center p-4">
       <div class="relative">
         <canvas #whiteboardCanvas
                 class="border border-gray-300 rounded-lg shadow-lg cursor-crosshair"

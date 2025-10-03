@@ -1,5 +1,5 @@
 <div class="h-full w-full flex items-center justify-center p-4">
-  <div class="grid w-full h-full" [ngClass]="getVideoGridClass()">
+    <div class="video-grid-responsive w-full h-full" [ngClass]="getVideoGridClass()">
     
     <!-- Participant Video Tiles -->
     <div *ngFor="let participant of participants" 
@@ -16,15 +16,13 @@
       
       <!-- Placeholder when no video -->
       <div *ngIf="!isParticipantVideoVisible(participant)"
-           class="w-full flex items-center justify-center aspect-video bg-gradient-to-br from-slate-300 to-slate-400 dark:from-slate-700 dark:to-slate-800"
+           class="w-full flex flex-col items-center justify-center aspect-video bg-gradient-to-br from-slate-300 to-slate-400 dark:from-slate-700 dark:to-slate-800 text-center"
            [class]="getParticipantBackgroundColor(participant)">
-        <div class="text-center">
-          <div class="text-4xl font-bold text-slate-700 dark:text-white mb-2 drop-shadow-lg">
-            {{ getParticipantInitials(participant) }}
-          </div>
-          <div class="text-sm text-slate-600 dark:text-slate-200">
-            {{ getParticipantDisplayName(participant) }}
-          </div>
+        <div class="text-4xl font-bold text-slate-700 dark:text-white mb-2 drop-shadow-lg">
+          {{ getParticipantInitials(participant) }}
+        </div>
+        <div class="text-sm text-slate-600 dark:text-slate-200">
+          {{ getParticipantDisplayName(participant) }}
         </div>
       </div>
       

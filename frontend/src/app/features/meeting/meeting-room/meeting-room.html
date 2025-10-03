@@ -1,13 +1,13 @@
-<div class="flex h-screen w-full bg-gradient-to-br from-slate-100 via-slate-200 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 text-slate-900 dark:text-white overflow-hidden pt-20">
+<div class="meeting-room-container flex h-screen w-full bg-gradient-to-br from-slate-100 via-slate-200 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 text-slate-900 dark:text-white overflow-hidden pt-20">
   <!-- Main Content Area -->
-  <div class="flex-1 flex flex-col relative transition-all duration-300"
+  <div class="meeting-main-area flex-1 flex flex-col relative transition-all duration-300"
        [class.mr-80]="showParticipantsPanel || showChatPanel">
     
     <!-- Meeting Content -->
-    <div class="flex-1 relative" [style.paddingBottom.px]="contentBottomPadPx">
+    <div class="flex-1 relative pb-32">
       
       <!-- Video Grid View -->
-      <div *ngIf="activeView === 'grid'" class="w-full" [ngStyle]="{ height: (participants.length <= 1 || meetingState.isScreenSharing) ? 'calc(100% - 64px)' : 'calc(100% - 24px)' }">
+      <div *ngIf="activeView === 'grid'" class="h-full w-full">
         <app-video-grid 
           [currentUserId]="currentUserId"
           [localStream]="localStream"
@@ -27,7 +27,7 @@
       </div>
 
       <!-- Whiteboard View -->
-      <div *ngIf="activeView === 'whiteboard'" class="h-full w-full">
+      <div *ngIf="activeView === 'whiteboard'" class="h-full w-full pb-32">
         <app-whiteboard 
           [isActive]="meetingState.isWhiteboardActive"
           [isHost]="isHost"
@@ -38,7 +38,7 @@
     </div>
 
     <!-- Meeting Controls -->
-    <app-meeting-controls #controlsBar
+    <app-meeting-controls
       [meetingState]="meetingState"
       [isHost]="isHost"
       [participantsCount]="participants.length"
@@ -88,14 +88,38 @@
     </app-chat-panel>
   </div>
 
-  <!-- Connection Status -->
-  <div class="absolute top-20 left-4 z-30">
-    <div class="flex items-center space-x-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600/50 shadow-lg">
-      <div class="w-2 h-2 rounded-full" 
-           [class.bg-emerald-500]="connected"
-           [class.bg-red-500]="!connected">
+  <!-- Meeting Info - Centered Horizontal Layout -->
+  <div class="meeting-info-floating absolute top-20 left-1/2 transform -translate-x-1/2 z-30">
+    <div class="flex items-center justify-center space-x-6 text-sm text-slate-500 dark:text-slate-400 opacity-75">
+      
+      <!-- Connection Status -->
+      <div class="flex items-center space-x-1.5">
+        <div class="w-2 h-2 rounded-full" 
+             [class.bg-emerald-400]="connected"
+             [class.bg-red-400]="!connected">
+        </div>
+        <span class="material-symbols-outlined text-sm">wifi</span>
+        {{ connected ? 'Bağlı' : 'Bağlanıyor...' }}
       </div>
-      <span class="text-sm text-slate-700 dark:text-slate-100">{{ connected ? 'Bağlı' : 'Bağlanıyor...' }}</span>
+      
+      <!-- Meeting Duration -->
+      <div class="flex items-center space-x-1.5">
+        <span class="material-symbols-outlined text-sm">schedule</span>
+        {{ meetingDuration }}
+      </div>
+      
+      <!-- Participants Count -->
+      <div class="flex items-center space-x-1.5">
+        <span class="material-symbols-outlined text-sm">people</span>
+        <span>{{ participants.length }} katılımcı</span>
+      </div>
+      
+      <!-- Host Indicator -->
+      <div *ngIf="isHost" class="flex items-center space-x-1.5 text-amber-500 dark:text-amber-400">
+        <span class="material-symbols-outlined text-sm">star</span>
+        Host
+      </div>
+      
     </div>
   </div>
 

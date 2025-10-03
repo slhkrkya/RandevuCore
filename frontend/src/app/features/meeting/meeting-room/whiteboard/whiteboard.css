@@ -324,6 +324,83 @@
   }
 }
 
+/* Container-based responsive whiteboard */
+.whiteboard-container {
+  container-type: inline-size;
+  container-name: whiteboard-area;
+}
+
+/* Responsive whiteboard content based on container size */
+@container whiteboard-area (max-width: 480px) {
+  .whiteboard-content {
+    padding-bottom: 1rem;
+  }
+  
+  .canvas-container {
+    padding: 0.25rem;
+  }
+}
+
+@container whiteboard-area (min-width: 481px) and (max-width: 768px) {
+  .whiteboard-content {
+    padding-bottom: 2rem;
+  }
+  
+  .canvas-container {
+    padding: 0.75rem;
+  }
+}
+
+@container whiteboard-area (min-width: 769px) {
+  .whiteboard-content {
+    padding-bottom: clamp(2rem, 8vw, 4rem);
+  }
+  
+  .canvas-container {
+    padding: clamp(1rem, 5vw, 2rem);
+  }
+}
+
+@container whiteboard-area (max-width: 600px) {
+  .tools-sidebar {
+    width: 3rem;
+    padding: 0.5rem 0;
+  }
+  
+  .tool-button {
+    padding: 0.375rem;
+  }
+  
+  .color-button {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+  
+  .canvas-container {
+    padding: 0.5rem;
+  }
+}
+
+@container whiteboard-area (min-width: 1200px) {
+  .tools-sidebar {
+    width: 5rem;
+    padding: 1.5rem 0;
+  }
+  
+  .tool-button {
+    padding: 0.75rem;
+  }
+  
+  .color-button {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+  
+  .canvas-container {
+    padding: 2rem;
+  }
+}
+
 /* Canvas Drawing Styles */
 .whiteboard-canvas:active {
   cursor: crosshair;

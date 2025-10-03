@@ -5,6 +5,98 @@
   display: flex;
   flex-direction: column;
   background: #000;
+  container-type: inline-size;
+  container-name: speaker-view-area;
+}
+
+/* Container-based responsive speaker view */
+@container speaker-view-area (max-width: 480px) {
+  .participants-thumbnails {
+    position: static;
+    flex-direction: row;
+    justify-content: center;
+    flex-wrap: wrap;
+    max-height: 100px;
+    padding: 0.5rem;
+    background: rgba(0, 0, 0, 0.5);
+  }
+  
+  .participant-thumbnail {
+    width: 60px;
+    height: 45px;
+  }
+  
+  .thumbnail-initials {
+    font-size: 0.875rem;
+  }
+  
+  .participant-initials {
+    font-size: 2.5rem;
+  }
+  
+  .participant-name {
+    font-size: 1rem;
+  }
+  
+  .speaker-name {
+    font-size: 1rem;
+  }
+}
+
+@container speaker-view-area (min-width: 481px) and (max-width: 768px) {
+  .participants-thumbnails {
+    position: static;
+    flex-direction: row;
+    justify-content: center;
+    flex-wrap: wrap;
+    max-height: 120px;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.5);
+  }
+  
+  .participant-thumbnail {
+    width: 80px;
+    height: 60px;
+  }
+  
+  .thumbnail-initials {
+    font-size: 1rem;
+  }
+  
+  .participant-initials {
+    font-size: 3rem;
+  }
+  
+  .participant-name {
+    font-size: 1.25rem;
+  }
+}
+
+@container speaker-view-area (min-width: 1200px) {
+  .participants-thumbnails {
+    width: 150px;
+  }
+  
+  .participant-thumbnail {
+    width: 150px;
+    height: 112px;
+  }
+  
+  .thumbnail-initials {
+    font-size: 2rem;
+  }
+  
+  .participant-initials {
+    font-size: 5rem;
+  }
+  
+  .participant-name {
+    font-size: 2rem;
+  }
+  
+  .speaker-name {
+    font-size: 1.5rem;
+  }
 }
 
 .main-speaker-area {
@@ -244,63 +336,7 @@
   opacity: 0.7;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-  .participants-thumbnails {
-    position: static;
-    flex-direction: row;
-    justify-content: center;
-    flex-wrap: wrap;
-    max-height: 120px;
-    padding: 1rem;
-    background: rgba(0, 0, 0, 0.5);
-  }
-  
-  .participant-thumbnail {
-    width: 80px;
-    height: 60px;
-  }
-  
-  .thumbnail-initials {
-    font-size: 1rem;
-  }
-  
-  .participant-initials {
-    font-size: 3rem;
-  }
-  
-  .participant-name {
-    font-size: 1.25rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .participants-thumbnails {
-    max-height: 100px;
-    padding: 0.5rem;
-  }
-  
-  .participant-thumbnail {
-    width: 60px;
-    height: 45px;
-  }
-  
-  .thumbnail-initials {
-    font-size: 0.875rem;
-  }
-  
-  .participant-initials {
-    font-size: 2.5rem;
-  }
-  
-  .participant-name {
-    font-size: 1rem;
-  }
-  
-  .speaker-name {
-    font-size: 1rem;
-  }
-}
+/* Duplicate media queries removed - now handled by container queries above */
 
 /* Animation for speaker changes */
 .main-video-container {

@@ -89,7 +89,6 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   // ViewChild references
   @ViewChild('localVideo', { static: true }) localVideo!: ElementRef<HTMLVideoElement>;
   @ViewChild('remoteVideo', { static: true }) remoteVideo!: ElementRef<HTMLVideoElement>;
-  @ViewChild('controlsBar', { static: true, read: ElementRef }) controlsBar?: ElementRef<HTMLElement>;
 
   constructor(
     private route: ActivatedRoute, 
@@ -107,8 +106,6 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     // Preload segmentation to reduce first-frame latency
     try { await this.videoEffects.preload(); } catch {}
     await this.initializeMedia();
-    this.recomputeBottomPad();
-    window.addEventListener('resize', this.recomputeBottomPad);
     
     // Subscribe to participant service updates
     this.participantService.participants$.subscribe(participants => {
@@ -121,7 +118,6 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
 
   async ngOnDestroy() {
     window.removeEventListener('settingschange', this.handleSettingsChange);
-    window.removeEventListener('resize', this.recomputeBottomPad);
     // Stop any ongoing video processing
     try { this.videoEffects.stop(); } catch {}
     await this.cleanup();
@@ -1132,8 +1128,6 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       this.changeDetectionTimeout = setTimeout(() => {
         this.cdr.detectChanges();
         this.changeDetectionTimeout = null;
-        // Recalculate padding when UI changes
-        this.recomputeBottomPad();
       }, this.changeDetectionDelay);
     }
   }
@@ -1202,18 +1196,6 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       console.warn('Error swapping local video track:', err);
     }
   }
-
-  // Dynamic bottom padding based on controls bar height
-  contentBottomPadPx = 128; // sensible default
-  recomputeBottomPad = () => {
-    try {
-      const bar = this.controlsBar?.nativeElement;
-      if (!bar) return;
-      const h = bar.offsetHeight || 0;
-      // add small gap
-      this.contentBottomPadPx = Math.max(96, h + 24);
-    } catch {}
-  };
 
   // Manage local video element binding and playback when available in child templates
   private updateLocalVideoElement(show: boolean) {

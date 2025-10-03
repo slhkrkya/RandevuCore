@@ -5,6 +5,102 @@
   -webkit-backdrop-filter: blur(10px);
 }
 
+/* Container Queries for Responsive Design */
+.meeting-room-container {
+  container-type: inline-size;
+  container-name: meeting-room;
+}
+
+.meeting-main-area {
+  container-type: inline-size;
+  container-name: main-area;
+}
+
+/* Responsive Layout System */
+@container meeting-room (max-width: 768px) {
+  .meeting-controls {
+    padding: clamp(0.5rem, 2vw, 1rem);
+  }
+}
+
+@container main-area (max-width: 600px) {
+  .video-grid-responsive {
+    grid-template-columns: repeat(1, 1fr);
+    gap: clamp(0.5rem, 2vw, 1rem);
+    padding: clamp(0.5rem, 3vw, 1rem);
+  }
+}
+
+@container main-area (min-width: 601px) and (max-width: 1024px) {
+  .video-grid-responsive {
+    grid-template-columns: repeat(2, 1fr);
+    gap: clamp(0.75rem, 2.5vw, 1.5rem);
+    padding: clamp(1rem, 4vw, 2rem);
+  }
+}
+
+@container main-area (min-width: 1025px) {
+  .video-grid-responsive {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: clamp(1rem, 3vw, 2rem);
+    padding: clamp(1.5rem, 5vw, 3rem);
+  }
+}
+
+/* Meeting Info - Horizontally Centered & Larger */
+.meeting-info-floating {
+  container-type: inline-size;
+  container-name: minimal-info;
+  left: 50%;
+  transform: translateX(-50%); /* Perfect horizontal center */
+}
+
+@container minimal-info (max-width: 480px) {
+  .meeting-info-floating .flex {
+    gap: 1.5rem;
+  }
+  
+  .meeting-info-floating .text-sm {
+    font-size: 0.875rem; /* Larger base font */
+  }
+  
+  .meeting-info-floating .material-symbols-outlined {
+    font-size: 0.875rem; /* Larger icons */
+  }
+  
+  .meeting-info-floating .space-x-1\.5 {
+    gap: 0.5rem; /* Better icon-text spacing */
+  }
+}
+
+@container minimal-info (min-width: 481px) and (max-width: 768px) {
+  .meeting-info-floating .flex {
+    gap: 2rem;
+  }
+  
+  .meeting-info-floating .text-sm {
+    font-size: 1rem;
+  }
+  
+  .meeting-info-floating .material-symbols-outlined {
+    font-size: 1rem;
+  }
+}
+
+@container minimal-info (min-width: 769px) {
+  .meeting-info-floating .flex {
+    gap: 2.5rem; /* More spacing on desktop */
+  }
+  
+  .meeting-info-floating .text-sm {
+    font-size: 1.125rem; /* Even larger on desktop */
+  }
+  
+  .meeting-info-floating .material-symbols-outlined {
+    font-size: 1.125rem;
+  }
+}
+
 .video-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
