@@ -1,18 +1,19 @@
 <div class="speaker-view-container">
   
   <!-- Main Speaker Video -->
-  <div class="main-speaker-area">
-    <video *ngIf="getActiveSpeakerStream() && isParticipantVideoVisible(getActiveSpeaker()!)"
-           #mainVideo
-           [srcObject]="getActiveSpeakerStream()"
-           autoplay
-           playsinline
-           [muted]="getActiveSpeaker()?.userId === currentUserId"
-           class="main-video">
-    </video>
-    
+  <div class="main-speaker-area bg-white/5 dark:bg-black/20 backdrop-blur-sm">
+    <div class="main-video-container">
+      <video *ngIf="getActiveSpeaker() && isParticipantVideoVisible(getActiveSpeaker()!)"
+             #mainVideo
+             [srcObject]="getActiveSpeakerStream()"
+             autoplay
+             playsinline
+             [muted]="getActiveSpeaker()?.userId === currentUserId"
+             class="main-video">
+      </video>
+      
       <!-- Placeholder when no video -->
-      <div *ngIf="!getActiveSpeakerStream() || !isParticipantVideoVisible(getActiveSpeaker()!)"
+      <div *ngIf="!getActiveSpeaker() || !isParticipantVideoVisible(getActiveSpeaker()!)"
            class="main-video-placeholder"
            [class]="getActiveSpeaker() ? getParticipantBackgroundColor(getActiveSpeaker()!) : 'bg-gradient-to-br from-slate-300 to-slate-400 dark:from-slate-700 dark:to-slate-800'">
         <div class="placeholder-content">
@@ -24,52 +25,35 @@
           </div>
         </div>
       </div>
-    
-    <!-- Speaker Info Overlay -->
-    <div class="speaker-info-overlay" *ngIf="getActiveSpeaker()">
-      <div class="speaker-name">
-        {{ getParticipantDisplayName(getActiveSpeaker()!) }}
-        <span *ngIf="getActiveSpeaker()!.isHost" class="host-indicator">👑</span>
-      </div>
-      
-      <!-- Status Indicators -->
-      <div class="status-indicators">
-        <div class="status-indicator"
-             [class.muted]="getActiveSpeaker()!.isMuted"
-             [class.unmuted]="!getActiveSpeaker()!.isMuted"
-             [title]="getActiveSpeaker()!.isMuted ? 'Muted' : 'Unmuted'">
-        </div>
-        
-        <div class="status-indicator"
-             [class.video-on]="getActiveSpeaker()!.isVideoOn"
-             [class.video-off]="!getActiveSpeaker()!.isVideoOn"
-             [title]="getActiveSpeaker()!.isVideoOn ? 'Camera On' : 'Camera Off'">
-        </div>
-        
-        <div *ngIf="getActiveSpeaker()!.isScreenSharing" 
-             class="status-indicator screen-sharing"
-             title="Screen Sharing">
-        </div>
-      </div>
     </div>
-  </div>
-  
-  <!-- Other Participants Thumbnails -->
-  <div class="participants-thumbnails" *ngIf="getOtherParticipants().length > 0">
+    
+    <!-- Main Speaker Name -->
+    <div class="main-speaker-name" *ngIf="getActiveSpeaker()">
+      {{ getParticipantDisplayName(getActiveSpeaker()!) }}
+      <span *ngIf="getActiveSpeaker()!.isHost" class="host-indicator">👑</span>
+    </div>
+    
+    <!-- Other Participants Thumbnails -->
+    <div class="participants-thumbnails" *ngIf="getOtherParticipants().length > 0">
     <div *ngFor="let participant of getOtherParticipants()" 
          class="participant-thumbnail">
       
+      <!-- Participant Name -->
+      <div class="thumbnail-name">
+        {{ getParticipantDisplayName(participant) }}
+      </div>
+      
       <!-- Video Stream -->
-      <video *ngIf="isParticipantVideoVisible(participant) && (participant.userId === currentUserId ? localStream : remoteStreams.get(participant.userId))"
-             [srcObject]="participant.userId === currentUserId ? localStream : remoteStreams.get(participant.userId)"
+      <video *ngIf="isParticipantVideoVisible(participant)"
+             [srcObject]="getParticipantStream(participant)"
              autoplay
              playsinline
              [muted]="participant.userId === currentUserId"
              class="thumbnail-video">
       </video>
       
-      <!-- Placeholder when no video -->
-      <div *ngIf="!isParticipantVideoVisible(participant) || !(participant.userId === currentUserId ? localStream : remoteStreams.get(participant.userId))"
+      <!-- Placeholder when novideo -->
+      <div *ngIf="!isParticipantVideoVisible(participant)"
            class="thumbnail-placeholder"
            [class]="getParticipantBackgroundColor(participant)">
         <div class="thumbnail-initials">
@@ -77,23 +61,8 @@
         </div>
       </div>
       
-      <!-- Participant Name -->
-      <div class="thumbnail-name">
-        {{ getParticipantDisplayName(participant) }}
-      </div>
-      
-      <!-- Status Indicators -->
-      <div class="thumbnail-status">
-        <div class="status-dot"
-             [class.muted]="participant.isMuted"
-             [class.unmuted]="!participant.isMuted">
-        </div>
-        <div class="status-dot"
-             [class.video-on]="participant.isVideoOn"
-             [class.video-off]="!participant.isVideoOn">
-        </div>
-      </div>
     </div>
+    
   </div>
   
   <!-- Empty State -->

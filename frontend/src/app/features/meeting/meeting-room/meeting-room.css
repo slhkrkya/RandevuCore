@@ -47,13 +47,15 @@
   }
 }
 
-/* Meeting Info - Horizontally Centered & Larger */
+/* Meeting Info - Horizontally Centered & Higher Contrast */
 .meeting-info-floating {
   container-type: inline-size;
   container-name: minimal-info;
   left: 50%;
   transform: translateX(-50%); /* Perfect horizontal center */
 }
+
+/* Background kaldırıldı - sadece içerik görünür */
 
 @container minimal-info (max-width: 480px) {
   .meeting-info-floating .flex {

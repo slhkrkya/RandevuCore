@@ -25,8 +25,17 @@ export class ParticipantService {
   updateParticipantState(userId: string, updates: Partial<Participant>): void {
     const index = this.participants.findIndex(p => p.userId === userId);
     if (index !== -1) {
+      const oldState = { ...this.participants[index] };
       this.participants[index] = { ...this.participants[index], ...updates };
-      this.participantsSubject.next([...this.participants]);
+      
+      // Force a new array reference to trigger Angular change detection
+      const updatedParticipants = [...this.participants];
+      this.participantsSubject.next(updatedParticipants);
+      
+      console.log(`🔥 ParticipantService: ${userId} updated:`, updates);
+    } else {
+      console.warn(`🔥 ParticipantService: Participant ${userId} not found in participants list`);
+      console.log(`   Current participants:`, this.participants.map(p => p.userId));
     }
   }
 

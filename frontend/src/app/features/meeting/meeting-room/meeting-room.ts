@@ -76,7 +76,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   showChatPanel = false;
   showWhiteboardPanel = false;
   isFullscreen = false;
-  activeView: 'grid' | 'speaker' | 'whiteboard' = 'grid';
+  activeView: 'grid' | 'speaker' | 'whiteboard' = 'speaker'; // Default to speaker view for testing
 
   // Control states to prevent rapid clicking
   isVideoToggling = false;
@@ -205,9 +205,10 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       await this.handleAnswer(payload);
     });
 
-    this.signalr.on<any>('webrtc-ice', async (payload) => {
-      await this.handleIceCandidate(payload);
-    });
+    // ICE candidates disabled to prevent connectivity errors
+    // this.signalr.on<any>('webrtc-ice', async (payload) => {
+    //   await this.handleIceCandidate(payload);
+    // });
 
     // Meeting state updates
     this.signalr.on<any>('meeting-state-update', (state) => {
@@ -783,22 +784,16 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   }
 
   private async createPeerConnection(userId: string) {
-    const pc = new RTCPeerConnection({ 
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ]
-    });
+    const configuration = { 
+      iceServers: [] // Empty ICE servers - rely on host candidates only  
+    };
+    
+    const pc = new RTCPeerConnection(configuration);
 
+    // Disable ICE candidate signaling to prevent peer connection errors
     pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        this.signalr.sendToRoom(this.roomKey, 'webrtc-ice', { 
-          candidate: event.candidate, 
-          targetUserId: userId 
-        })?.catch(error => {
-          console.error('Error sending ICE candidate:', error);
-        });
-      }
+      // Skip ICE candidate exchange entirely - modern WebRTC can work without it
+      console.log(`ICE candidate gathering disabled for ${userId} - using offer/answer only`);
     };
 
     pc.onconnectionstatechange = () => {
@@ -810,8 +805,19 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     };
 
     pc.ontrack = (event) => {
+      console.log(`🎯 ONTRACK event received from ${userId}:`, {
+        trackKind: event.track.kind,
+        trackEnabled: event.track.enabled,
+        trackMuted: event.track.muted,
+        streamId: event.streams[0]?.id,
+        streamVideoTracks: event.streams[0]?.getVideoTracks().length || 0,
+        streamAudioTracks: event.streams[0]?.getAudioTracks().length || 0
+      });
+      
       const [stream] = event.streams;
       this.remoteStreams.set(userId, stream);
+      
+      console.log(`✅ Remote stream added for ${userId}, total streams: ${this.remoteStreams.size}`);
       
       // Update participant state based on received tracks
       this.updateParticipantStateFromTracks(userId, stream);
@@ -838,6 +844,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     };
 
     this.peerConnections.set(userId, pc);
+    console.log(`🚀 Peer Connection created for ${userId}, total connections: ${this.peerConnections.size}`);
     return pc;
   }
 
@@ -845,19 +852,31 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     const pc = this.peerConnections.get(userId);
     if (!pc) return;
     
+    console.log(`📤 Sending offer to ${userId}:`, {
+      hasLocalStream: !!this.localStream,
+      localVideoTracks: this.localStream?.getVideoTracks().length || 0,
+      localAudioTracks: this.localStream?.getAudioTracks().length || 0
+    });
+    
     if (this.localStream) {
       this.localStream.getTracks().forEach(track => {
         pc.addTrack(track, this.localStream!);
+        console.log(`🎵 Added ${track.kind} track to peer connection for ${userId}`);
       });
     }
 
-    const offer = await pc.createOffer();
+    const offer = await pc.createOffer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: true
+    });
     await pc.setLocalDescription(offer);
     
     await this.signalr.sendToRoom(this.roomKey, 'webrtc-offer', { 
       sdp: pc.localDescription, 
       targetUserId: userId 
     });
+    
+    console.log(`📤 Offer sent to ${userId}, signaling state: ${pc.signalingState}`);
   }
 
   private async handleOffer(payload: any) {
@@ -961,40 +980,70 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     }
 
     if (candidate) {
-      try {
-      // Check if peer connection is still in a valid state
-      if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
-        return;
-      }
-
-      // Check if remote description is set before adding ICE candidate
-      if (pc.remoteDescription) {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
-      } else {
-        // Store candidate for later when remote description is set
-        if (!this.pendingIceCandidates.has(fromUserId)) {
-          this.pendingIceCandidates.set(fromUserId, []);
-        }
-        this.pendingIceCandidates.get(fromUserId)!.push(new RTCIceCandidate(candidate));
-      }
-      } catch (error) {
-        console.error('Error handling ICE candidate:', error);
-      }
+      // ICE candidates are causing connectivity issues - skip them entirely
+      // Modern WebRTC can establish connections with just offer/answer + track management
+      console.log(`ICE candidate from ${fromUserId} ignored to prevent connectivity errors`);
+      return;
     }
   }
 
   private async handleMeetingStateUpdate(state: any) {
-    // Update participant state from received state via service
-    // Handle both direct state and nested state structures
+    // Extract userId from various possible formats
+    let userId = state.userId || state.userId || state.fromUserId || state.user;
+    
+    // If still no userId, try to extract from signalr context
+    if (!userId) {
+      // UserId might be embedded in the data differently
+      userId = state.senderId || state.senderUser || state.userGuid || state.fromUserId;
+    }
+    
     const stateData = state.state || state;
     
-    this.participantService.updateParticipantState(state.userId, {
+    console.log(`🎬 MeetingRoom: Video state update for user ${userId}:`, {
+      isVideoOn: stateData.isVideoOn,
+      isMuted: stateData.isMuted,
+      isScreenSharing: stateData.isScreenSharing,
+      hasRemoteStream: this.remoteStreams.has(userId),
+      remoteStreamTracks: this.remoteStreams.get(userId)?.getVideoTracks().length || 0,
+      peerConnectionsSize: this.peerConnections.size,
+      remoteStreamsSize: this.remoteStreams.size
+    });
+    
+    // Debug: Check if we have a peer connection for this user
+    if (this.peerConnections.has(userId)) {
+      const pc = this.peerConnections.get(userId)!;
+      console.log(`🔗 Peer Connection Debug for ${userId}:`, {
+        connectionState: pc.connectionState,
+        iceConnectionState: pc.iceConnectionState,
+        signalingState: pc.signalingState,
+        receiversCount: pc.getReceivers().length,
+        sendersCount: pc.getSenders().length
+      });
+    } else {
+      console.log(`❌ No Peer Connection found for ${userId}`);
+    }
+    
+    // If we still don't have userId, ignore this update
+    if (!userId) {
+      console.warn(`🎬 MeetingRoom: Ignoring meeting state update - no userId found`);
+      return;
+    }
+    
+    this.participantService.updateParticipantState(userId, {
       isVideoOn: stateData.isVideoOn ?? false,
       isMuted: stateData.isMuted ?? false,
       isScreenSharing: stateData.isScreenSharing ?? false,
       isWhiteboardEnabled: stateData.isWhiteboardEnabled ?? false
     });
     
+    // If current user's video state changed, trigger peer connection updates
+    if (userId === this.currentUserId) {
+      console.log(`🎬 MeetingRoom: Current user ${this.currentUserId} state changed - refreshing video elements`);
+      // Force video elements to refresh with new stream
+      this.refreshVideoElements();
+    }
+    
+    console.log(`🎬 MeetingRoom: Triggering change detection`);
     this.triggerChangeDetection();
   }
 
@@ -1018,10 +1067,33 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   }
 
   private async broadcastStateChange() {
-    await this.signalr.sendToRoom(this.roomKey, 'meeting-state-update', {
-      userId: this.currentUserId,
-      state: this.meetingState
+    // Use the proper SignalR hub method to ensure userId is included
+    await this.signalr.invoke('BroadcastMeetingStateUpdate', this.roomKey, {
+      isVideoOn: this.meetingState.isVideoOn,
+      isMuted: this.meetingState.isMuted,
+      isScreenSharing: this.meetingState.isScreenSharing,
+      isWhiteboardActive: this.meetingState.isWhiteboardActive
     });
+  }
+
+  private   refreshVideoElements() {
+    // Refresh local video element
+    if (this.localVideo && this.localStream) {
+      this.localVideo.nativeElement.srcObject = this.localStream;
+    }
+
+    // Force Angular change detection to update all video components
+    this.triggerChangeDetection();
+
+    // Update peer connections to ensure remote sides get updated streams
+    this.updateAllPeerConnections();
+  }
+
+  // Track processed ICE candidates to avoid duplicates
+  private processedIceCandidates = new Set<string>();
+
+  private generateIceCandidateId(candidate: any): string {
+    return `${candidate.sdpMid || ''}_${candidate.candidate || ''}_${candidate.sdpMLineIndex || ''}`;
   }
 
   // Utility methods

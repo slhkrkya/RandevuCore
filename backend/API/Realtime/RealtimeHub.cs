@@ -185,6 +185,17 @@ namespace RandevuCore.API.Realtime
             await BroadcastMeetingDuration(roomId);
         }
 
+        // Handle meeting state updates from clients
+        public async Task BroadcastMeetingStateUpdate(string roomId, object stateData)
+        {
+            var (userId, _) = GetUser();
+            await Clients.Group(roomId).SendAsync("meeting-state-update", new
+            {
+                userId = userId,
+                state = stateData
+            });
+        }
+
         public async Task EndMeeting(string roomId)
         {
             if (roomId.StartsWith("meeting-"))

@@ -36,7 +36,35 @@ export class VideoGridComponent implements OnInit, OnDestroy {
   ngOnInit() {
     // Subscribe to participant service updates
     this.participantsSubscription = this.participantService.participants$.subscribe(participants => {
+      console.log(`📊 VideoGrid: Participants updated:`, participants.map(p => ({
+        userId: p.userId,
+        name: p.name,
+        isVideoOn: p.isVideoOn,
+        isScreenSharing: p.isScreenSharing,
+        isVisible: this.isParticipantVideoVisible(p),
+        hasVideo: !!this.getParticipantVideo(p)
+      })));
+      
       this.participants = participants;
+      
+      // Debug each participant's video visibility
+      setTimeout(() => {
+        participants.forEach(p => {
+          if (this.isParticipantVideoVisible(p)) {
+            const video = this.getParticipantVideo(p);
+            console.log(`📺 VideoGrid Participant Visible:`, {
+              userId: p.userId,
+              name: p.name,
+              isVideoOn: p.isVideoOn,
+              isScreenSharing: p.isScreenSharing,
+              hasVideo: !!video,
+              videoId: video?.id,
+              videoTracks: video?.getVideoTracks().length || 0
+            });
+          }
+        });
+      }, 100);
+      
       this.cdr.detectChanges();
     });
   }
@@ -95,16 +123,18 @@ export class VideoGridComponent implements OnInit, OnDestroy {
 
   getParticipantVideo(participant: Participant): MediaStream | null {
     if (participant.userId === this.currentUserId) {
-      // For local user, only return stream if video is on and has video tracks
-      if (!!this.meetingState.isVideoOn && this.localStream && this.localStream.getVideoTracks().length > 0) {
+      // For local user, return stream if video OR screen sharing is on and has video tracks
+      if ((!!this.meetingState.isVideoOn || !!this.meetingState.isScreenSharing) && 
+          this.localStream && this.localStream.getVideoTracks().length > 0) {
         return this.localStream;
       }
       return null;
     }
     
     const remoteStream = this.remoteStreams.get(participant.userId);
-    // For remote users, only return stream if they have video on and stream has video tracks
-    if (!!participant.isVideoOn && remoteStream && remoteStream.getVideoTracks().length > 0) {
+    // For remote users, return stream if they have video OR screen sharing on and stream has video tracks
+    if ((!!participant.isVideoOn || !!participant.isScreenSharing) && 
+        remoteStream && remoteStream.getVideoTracks().length > 0) {
       return remoteStream;
     }
     return null;
@@ -120,17 +150,18 @@ export class VideoGridComponent implements OnInit, OnDestroy {
 
   isParticipantVideoVisible(participant: Participant): boolean {
     if (participant.userId === this.currentUserId) {
-      // For local user, check if video is on and we have a video track
-      return !!(this.meetingState.isVideoOn && 
-                this.localStream && 
-                this.localStream.getVideoTracks().length > 0);
+      // For local user, check if video is on OR screen sharing and we have a video track
+      const hasStreamData = !!(this.localStream && 
+                              this.localStream.getVideoTracks().length > 0);
+      return !!(hasStreamData && (this.meetingState.isVideoOn || this.meetingState.isScreenSharing));
     }
     
-    // For remote participants, check if they have video on AND we have their stream with video tracks
+    // For remote participants, check if they have video on OR screen sharing AND we have their stream with video tracks
     const remoteStream = this.remoteStreams.get(participant.userId);
     const hasVideoTrack = !!(remoteStream && remoteStream.getVideoTracks().length > 0);
     
-    return !!(participant.isVideoOn && hasVideoTrack);
+    // Check both video and screen sharing status
+    return !!(hasVideoTrack && (participant.isVideoOn || participant.isScreenSharing));
   }
 
   getParticipantDisplayName(participant: Participant): string {
