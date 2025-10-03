@@ -179,6 +179,14 @@
                 </option>
               </select>
             </div>
+
+            <!-- Mirror preview toggle -->
+            <div>
+              <label class="inline-flex items-center space-x-2">
+                <input type="checkbox" class="h-4 w-4" (change)="onMirrorToggle($event)" [checked]="mirrorPreview()">
+                <span class="text-sm text-slate-700 dark:text-slate-300">Önizlemeyi Aynala (Selfie)</span>
+              </label>
+            </div>
           </div>
         </div>
 

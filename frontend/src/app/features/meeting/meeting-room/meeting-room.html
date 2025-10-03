@@ -4,10 +4,10 @@
        [class.mr-80]="showParticipantsPanel || showChatPanel">
     
     <!-- Meeting Content -->
-    <div class="flex-1 relative pb-32">
+    <div class="flex-1 relative" [style.paddingBottom.px]="contentBottomPadPx">
       
       <!-- Video Grid View -->
-      <div *ngIf="activeView === 'grid'" class="h-full w-full">
+      <div *ngIf="activeView === 'grid'" class="w-full" [ngStyle]="{ height: (participants.length <= 1 || meetingState.isScreenSharing) ? 'calc(100% - 64px)' : 'calc(100% - 24px)' }">
         <app-video-grid 
           [currentUserId]="currentUserId"
           [localStream]="localStream"
@@ -38,7 +38,7 @@
     </div>
 
     <!-- Meeting Controls -->
-    <app-meeting-controls
+    <app-meeting-controls #controlsBar
       [meetingState]="meetingState"
       [isHost]="isHost"
       [participantsCount]="participants.length"

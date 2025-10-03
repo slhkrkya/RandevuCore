@@ -1,7 +1,9 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { SettingsService } from '../../../core/services/settings.service';
+import { VideoEffectsService } from '../../../core/services/video-effects.service';
 
 interface MediaDeviceInfo {
   deviceId: string;
@@ -14,7 +16,8 @@ interface MediaDeviceInfo {
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './meeting-prejoin.html',
-  styleUrls: ['./meeting-prejoin.css']
+  styleUrls: ['./meeting-prejoin.css'],
+  providers: []
 })
 export class MeetingPrejoinComponent implements OnInit, OnDestroy {
   @ViewChild('previewVideo', { static: true }) previewVideo!: ElementRef<HTMLVideoElement>;
@@ -31,11 +34,16 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
   selectedCamera = '';
   selectedMicrophone = '';
 
-  private localStream?: MediaStream;
+  private localStream?: MediaStream; // raw camera/mic stream
+  private processedStream?: MediaStream;
   private audioContext?: AudioContext;
   private analyser?: AnalyserNode;
   private dataArray?: Uint8Array;
   private animationFrame?: number;
+  mirrorPreview = () => false;
+
+  private settings = inject(SettingsService);
+  private effects = inject(VideoEffectsService);
 
   constructor(
     private route: ActivatedRoute,
@@ -44,6 +52,11 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
 
   async ngOnInit() {
     this.meetingId = this.route.snapshot.paramMap.get('id') || '';
+    // initialize mirrorPreview getter after settings is injected
+    const pref = this.settings.settings().videoBackground.mirrorPreview;
+    this.mirrorPreview = () => !!pref;
+    try { await this.effects.preload(); } catch {}
+    window.addEventListener('settingschange', this.onSettingsChange as any);
     
     try {
       // First request permission to get device labels
@@ -73,6 +86,7 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.stopPreview();
     this.stopAudioLevelMonitoring();
+    window.removeEventListener('settingschange', this.onSettingsChange as any);
   }
 
   private async loadDevices() {
@@ -131,9 +145,23 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
 
         this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
         
-        // Only show video if camera is on
-        if (this.isCameraOn && this.previewVideo && this.localStream) {
-          this.previewVideo.nativeElement.srcObject = this.localStream;
+        // Apply effects synchronously for preview
+        if (this.isCameraOn && this.localStream) {
+          try {
+            const vb = this.settings.settings().videoBackground;
+            this.processedStream = await this.effects.apply(this.localStream, vb);
+          } catch {
+            this.processedStream = undefined;
+          }
+        } else {
+          this.processedStream = undefined;
+        }
+
+        // Show video
+        if (this.isCameraOn && this.previewVideo) {
+          this.previewVideo.nativeElement.srcObject = this.processedStream || this.localStream || null;
+          this.previewVideo.nativeElement.style.transform = this.settings.settings().videoBackground.mirrorPreview ? 'scaleX(-1)' : 'none';
+          try { await this.previewVideo.nativeElement.play(); } catch {}
         } else if (this.previewVideo) {
           this.previewVideo.nativeElement.srcObject = null;
         }
@@ -165,6 +193,26 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
       }
     } finally {
       this.loading = false;
+    }
+  }
+
+  private onSettingsChange = () => {
+    // Reapply effects to raw stream for live preview when settings change
+    if (this.isCameraOn && this.localStream && this.previewVideo) {
+      const vb = this.settings.settings().videoBackground;
+      this.effects.apply(this.localStream, vb).then(processed => {
+        this.processedStream = processed;
+        this.previewVideo!.nativeElement.srcObject = processed;
+      }).catch(() => {});
+    }
+  };
+
+  onMirrorToggle(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const checked = !!input?.checked;
+    this.settings.setVideoBackgroundMirrorPreview(checked);
+    if (this.previewVideo?.nativeElement) {
+      this.previewVideo.nativeElement.style.transform = checked ? 'scaleX(-1)' : 'none';
     }
   }
 
@@ -236,6 +284,11 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
     if (this.localStream) {
       this.localStream.getTracks().forEach(track => track.stop());
       this.localStream = undefined;
+    }
+    try { this.effects.stop(); } catch {}
+    if (this.processedStream) {
+      this.processedStream.getTracks().forEach(t => { try { t.stop(); } catch {} });
+      this.processedStream = undefined;
     }
     
     if (this.audioContext) {

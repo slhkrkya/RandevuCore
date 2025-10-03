@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { SignalRService } from '../../../core/services/signalr';
@@ -9,6 +9,8 @@ import { WhiteboardComponent } from './whiteboard/whiteboard';
 import { MeetingControlsComponent } from './meeting-controls/meeting-controls';
 import { ParticipantsPanelComponent } from './participants-panel/participants-panel';
 import { ChatPanelComponent } from './chat-panel/chat-panel';
+import { VideoEffectsService } from '../../../core/services/video-effects.service';
+import { SettingsService } from '../../../core/services/settings.service';
 
 export interface Participant {
   connectionId: string;
@@ -63,7 +65,8 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
 
   // Participants
   participants: Participant[] = [];
-  localStream?: MediaStream;
+  localStream?: MediaStream; // active (processed or raw)
+  private rawLocalStream?: MediaStream; // original camera/mic stream for processing
   remoteStreams: Map<string, MediaStream> = new Map();
   peerConnections: Map<string, RTCPeerConnection> = new Map();
   pendingIceCandidates: Map<string, RTCIceCandidate[]> = new Map();
@@ -86,26 +89,41 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   // ViewChild references
   @ViewChild('localVideo', { static: true }) localVideo!: ElementRef<HTMLVideoElement>;
   @ViewChild('remoteVideo', { static: true }) remoteVideo!: ElementRef<HTMLVideoElement>;
+  @ViewChild('controlsBar', { static: true, read: ElementRef }) controlsBar?: ElementRef<HTMLElement>;
 
   constructor(
     private route: ActivatedRoute, 
     private router: Router,
     public signalr: SignalRService,
     private participantService: ParticipantService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private videoEffects: VideoEffectsService,
+    private settingsService: SettingsService,
+    private zone: NgZone
   ) {}
 
   async ngOnInit() {
     this.initializeMeeting();
+    // Preload segmentation to reduce first-frame latency
+    try { await this.videoEffects.preload(); } catch {}
     await this.initializeMedia();
+    this.recomputeBottomPad();
+    window.addEventListener('resize', this.recomputeBottomPad);
     
     // Subscribe to participant service updates
     this.participantService.participants$.subscribe(participants => {
       this.participants = participants;
     });
+
+    // Re-apply video effects on settings change
+    window.addEventListener('settingschange', this.handleSettingsChange);
   }
 
   async ngOnDestroy() {
+    window.removeEventListener('settingschange', this.handleSettingsChange);
+    window.removeEventListener('resize', this.recomputeBottomPad);
+    // Stop any ongoing video processing
+    try { this.videoEffects.stop(); } catch {}
     await this.cleanup();
   }
 
@@ -240,6 +258,25 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     }
   }
 
+  private handleSettingsChange = async () => {
+    try {
+      if (!this.rawLocalStream || !this.meetingState.isVideoOn) return;
+      const settings = this.settingsService.settings().videoBackground;
+      const processed = await this.videoEffects.apply(this.rawLocalStream, settings);
+      this.localStream = processed;
+      
+      this.attachLocalTrackListeners();
+      this.triggerChangeDetection();
+      
+      const newTrack = this.localStream.getVideoTracks()[0];
+      if (newTrack) {
+        await this.swapLocalVideoTrack(newTrack);
+      }
+    } catch (err) {
+      console.warn('Failed to apply video background settings:', err);
+    }
+  };
+
   private async ensureLocalStream() {
     try {
       // Clean up existing stream
@@ -248,6 +285,12 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
           track.stop();
         });
         this.localStream = undefined;
+      }
+      if (this.rawLocalStream) {
+        this.rawLocalStream.getTracks().forEach(track => {
+          track.stop();
+        });
+        this.rawLocalStream = undefined;
       }
 
       // Use current meeting state instead of localStorage
@@ -273,11 +316,11 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         (constraints.audio as any) = { deviceId: { exact: preferredMicrophone } };
       }
 
-      this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      const rawStream = await navigator.mediaDevices.getUserMedia(constraints);
       
       // Set track states based on current meeting state
-      const videoTrack = this.localStream.getVideoTracks()[0];
-      const audioTrack = this.localStream.getAudioTracks()[0];
+      const videoTrack = rawStream.getVideoTracks()[0];
+      const audioTrack = rawStream.getAudioTracks()[0];
       
       if (videoTrack) {
         videoTrack.enabled = cameraEnabled;
@@ -285,17 +328,28 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       if (audioTrack) {
         audioTrack.enabled = microphoneEnabled;
       }
-      
-      // Update local video element
-      if (this.localVideo?.nativeElement) {
-        this.localVideo.nativeElement.srcObject = this.localStream;
-        this.localVideo.nativeElement.style.display = cameraEnabled ? 'block' : 'none';
+
+      // Cache raw
+      this.rawLocalStream = rawStream;
+      // Apply effects synchronously for first frame so local/remote see filtered without refresh
+      if (cameraEnabled) {
+        try {
+          const vb = this.settingsService.settings().videoBackground;
+          this.localStream = await this.videoEffects.apply(this.rawLocalStream, vb);
+        } catch (e) {
+          console.warn('Video effects failed, using raw stream:', e);
+          this.localStream = this.rawLocalStream;
+        }
+      } else {
+        this.localStream = this.rawLocalStream;
       }
+
+      // Notify UI and attach listeners
+      this.attachLocalTrackListeners();
+      this.triggerChangeDetection();
       
-      // Update all peer connections
+      // Update peers (initial connection uses the chosen stream)
       await this.updateAllPeerConnections();
-      
-      // Send offers to any participants who don't have connections yet
       await this.sendOffersToNewParticipants();
     } catch (error) {
       console.error('Error ensuring local stream:', error);
@@ -509,19 +563,15 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
             const newStream = new MediaStream(audioTracks);
             this.localStream = newStream;
           }
+
+          // Stop video effects processing when camera is off
+          try { this.videoEffects.stop(); } catch {}
         }
       }
 
-      // Update local video visibility
-      if (this.localVideo) {
-        this.localVideo.nativeElement.style.display = this.meetingState.isVideoOn ? 'block' : 'none';
-        if (this.meetingState.isVideoOn && this.localStream) {
-          this.localVideo.nativeElement.srcObject = this.localStream;
-        } else {
-          // Clear video element when camera is off
-          this.localVideo.nativeElement.srcObject = null;
-        }
-      }
+      // Notify UI and refresh listeners
+      this.attachLocalTrackListeners();
+      this.triggerChangeDetection();
 
       // Update participant state via service
       this.participantService.updateVideoState(this.currentUserId, this.meetingState.isVideoOn);
@@ -773,6 +823,19 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       // Add track event listeners for cleanup
       event.track.onended = () => {
         this.handleTrackEnded(userId, event.track);
+      };
+      // Reflect mute/unmute on UI
+      (event.track as any).onmute = () => {
+        this.zone.run(() => {
+          this.updateParticipantStateFromTracks(userId, stream);
+          this.triggerChangeDetection();
+        });
+      };
+      (event.track as any).onunmute = () => {
+        this.zone.run(() => {
+          this.updateParticipantStateFromTracks(userId, stream);
+          this.triggerChangeDetection();
+        });
       };
       
       this.triggerChangeDetection();
@@ -1027,6 +1090,12 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         });
         this.localStream = undefined;
       }
+      if (this.rawLocalStream) {
+        this.rawLocalStream.getTracks().forEach(track => {
+          try { track.stop(); } catch {}
+        });
+        this.rawLocalStream = undefined;
+      }
 
       // Clear video elements
       if (this.localVideo?.nativeElement) {
@@ -1063,6 +1132,8 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       this.changeDetectionTimeout = setTimeout(() => {
         this.cdr.detectChanges();
         this.changeDetectionTimeout = null;
+        // Recalculate padding when UI changes
+        this.recomputeBottomPad();
       }, this.changeDetectionDelay);
     }
   }
@@ -1094,7 +1165,8 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         return;
       }
 
-      const response = await fetch(`http://localhost:5125/api/meetings/${this.meetingId}`, {
+      const base = (window as any).APP_API_BASE || (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content || 'http://localhost:5125';
+      const response = await fetch(`${base}/api/meetings/${this.meetingId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -1112,6 +1184,93 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       console.error('Error checking host status:', error);
       this.isHost = false;
     }
+  }
+
+  private async swapLocalVideoTrack(newTrack: MediaStreamTrack) {
+    try {
+      for (const [, pc] of this.peerConnections) {
+        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (sender) {
+          await sender.replaceTrack(newTrack);
+        } else {
+          try {
+            pc.addTrack(newTrack, this.localStream!);
+          } catch {}
+        }
+      }
+    } catch (err) {
+      console.warn('Error swapping local video track:', err);
+    }
+  }
+
+  // Dynamic bottom padding based on controls bar height
+  contentBottomPadPx = 128; // sensible default
+  recomputeBottomPad = () => {
+    try {
+      const bar = this.controlsBar?.nativeElement;
+      if (!bar) return;
+      const h = bar.offsetHeight || 0;
+      // add small gap
+      this.contentBottomPadPx = Math.max(96, h + 24);
+    } catch {}
+  };
+
+  // Manage local video element binding and playback when available in child templates
+  private updateLocalVideoElement(show: boolean) {
+    if (!this.localVideo?.nativeElement) return;
+    const el = this.localVideo.nativeElement;
+    el.style.display = show ? 'block' : 'none';
+    if (show && this.localStream) {
+      el.srcObject = this.localStream;
+      el.muted = true;
+      (el as any).playsInline = true;
+      el.autoplay = true;
+      try { el.play(); } catch {}
+    } else {
+      el.srcObject = null;
+    }
+  }
+
+  // Attach listeners to reflect local video track state into Angular
+  private currentLocalVideoTrack?: MediaStreamTrack;
+  private attachLocalTrackListeners() {
+    const track = this.localStream?.getVideoTracks()[0];
+    if (!track) {
+      this.currentLocalVideoTrack = undefined;
+      return;
+    }
+    if (this.currentLocalVideoTrack === track) return;
+
+    if (this.currentLocalVideoTrack) {
+      try {
+        (this.currentLocalVideoTrack as any).onmute = null;
+        (this.currentLocalVideoTrack as any).onunmute = null;
+        (this.currentLocalVideoTrack as any).onended = null;
+      } catch {}
+    }
+
+    this.currentLocalVideoTrack = track;
+    (track as any).onmute = () => {
+      this.zone.run(() => {
+        this.meetingState.isVideoOn = false;
+        this.participantService.updateVideoState(this.currentUserId, false);
+        this.triggerChangeDetection();
+      });
+    };
+    (track as any).onunmute = () => {
+      this.zone.run(() => {
+        this.meetingState.isVideoOn = true;
+        this.participantService.updateVideoState(this.currentUserId, true);
+        this.triggerChangeDetection();
+      });
+    };
+    (track as any).onended = () => {
+      this.zone.run(() => {
+        this.meetingState.isVideoOn = false;
+        this.participantService.updateVideoState(this.currentUserId, false);
+        this.triggerChangeDetection();
+      });
+    };
   }
 
 }

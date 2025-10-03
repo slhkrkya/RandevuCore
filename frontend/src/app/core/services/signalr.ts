@@ -1,9 +1,11 @@
 import { Injectable } from '@angular/core';
 import * as signalR from '@microsoft/signalr';
+import { AppConfigService } from './app-config.service';
 
 @Injectable({ providedIn: 'root' })
 export class SignalRService {
   private connection?: signalR.HubConnection;
+  constructor(private cfg: AppConfigService) {}
 
   start(token: string) {
     if (this.connection) return;
@@ -16,7 +18,7 @@ export class SignalRService {
     // Use environment-appropriate URL
     const wsUrl = isProduction ? 
       `wss://${window.location.host}/ws` : 
-      'http://localhost:5125/ws';
+      (this.cfg.wsUrl || `${this.cfg.apiBaseUrl}/ws`);
     
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl(wsUrl, { accessTokenFactory: () => token })

@@ -57,7 +57,14 @@ export class VideoGridComponent implements OnInit, OnDestroy {
   private updateLocalVideo() {
     if (this.localVideo) {
       if (this.localStream && this.localStream.getVideoTracks().length > 0) {
-        this.localVideo.nativeElement.srcObject = this.localStream;
+        const el = this.localVideo.nativeElement;
+        el.srcObject = this.localStream;
+        el.muted = true;
+        (el as any).playsInline = true;
+        el.autoplay = true;
+        try { el.play(); } catch {}
+        // tiny retry to avoid race in SPA navigations
+        setTimeout(() => { try { el.play(); } catch {} }, 50);
       } else {
         // Clear video element when no video track
         this.localVideo.nativeElement.srcObject = null;

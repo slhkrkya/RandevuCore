@@ -1,8 +1,9 @@
-import { Component, computed, signal, inject, HostListener, OnDestroy } from '@angular/core';
+import { Component, computed, signal, inject, HostListener, OnDestroy, Input, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { SettingsService } from '../../services/settings.service';
+import { SettingsService, VideoBackgroundMode, VideoBackgroundBlurLevel } from '../../services/settings.service';
 import { AudioService } from '../../services/audio.service';
+import { VideoEffectsService } from '../../services/video-effects.service';
 
 @Component({
   selector: 'app-settings-panel',
@@ -11,15 +12,19 @@ import { AudioService } from '../../services/audio.service';
   templateUrl: './settings-panel.component.html',
   styleUrls: ['./settings-panel.component.css']
 })
-export class SettingsPanelComponent implements OnDestroy {
+export class SettingsPanelComponent implements OnInit, OnDestroy {
   private settings = inject(SettingsService);
   private audioService = inject(AudioService);
+  private videoEffects = inject(VideoEffectsService);
+  @Input() showVideoBackground = true;
+  @ViewChild('videoPreview', { static: false }) videoPreview?: ElementRef<HTMLVideoElement>;
   
   // Settings related
   isDarkMode = computed(() => this.settings.isDarkMode());
   currentTheme = computed(() => this.settings.currentTheme());
   deviceSettings = computed(() => this.settings.deviceSettings());
   speakerMonitorVolume = computed(() => this.settings.speakerMonitorVolume());
+  videoBackground = computed(() => this.settings.settings().videoBackground);
   
   // Audio related
   isAudioListening = computed(() => this.audioService.isListening());
@@ -35,6 +40,10 @@ export class SettingsPanelComponent implements OnDestroy {
   hasMicrophonePermission = signal<boolean | null>(null);
   hasCameraPermission = signal<boolean | null>(null);
 
+  // Video preview
+  private previewRawStream?: MediaStream;
+  private previewProcessedStream?: MediaStream;
+
   constructor() {
     this.loadAvailableDevices();
     // Listen for OS-level device changes (plug/unplug)
@@ -46,6 +55,13 @@ export class SettingsPanelComponent implements OnDestroy {
         (navigator.mediaDevices as any).ondevicechange = this.handleDeviceChange as any;
       } catch {}
     }
+  }
+
+  async ngOnInit() {
+    // Preload effects engine to reduce first apply latency
+    try { await this.videoEffects.preload(); } catch {}
+    window.addEventListener('settingschange', this.onSettingsChange);
+    await this.startVideoPreviewSafe();
   }
 
   // Stop monitoring on global pointer up (in case user releases outside the button)
@@ -68,6 +84,8 @@ export class SettingsPanelComponent implements OnDestroy {
     if (this.isAudioListening()) {
       this.stopAudioMonitoring();
     }
+    window.removeEventListener('settingschange', this.onSettingsChange);
+    this.stopVideoPreview();
     if (navigator && (navigator as any).mediaDevices && typeof (navigator.mediaDevices as any).removeEventListener === 'function') {
       (navigator.mediaDevices as any).removeEventListener('devicechange', this.handleDeviceChange);
     } else if (navigator && (navigator as any).mediaDevices) {
@@ -84,9 +102,16 @@ export class SettingsPanelComponent implements OnDestroy {
       // Re-apply output sink to selected speaker or default if none
       const current = this.deviceSettings();
       await this.audioService.setOutputDevice(current.speakerDeviceId || '');
+      // Restart preview to reflect camera change/hotplug
+      await this.startVideoPreviewSafe();
     } catch (err) {
       console.warn('Device change handling failed:', err);
     }
+  };
+
+  private onSettingsChange = async () => {
+    // Re-acquire and re-apply effects when settings (mode/blur/image/device) change
+    await this.startVideoPreviewSafe();
   };
 
   // Theme methods
@@ -193,6 +218,46 @@ export class SettingsPanelComponent implements OnDestroy {
     this.settings.setSpeakerMonitorVolume(volume);
   }
 
+  // Video background handlers
+  setVideoBackgroundMode(mode: VideoBackgroundMode) {
+    this.settings.setVideoBackgroundMode(mode);
+  }
+
+  setVideoBackgroundBlurLevel(level: VideoBackgroundBlurLevel) {
+    this.settings.setVideoBackgroundBlurLevel(level);
+  }
+
+  setMirrorPreview(value: boolean) {
+    this.settings.setVideoBackgroundMirrorPreview(!!value);
+  }
+
+  async onBackgroundImageSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input?.files?.[0];
+    if (!file) {
+      this.settings.setVideoBackgroundImage(null);
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      return;
+    }
+    const dataUrl = await this.readFileAsDataURL(file);
+    this.settings.setVideoBackgroundImage(dataUrl);
+  }
+
+  clearBackgroundImage() {
+    this.settings.setVideoBackgroundImage(null);
+  }
+
+  private readFileAsDataURL(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
   getDeviceName(device: MediaDeviceInfo): string {
     if (device.label) {
       return device.label;
@@ -264,5 +329,56 @@ export class SettingsPanelComponent implements OnDestroy {
 
   toggleAudioMute() {
     this.audioService.toggleMute();
+  }
+
+  // ===== Video Preview Helpers =====
+  private async startVideoPreviewSafe() {
+    try {
+      // Only start if video background section is shown and camera permission exists
+      if (!this.showVideoBackground) return;
+      if (this.hasCameraPermission() === false) return;
+      await this.startVideoPreview();
+    } catch (e) {
+      // ignore preview errors
+    }
+  }
+
+  private async startVideoPreview() {
+    // Stop previous
+    this.stopVideoPreview();
+
+    const deviceId = this.deviceSettings().cameraDeviceId || undefined;
+    const constraints: MediaStreamConstraints = {
+      video: deviceId ? { deviceId: { exact: deviceId } as any } : true,
+      audio: false
+    };
+
+    const raw = await navigator.mediaDevices.getUserMedia(constraints);
+    this.previewRawStream = raw;
+
+    const processed = await this.videoEffects.apply(raw, this.settings.settings().videoBackground);
+    this.previewProcessedStream = processed;
+
+    if (this.videoPreview?.nativeElement) {
+      this.videoPreview.nativeElement.srcObject = processed;
+      this.videoPreview.nativeElement.muted = true;
+      (this.videoPreview.nativeElement as any).playsInline = true;
+      try { await this.videoPreview.nativeElement.play(); } catch {}
+    }
+  }
+
+  private stopVideoPreview() {
+    try { this.videoEffects.stop(); } catch {}
+    if (this.previewProcessedStream) {
+      this.previewProcessedStream.getTracks().forEach(t => { try { t.stop(); } catch {} });
+      this.previewProcessedStream = undefined;
+    }
+    if (this.previewRawStream) {
+      this.previewRawStream.getTracks().forEach(t => { try { t.stop(); } catch {} });
+      this.previewRawStream = undefined;
+    }
+    if (this.videoPreview?.nativeElement) {
+      this.videoPreview.nativeElement.srcObject = null;
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, signal, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { AuthService } from '../../../core/services/auth';
@@ -87,5 +87,14 @@ export class NavbarComponent {
 
   closeSettingsMenu() {
     this.isSettingsMenuOpen.set(false);
+  }
+
+  // Ensure dropdown is closed when switching to mobile breakpoint
+  @HostListener('window:resize')
+  onWindowResize() {
+    const isMobile = window.innerWidth < 1024; // Tailwind 'lg' breakpoint
+    if (isMobile && this.isSettingsMenuOpen()) {
+      this.isSettingsMenuOpen.set(false);
+    }
   }
 }

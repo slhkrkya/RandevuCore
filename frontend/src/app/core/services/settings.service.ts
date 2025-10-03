@@ -13,6 +13,17 @@ export interface DeviceSettings {
 export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
   devices: DeviceSettings;
+  videoBackground: VideoBackgroundSettings;
+}
+
+export type VideoBackgroundMode = 'none' | 'blur' | 'image';
+export type VideoBackgroundBlurLevel = 'none' | 'low' | 'high';
+
+export interface VideoBackgroundSettings {
+  mode: VideoBackgroundMode;
+  blurLevel: VideoBackgroundBlurLevel; // none, low, high
+  imageDataUrl?: string | null; // base64 image for background replacement
+  mirrorPreview?: boolean; // mirror local preview only
 }
 
 @Injectable({
@@ -54,6 +65,12 @@ export class SettingsService {
         speakerDeviceId: null,
         microphoneVolume: 50,
         speakerMonitorVolume: 50
+      },
+      videoBackground: {
+        mode: 'none',
+        blurLevel: 'none',
+        imageDataUrl: null,
+        mirrorPreview: true
       }
     };
   }
@@ -73,9 +90,17 @@ export class SettingsService {
   private saveSettings(): void {
     try {
       localStorage.setItem(this.SETTINGS_KEY, JSON.stringify(this._settings()));
+      this.dispatchSettingsChange();
     } catch (error) {
       console.warn('Failed to save settings:', error);
     }
+  }
+
+  private dispatchSettingsChange(): void {
+    try {
+      const event = new Event('settingschange');
+      window.dispatchEvent(event);
+    } catch {}
   }
 
   private initializeTheme(): void {
@@ -195,5 +220,38 @@ export class SettingsService {
     this._settings.set(this.getDefaultSettings());
     this.saveSettings();
     this.initializeTheme();
+  }
+
+  // Video background settings
+  setVideoBackgroundMode(mode: VideoBackgroundMode): void {
+    this._settings.update(current => ({
+      ...current,
+      videoBackground: { ...current.videoBackground, mode }
+    }));
+    this.saveSettings();
+  }
+
+  setVideoBackgroundBlurLevel(blurLevel: VideoBackgroundBlurLevel): void {
+    this._settings.update(current => ({
+      ...current,
+      videoBackground: { ...current.videoBackground, blurLevel }
+    }));
+    this.saveSettings();
+  }
+
+  setVideoBackgroundImage(imageDataUrl: string | null): void {
+    this._settings.update(current => ({
+      ...current,
+      videoBackground: { ...current.videoBackground, imageDataUrl }
+    }));
+    this.saveSettings();
+  }
+
+  setVideoBackgroundMirrorPreview(mirrorPreview: boolean): void {
+    this._settings.update(current => ({
+      ...current,
+      videoBackground: { ...current.videoBackground, mirrorPreview }
+    }));
+    this.saveSettings();
   }
 }

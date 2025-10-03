@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { AppConfigService } from './app-config.service';
 import { Observable, tap } from 'rxjs';
 
 interface AuthResponse {
@@ -10,10 +11,12 @@ interface AuthResponse {
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private apiUrl = 'http://localhost:5125/api/auth'; // backend adresi (launchSettings.json)
+  private apiUrl: string;
   private authState = signal<boolean>(!!this.getToken());
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private cfg: AppConfigService) {
+    this.apiUrl = this.cfg.apiBaseUrl + '/api/auth';
+  }
 
   get isAuthenticated() {
     return this.authState.asReadonly();

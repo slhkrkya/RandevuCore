@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators, FormGroup } from '@angular/forms';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { AppConfigService } from '../../../core/services/app-config.service';
 
 @Component({
   selector: 'app-appointment-form',
@@ -17,7 +18,7 @@ export class AppointmentForm {
   loading = false;
   error: string | null = null;
 
-  constructor(private fb: FormBuilder, private http: HttpClient, private router: Router) {
+  constructor(private fb: FormBuilder, private http: HttpClient, private router: Router, private cfg: AppConfigService) {
     this.form = this.fb.group({
       title: ['', Validators.required],
       startsAt: ['', Validators.required],
@@ -31,7 +32,7 @@ export class AppointmentForm {
     if (this.form.invalid || this.loading) return;
     this.loading = true;
     this.error = null;
-    this.http.post('http://localhost:5125/api/appointments', this.form.value).subscribe({
+    this.http.post(`${this.cfg.apiBaseUrl}/api/appointments`, this.form.value).subscribe({
       next: () => this.router.navigate(['/appointments']),
       error: (err) => {
         this.error = err?.error?.error || 'Kaydetme başarısız';

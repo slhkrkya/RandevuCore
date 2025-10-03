@@ -61,9 +61,9 @@
             
             <!-- Settings Dropdown Menu -->
             <div *ngIf="isSettingsMenuOpen()" 
-                 class="absolute top-full right-0 mt-2 w-80 bg-white/95 dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 shadow-xl rounded-lg z-50 backdrop-blur-md animate-fade-in">
-              <div class="p-4">
-                <app-settings-panel></app-settings-panel>
+                 class="absolute top-full right-0 mt-2 w-72 sm:w-80 md:w-[28rem] max-w-[90vw] bg-white/95 dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 shadow-xl rounded-lg z-50 backdrop-blur-md animate-fade-in">
+              <div class="p-3 sm:p-4">
+                <app-settings-panel [showVideoBackground]="false"></app-settings-panel>
 
                 <!-- Settings Actions -->
                 <div class="pt-2 border-t border-slate-200 dark:border-slate-700 mt-4">
@@ -168,7 +168,7 @@
             </button>
             <button 
               class="mobile-nav-link w-full flex items-center text-sm"
-              (click)="toggleSettingsMenu(); closeMobileMenu()">
+              (click)="navigateToSettings(); closeMobileMenu()">
               <span class="material-symbols-outlined text-sm mr-2">settings</span>
               Ayarlar
             </button>
@@ -218,7 +218,7 @@
 
         <!-- Settings Panel -->
         <div class="mb-6">
-          <app-settings-panel></app-settings-panel>
+          <app-settings-panel [showVideoBackground]="false"></app-settings-panel>
         </div>
 
         <!-- Settings Actions -->

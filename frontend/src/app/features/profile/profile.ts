@@ -4,6 +4,7 @@ import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angula
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../core/services/auth';
 import { Router } from '@angular/router';
+import { AppConfigService } from '../../core/services/app-config.service';
 
 interface Profile {
   id: string;
@@ -39,7 +40,8 @@ export class ProfileComponent implements OnInit {
     private fb: FormBuilder,
     private http: HttpClient,
     private auth: AuthService,
-    private router: Router
+    private router: Router,
+    private cfg: AppConfigService
   ) {
     this.profileForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(1), Validators.maxLength(100)]]
@@ -75,7 +77,7 @@ export class ProfileComponent implements OnInit {
       return;
     }
 
-    this.http.get<Profile>('http://localhost:5125/api/auth/profile', {
+    this.http.get<Profile>(`${this.cfg.apiBaseUrl}/api/auth/profile`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -111,7 +113,7 @@ export class ProfileComponent implements OnInit {
 
     const formValue = this.profileForm.value;
 
-    this.http.put('http://localhost:5125/api/auth/profile', formValue, {
+    this.http.put(`${this.cfg.apiBaseUrl}/api/auth/profile`, formValue, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -148,7 +150,7 @@ export class ProfileComponent implements OnInit {
 
     const formValue = this.passwordForm.value;
 
-    this.http.put('http://localhost:5125/api/auth/change-password', formValue, {
+    this.http.put(`${this.cfg.apiBaseUrl}/api/auth/change-password`, formValue, {
       headers: {
         'Authorization': `Bearer ${token}`
       }

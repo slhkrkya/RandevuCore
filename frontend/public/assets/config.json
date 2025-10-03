@@ -1,0 +1,6 @@
+{
+  "apiBaseUrl": "http://localhost:5125",
+  "wsUrl": "http://localhost:5125/ws"
+}
+
+

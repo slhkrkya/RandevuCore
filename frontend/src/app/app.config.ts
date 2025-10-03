@@ -6,6 +6,8 @@ import { registerLocaleData } from '@angular/common';
 import localeTr from '@angular/common/locales/tr';
 
 import { routes } from './app.routes';
+import { APP_INITIALIZER } from '@angular/core';
+import { AppConfigService } from './core/services/app-config.service';
 
 // Türkiye locale verisini kaydet
 registerLocaleData(localeTr);
@@ -16,6 +18,13 @@ export const appConfig: ApplicationConfig = {
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
     provideHttpClient(withInterceptors([authInterceptor])),
-    { provide: LOCALE_ID, useValue: 'tr-TR' }
+    { provide: LOCALE_ID, useValue: 'tr-TR' },
+    // Load runtime public config before bootstrap
+    {
+      provide: APP_INITIALIZER,
+      useFactory: (cfg: AppConfigService) => () => cfg.load(),
+      deps: [AppConfigService],
+      multi: true
+    }
   ]
 };

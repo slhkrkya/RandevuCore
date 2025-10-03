@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
+import { AppConfigService } from '../../../core/services/app-config.service';
 
 @Component({
   selector: 'app-appointment-list',
@@ -14,7 +15,7 @@ export class AppointmentList implements OnInit {
   items: any[] = [];
   loading = true;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private cfg: AppConfigService) {}
 
   ngOnInit() {
     this.loadAppointments();
@@ -25,7 +26,7 @@ export class AppointmentList implements OnInit {
     const token = localStorage.getItem('token');
     const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
     
-    this.http.get<any[]>('http://localhost:5125/api/appointments', { headers })
+    this.http.get<any[]>(`${this.cfg.apiBaseUrl}/api/appointments`, { headers })
       .subscribe({
         next: (items) => {
           this.items = items;
@@ -54,7 +55,7 @@ export class AppointmentList implements OnInit {
       const token = localStorage.getItem('token');
       const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
       
-      this.http.delete(`http://localhost:5125/api/appointments/${appointment.id}`, { headers })
+      this.http.delete(`${this.cfg.apiBaseUrl}/api/appointments/${appointment.id}`, { headers })
         .subscribe({
           next: () => {
             this.loadAppointments(); // Listeyi yenile

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators, FormGroup } from '@angular/forms';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { AppConfigService } from '../../../core/services/app-config.service';
 import { map } from 'rxjs';
 
 @Component({
@@ -19,7 +20,7 @@ export class MeetingCreateComponent {
   users: any[] = [];
   selectedInvitees: string[] = [];
 
-  constructor(private fb: FormBuilder, private http: HttpClient, private router: Router) {
+  constructor(private fb: FormBuilder, private http: HttpClient, private router: Router, private cfg: AppConfigService) {
     this.form = this.fb.group({
       title: ['', Validators.required],
       startsAt: ['', Validators.required],
@@ -30,7 +31,7 @@ export class MeetingCreateComponent {
   }
 
   ngOnInit() {
-    this.http.get<any[]>('http://localhost:5125/api/users')
+    this.http.get<any[]>(`${this.cfg.apiBaseUrl}/api/users`)
       .subscribe(u => this.users = u);
   }
 
@@ -40,7 +41,7 @@ export class MeetingCreateComponent {
     this.error = null;
     const value = this.form.value;
     const payload = { ...value, inviteeIds: this.selectedInvitees };
-    this.http.post('http://localhost:5125/api/meetings', payload).subscribe({
+    this.http.post(`${this.cfg.apiBaseUrl}/api/meetings`, payload).subscribe({
       next: () => this.router.navigate(['/meetings']),
       error: (err) => {
         this.error = err?.error?.error || 'Kaydetme başarısız';

@@ -45,9 +45,10 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateIssuerSigningKey = true,
         ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero,
         ValidIssuer = jwtIssuer,
         ValidAudience = jwtAudience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret!))
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret ?? throw new InvalidOperationException("JWT secret is not configured. Use env var JwtSettings__Secret or user-secrets.")))
     };
     // Allow JWT via access_token query for SignalR websockets
     options.Events = new JwtBearerEvents

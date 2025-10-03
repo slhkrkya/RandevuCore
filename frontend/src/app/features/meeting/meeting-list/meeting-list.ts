@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth';
+import { AppConfigService } from '../../../core/services/app-config.service';
 
 interface MeetingInvitee {
   id: string;
@@ -39,7 +40,8 @@ export class MeetingListComponent implements OnInit {
 
   constructor(
     private http: HttpClient,
-    private auth: AuthService
+    private auth: AuthService,
+    private cfg: AppConfigService
   ) {}
 
   ngOnInit() {
@@ -57,7 +59,7 @@ export class MeetingListComponent implements OnInit {
       return;
     }
 
-    this.http.get<Meeting[]>('http://localhost:5125/api/meetings', {
+    this.http.get<Meeting[]>(`${this.cfg.apiBaseUrl}/api/meetings`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -114,7 +116,7 @@ export class MeetingListComponent implements OnInit {
       const token = this.auth.getToken();
       if (!token) return;
 
-      this.http.delete(`http://localhost:5125/api/meetings/${meeting.id}`, {
+      this.http.delete(`${this.cfg.apiBaseUrl}/api/meetings/${meeting.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
