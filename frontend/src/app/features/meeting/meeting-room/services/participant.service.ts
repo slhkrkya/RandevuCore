@@ -45,11 +45,6 @@ export class ParticipantService {
         // Emit only when actual state changed
         this.participantsSubject.next([...this.participants]);
       }
-      
-      console.log(`🔥 ParticipantService: ${userId} updated:`, updates);
-    } else {
-      console.warn(`🔥 ParticipantService: Participant ${userId} not found in participants list`);
-      console.log(`   Current participants:`, this.participants.map(p => p.userId));
     }
   }
 

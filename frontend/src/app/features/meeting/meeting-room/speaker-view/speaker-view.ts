@@ -2,6 +2,7 @@ import { Component, Input, ViewChild, ElementRef, ChangeDetectorRef, OnInit, OnD
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { Participant, MeetingState } from '../meeting-room';
+import { isParticipantVideoVisible as isVisibleSel, getStreamForParticipant as getStreamSel, selectActiveSpeaker as selectSpeakerSel } from '../services/media-selectors';
 import { ParticipantService } from '../services/participant.service';
 
 @Component({
@@ -34,51 +35,36 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges {
     private participantService: ParticipantService
   ) {}
 
+  private readonly logUi = ((): boolean => {
+    try { return localStorage.getItem('log.ui') === 'true'; } catch { return false; }
+  })();
+
   ngOnInit() {
     // Subscribe to participant service updates
     this.participantsSubscription = this.participantService.participants$.subscribe(participants => {
-      console.log(`SpeakerView: Participants updated:`, participants.length, participants.map(p => ({
-        userId: p.userId,
-        name: p.name,
-        isVideoOn: p.isVideoOn,
-        isScreenSharing: p.isScreenSharing,
-        isMuted: p.isMuted
-      })));
       
       this.participants = participants;
       
       // Debug active speaker and visibility
-      setTimeout(() => {
-        const activeSpeaker = this.getActiveSpeaker();
-        if (activeSpeaker) {
-          const stream = this.getActiveSpeakerStream();
-          const isVisible = this.isParticipantVideoVisible(activeSpeaker);
-          
-          console.log(`🎯 Active Speaker Debug:`, {
-            userId: activeSpeaker.userId,
-            name: activeSpeaker.name,
-            isVideoOn: activeSpeaker.isVideoOn,
-            isScreenSharing: activeSpeaker.isScreenSharing,
-            isVisible,
-            hasStream: !!stream,
-            streamId: stream?.id,
-            videoTracks: stream?.getVideoTracks().length || 0,
-            trackStates: stream?.getVideoTracks().map(t => ({ 
-              enabled: t.enabled, 
-              muted: t.muted, 
-              readyState: t.readyState 
-            })) || []
-          });
-          
-          // Debug for template conditions
-          console.log(`🎯 Template Conditions Debug:`, {
-            'getActiveSpeaker()': !!activeSpeaker,
-            'isParticipantVideoVisible(getActiveSpeaker()!)': isVisible,
-            'Show video element': !!activeSpeaker && isVisible,
-            'Show placeholder': !activeSpeaker || !isVisible
-          });
-        }
-      }, 100);
+      if (this.logUi) {
+        setTimeout(() => {
+          const activeSpeaker = this.getActiveSpeaker();
+          if (activeSpeaker) {
+            const stream = this.getActiveSpeakerStream();
+            const isVisible = this.isParticipantVideoVisible(activeSpeaker);
+            console.log(`🎯 Active Speaker Debug:`, {
+              userId: activeSpeaker.userId,
+              name: activeSpeaker.name,
+              isVideoOn: activeSpeaker.isVideoOn,
+              isScreenSharing: activeSpeaker.isScreenSharing,
+              isVisible,
+              hasStream: !!stream,
+              streamId: stream?.id,
+              videoTracks: stream?.getVideoTracks().length || 0
+            });
+          }
+        }, 100);
+      }
       
       // Force change detection synchronously
       this.cdr.markForCheck();
@@ -91,17 +77,7 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   ngOnChanges() {
-    console.log(`🔄 SpeakerView Inputs Changed:`, {
-      hasLocalStream: !!this.localStream,
-      localStreamId: this.localStream?.id,
-      localVideoTracks: this.localStream?.getVideoTracks().length || 0,
-      remoteStreamsCount: this.remoteStreams.size,
-      meetingState: {
-        isVideoOn: this.meetingState.isVideoOn,
-        isScreenSharing: this.meetingState.isScreenSharing,
-        isMuted: this.meetingState.isMuted
-      }
-    });
+    // debug log removed in production build
   }
 
   getActiveSpeaker(): Participant | null {
@@ -112,67 +88,13 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges {
       const pinned = this.participants.find(p => p.userId === this.pinnedUserId);
       if (pinned) return pinned;
     }
-
-    // Priority algorithm for speaker selection
-    // 1. Screen sharing participants (highest priority)
-    const screenSharingParticipants = this.participants.filter(p => p.isScreenSharing);
-    if (screenSharingParticipants.length > 0) {
-      return screenSharingParticipants[0];
-    }
-
-    // 2. Video enabled + speaking participants
-    const videoSpeakingParticipants = this.participants.filter(p => 
-      this.isParticipantVideoVisible(p) && 
-      p.userId === this.meetingState.activeSpeaker
-    );
-    if (videoSpeakingParticipants.length > 0) {
-      return videoSpeakingParticipants[0];
-    }
-
-    // 3. Video enabled participants (regardless of speaking)
-    const videoParticipants = this.participants.filter(p => this.isParticipantVideoVisible(p));
-    if (videoParticipants.length > 0) {
-      return videoParticipants[0];
-    }
-
-    // 4. Speaking participants (regardless of video status)
-    if (this.meetingState.activeSpeaker) {
-      const speakingParticipant = this.participants.find(p => p.userId === this.meetingState.activeSpeaker);
-      if (speakingParticipant) {
-        return speakingParticipant;
-      }
-    }
-
-    // 5. Default to first participant
-    return this.participants[0];
+    return selectSpeakerSel(this.participants, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams);
   }
 
   getActiveSpeakerStream(): MediaStream | null {
     const activeSpeaker = this.getActiveSpeaker();
     if (!activeSpeaker) return null;
-
-    if (activeSpeaker.userId === this.currentUserId) {
-      const stream = this.localStream || null;
-      console.log(`🎯 Active speaker stream (local):`, {
-        hasStream: !!stream,
-        streamId: stream?.id,
-        videoTracks: stream?.getVideoTracks().length || 0,
-        isVideoOn: this.meetingState.isVideoOn,
-        isScreenSharing: this.meetingState.isScreenSharing
-      });
-      return stream;
-    }
-    
-    const stream = this.remoteStreams.get(activeSpeaker.userId) || null;
-    console.log(`🎯 Active speaker stream (remote):`, {
-      userId: activeSpeaker.userId,
-      hasStream: !!stream,
-      streamId: stream?.id,
-      videoTracks: stream?.getVideoTracks().length || 0,
-      participantVideoOn: activeSpeaker.isVideoOn,
-      participantScreenSharing: activeSpeaker.isScreenSharing
-    });
-    return stream;
+    return getStreamSel(activeSpeaker, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams) || null;
   }
 
   getOtherParticipants(): Participant[] {
@@ -204,60 +126,14 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   isParticipantVideoVisible(participant: Participant): boolean {
-    if (participant.userId === this.currentUserId) {
-      // For local user, check if video is on OR screen sharing and we have an active video track
-      const videoTrack = this.localStream?.getVideoTracks()[0];
-      const hasActiveVideoTrack = !!(this.localStream && 
-                                    videoTrack && 
-                                    videoTrack.readyState === 'live');
-      const isVideoVisible = !!(hasActiveVideoTrack && (this.meetingState.isVideoOn || this.meetingState.isScreenSharing));
-      
-      // Debug logging for local user video state (only when state changes)
-      if (this.shouldLogVideoState(participant.userId, isVideoVisible)) {
-        console.log(`Local user video state changed:`, {
-          userId: participant.userId,
-          isVideoOn: this.meetingState.isVideoOn,
-          isScreenSharing: this.meetingState.isScreenSharing,
-          hasLocalStream: !!this.localStream,
-          hasVideoTrack: !!videoTrack,
-          trackMuted: videoTrack?.muted,
-          trackReadyState: videoTrack?.readyState,
-          finalResult: isVideoVisible
-        });
+    const visible = isVisibleSel(participant, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams);
+    if (this.shouldLogVideoState(participant.userId, visible)) {
+      if (this.logUi) {
+        console.log(`Video visibility changed`, participant.userId, visible);
       }
-      
-      return isVideoVisible;
-    }
-    
-    // For remote participants, check if they have video on AND we have an active video track
-    const remoteStream = this.remoteStreams.get(participant.userId);
-    const videoTrack = remoteStream?.getVideoTracks()[0];
-    const hasActiveVideoTrack = !!(videoTrack && 
-                                  videoTrack.readyState === 'live');
-    
-    const isRemoteVideoVisible = !!(hasActiveVideoTrack && (participant.isVideoOn || participant.isScreenSharing));
-    
-    // Debug logging for remote participant video state (only when state changes)
-    if (this.shouldLogVideoState(participant.userId, isRemoteVideoVisible)) {
-      console.log(`Remote participant video state changed:`, {
-        userId: participant.userId,
-        isVideoOn: participant.isVideoOn,
-        isScreenSharing: participant.isScreenSharing,
-        hasRemoteStream: !!remoteStream,
-        hasVideoTrack: !!videoTrack,
-        trackMuted: videoTrack?.muted,
-        trackReadyState: videoTrack?.readyState,
-        finalResult: isRemoteVideoVisible
-      });
-    }
-    
-    // Trigger change detection when stream state changes (for both video and screen share)
-    if ((participant.isVideoOn || participant.isScreenSharing) !== hasActiveVideoTrack) {
-      console.log(`Triggering change detection for ${participant.userId}`);
       setTimeout(() => this.cdr.detectChanges(), 100);
     }
-    
-    return isRemoteVideoVisible;
+    return visible;
   }
 
   private shouldLogVideoState(userId: string, currentState: boolean): boolean {
@@ -267,29 +143,7 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   getParticipantStream(participant: Participant): MediaStream | undefined {
-    if (participant.userId === this.currentUserId) {
-      console.log(`📱 Local Stream Debug:`, {
-        userId: participant.userId,
-        hasLocalStream: !!this.localStream,
-        streamId: this.localStream?.id,
-        videoTracks: this.localStream?.getVideoTracks().length || 0,
-        localVideoOn: this.meetingState.isVideoOn,
-        localScreenSharing: this.meetingState.isScreenSharing
-      });
-      return this.localStream;
-    }
-    
-    const remoteStream = this.remoteStreams.get(participant.userId);
-    console.log(`📡 Remote Stream Debug for ${participant.userId}:`, {
-      hasStream: !!remoteStream,
-      streamId: remoteStream?.id,
-      videoTracks: remoteStream?.getVideoTracks().length || 0,
-      audioTracks: remoteStream?.getAudioTracks().length || 0,
-      participantVideoOn: participant.isVideoOn,
-      participantScreenSharing: participant.isScreenSharing
-    });
-    
-    return remoteStream;
+    return getStreamSel(participant, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams);
   }
 
   getParticipantDisplayName(participant: Participant): string {
@@ -321,12 +175,7 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges {
   onMainVideoLoaded(event: Event) {
     const video = event.target as HTMLVideoElement;
     const activeSpeaker = this.getActiveSpeaker();
-    console.log(`✅ Main video loaded for ${activeSpeaker?.name}:`, {
-      videoWidth: video.videoWidth,
-      videoHeight: video.videoHeight,
-      duration: video.duration,
-      srcObject: !!video.srcObject
-    });
+    // debug log removed in production build
     
     // Force play the video
     video.play().catch(error => {
@@ -336,17 +185,12 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges {
 
   onMainVideoError(event: Event) {
     const activeSpeaker = this.getActiveSpeaker();
-    console.error(`❌ Main video error for ${activeSpeaker?.name}:`, event);
+    // handled silently to avoid console noise
   }
 
   onThumbnailVideoLoaded(event: Event, participant: Participant) {
     const video = event.target as HTMLVideoElement;
-    console.log(`✅ Thumbnail video loaded for ${participant.name}:`, {
-      videoWidth: video.videoWidth,
-      videoHeight: video.videoHeight,
-      duration: video.duration,
-      srcObject: !!video.srcObject
-    });
+    // debug log removed in production build
     
     // Force play the video
     video.play().catch(error => {
@@ -355,6 +199,6 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   onThumbnailVideoError(event: Event, participant: Participant) {
-    console.error(`❌ Thumbnail video error for ${participant.name}:`, event);
+    // handled silently to avoid console noise
   }
 }

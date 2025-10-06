@@ -2,6 +2,7 @@ import { Component, Input, ViewChild, ElementRef, ChangeDetectorRef, OnInit, OnD
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { Participant, MeetingState } from '../meeting-room';
+import { isParticipantVideoVisible as isVisibleSel, getStreamForParticipant as getStreamSel } from '../services/media-selectors';
 import { ParticipantService } from '../services/participant.service';
 
 @Component({
@@ -27,6 +28,9 @@ export class VideoGridComponent implements OnInit, OnDestroy {
   @ViewChild('localVideo', { static: true }) localVideo!: ElementRef<HTMLVideoElement>;
 
   private participantsSubscription?: Subscription;
+  private readonly logUi = ((): boolean => {
+    try { return localStorage.getItem('log.ui') === 'true'; } catch { return false; }
+  })();
 
   constructor(
     private cdr: ChangeDetectorRef,
@@ -36,34 +40,18 @@ export class VideoGridComponent implements OnInit, OnDestroy {
   ngOnInit() {
     // Subscribe to participant service updates
     this.participantsSubscription = this.participantService.participants$.subscribe(participants => {
-      console.log(`📊 VideoGrid: Participants updated:`, participants.map(p => ({
-        userId: p.userId,
-        name: p.name,
-        isVideoOn: p.isVideoOn,
-        isScreenSharing: p.isScreenSharing,
-        isVisible: this.isParticipantVideoVisible(p),
-        hasVideo: !!this.getParticipantVideo(p)
-      })));
       
       this.participants = participants;
       
-      // Debug each participant's video visibility
-      setTimeout(() => {
-        participants.forEach(p => {
-          if (this.isParticipantVideoVisible(p)) {
-            const video = this.getParticipantVideo(p);
-            console.log(`📺 VideoGrid Participant Visible:`, {
-              userId: p.userId,
-              name: p.name,
-              isVideoOn: p.isVideoOn,
-              isScreenSharing: p.isScreenSharing,
-              hasVideo: !!video,
-              videoId: video?.id,
-              videoTracks: video?.getVideoTracks().length || 0
-            });
-          }
-        });
-      }, 100);
+      if (this.logUi) {
+        setTimeout(() => {
+          participants.forEach(p => {
+            if (this.isParticipantVideoVisible(p)) {
+              this.getParticipantVideo(p);
+            }
+          });
+        }, 100);
+      }
       
       this.cdr.detectChanges();
     });
@@ -78,7 +66,6 @@ export class VideoGridComponent implements OnInit, OnDestroy {
   }
 
   ngOnChanges() {
-    console.log('🔄 VideoGrid ngOnChanges triggered');
     this.updateLocalVideo();
     this.cdr.detectChanges(); // Force change detection to update video elements
   }
@@ -123,34 +110,8 @@ export class VideoGridComponent implements OnInit, OnDestroy {
   }
 
   getParticipantVideo(participant: Participant): MediaStream | null {
-    if (participant.userId === this.currentUserId) {
-      // For local user, return stream if video OR screen sharing is on and has video tracks
-      if ((!!this.meetingState.isVideoOn || !!this.meetingState.isScreenSharing) && 
-          this.localStream && this.localStream.getVideoTracks().length > 0) {
-        console.log(`📺 Local video stream for ${participant.name}:`, {
-          streamId: this.localStream.id,
-          videoTracks: this.localStream.getVideoTracks().length,
-          isVideoOn: this.meetingState.isVideoOn,
-          isScreenSharing: this.meetingState.isScreenSharing
-        });
-        return this.localStream;
-      }
-      return null;
-    }
-    
-    const remoteStream = this.remoteStreams.get(participant.userId);
-    // For remote users, return stream if they have video OR screen sharing on and stream has video tracks
-    if ((!!participant.isVideoOn || !!participant.isScreenSharing) && 
-        remoteStream && remoteStream.getVideoTracks().length > 0) {
-      console.log(`📺 Remote video stream for ${participant.name}:`, {
-        streamId: remoteStream.id,
-        videoTracks: remoteStream.getVideoTracks().length,
-        participantVideoOn: participant.isVideoOn,
-        participantScreenSharing: participant.isScreenSharing
-      });
-      return remoteStream;
-    }
-    return null;
+    const s = getStreamSel(participant, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams);
+    return s || null;
   }
 
   toggleParticipantMute(participant: Participant) {
@@ -162,19 +123,7 @@ export class VideoGridComponent implements OnInit, OnDestroy {
   }
 
   isParticipantVideoVisible(participant: Participant): boolean {
-    if (participant.userId === this.currentUserId) {
-      // For local user, show if we have live track when video/screen is enabled
-      const videoTrack = this.localStream?.getVideoTracks()[0];
-      const hasLive = !!(videoTrack && videoTrack.readyState === 'live');
-      return !!(hasLive && (this.meetingState.isVideoOn || this.meetingState.isScreenSharing));
-    }
-    
-    // For remote participants, check if they have video on OR screen sharing AND we have their stream with video tracks
-    const remoteStream = this.remoteStreams.get(participant.userId);
-    const videoTrack = remoteStream?.getVideoTracks()[0];
-    const hasLive = !!(videoTrack && videoTrack.readyState === 'live');
-    // Check both video and screen sharing status
-    return !!(hasLive && (participant.isVideoOn || participant.isScreenSharing));
+    return isVisibleSel(participant, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams);
   }
 
   getParticipantDisplayName(participant: Participant): string {
@@ -246,20 +195,12 @@ export class VideoGridComponent implements OnInit, OnDestroy {
 
   onVideoLoaded(event: Event, participant: Participant) {
     const video = event.target as HTMLVideoElement;
-    console.log(`✅ Video loaded for ${participant.name}:`, {
-      videoWidth: video.videoWidth,
-      videoHeight: video.videoHeight,
-      duration: video.duration,
-      srcObject: !!video.srcObject
-    });
     
     // Force play the video
     video.play().catch(error => {
-      console.warn(`Failed to play video for ${participant.name}:`, error);
     });
   }
 
   onVideoError(event: Event, participant: Participant) {
-    console.error(`❌ Video error for ${participant.name}:`, event);
   }
 }

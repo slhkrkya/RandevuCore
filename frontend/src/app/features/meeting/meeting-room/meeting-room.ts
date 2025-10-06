@@ -10,6 +10,7 @@ import { MeetingControlsComponent } from './meeting-controls/meeting-controls';
 import { ParticipantsPanelComponent } from './participants-panel/participants-panel';
 import { ChatPanelComponent } from './chat-panel/chat-panel';
 import { VideoEffectsService } from '../../../core/services/video-effects.service';
+import { ToastService } from '../../../core/services/toast.service';
 import { SettingsService } from '../../../core/services/settings.service';
 
 export interface Participant {
@@ -69,6 +70,9 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   private rawLocalStream?: MediaStream; // original camera/mic stream for processing
   remoteStreams: Map<string, MediaStream> = new Map();
   peerConnections: Map<string, RTCPeerConnection> = new Map();
+  // Cache transceivers per peer to keep stable m-line ordering
+  private peerAudioTransceiver: Map<string, RTCRtpTransceiver> = new Map();
+  private peerVideoTransceiver: Map<string, RTCRtpTransceiver> = new Map();
   pendingIceCandidates: Map<string, RTCIceCandidate[]> = new Map();
   // Perfect negotiation state per peer
   private makingOffer: Map<string, boolean> = new Map();
@@ -80,6 +84,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   private analyserNodes: Map<string, AnalyserNode> = new Map();
   private speakingVolumes: Map<string, number> = new Map();
   private activeSpeakerAnimationFrame: number | null = null;
+  private wasVideoOnBeforeShare = false;
 
   // UI state
   showParticipantsPanel = false;
@@ -95,6 +100,9 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
 
   // Meeting duration tracking
   meetingDuration = '00:00:00';
+  // Negotiation debounce
+  private negotiationTimers: Map<string, any> = new Map();
+  private readonly negotiationDebounceMs = 350;
 
   // ViewChild references
   @ViewChild('localVideo', { static: true }) localVideo!: ElementRef<HTMLVideoElement>;
@@ -108,14 +116,17 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private videoEffects: VideoEffectsService,
     private settingsService: SettingsService,
-    private zone: NgZone
+    private zone: NgZone,
+    private toast: ToastService
   ) {}
 
   async ngOnInit() {
-    this.initializeMeeting();
     // Preload segmentation to reduce first-frame latency
     try { await this.videoEffects.preload(); } catch {}
+    // Ensure local media first so initial offer contains stable m-lines
     await this.initializeMedia();
+    // Then connect signaling and join room
+    await this.initializeMeeting();
     
     // Subscribe to participant service updates
     this.participantService.participants$.subscribe(participants => {
@@ -269,7 +280,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         console.log('User joining without camera or microphone');
       }
     } catch (error) {
-      console.error('Error initializing media:', error);
+      this.toast.error('Kamera/Mikrofon başlatılamadı. Ayarlarınızı kontrol edin.');
       // If media fails, continue without media - user can still participate
       this.meetingState.isVideoOn = false;
       this.meetingState.isMuted = true;
@@ -378,7 +389,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       await this.updateAllPeerConnections();
       await this.sendOffersToNewParticipants();
     } catch (error) {
-      console.error('Error ensuring local stream:', error);
+      this.toast.error('Yerel medya alınamadı. Mikrofon/kamera izni gerekli olabilir.');
       // Fallback to audio-only if video fails
       if (this.meetingState.isVideoOn) {
         this.meetingState.isVideoOn = false;
@@ -400,35 +411,28 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     const replacePromises: Promise<void>[] = [];
 
     this.peerConnections.forEach((pc, userId) => {
-      // Check if connection is still valid
       if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
         console.log(`⏭️ Skipping ${userId} - connection state: ${pc.connectionState}`);
         return;
       }
-
       console.log(`🔄 Updating peer connection for ${userId}`);
-      // Replace existing sender tracks with current local tracks
-      if (this.localStream) {
-        const localVideo = this.localStream.getVideoTracks()[0];
-        const localAudio = this.localStream.getAudioTracks()[0];
-        pc.getSenders().forEach(sender => {
-          if (sender.track?.kind === 'video') {
-            const target = (this.meetingState.isVideoOn || this.meetingState.isScreenSharing) ? localVideo : null;
-            if (target) {
-              replacePromises.push(sender.replaceTrack(target).catch(() => {}));
-            } else {
-              replacePromises.push(sender.replaceTrack(null as any).catch(() => {}));
-            }
-          }
-          if (sender.track?.kind === 'audio') {
-            const target = !this.meetingState.isMuted ? localAudio : null;
-            if (target) {
-              replacePromises.push(sender.replaceTrack(target).catch(() => {}));
-            } else {
-              replacePromises.push(sender.replaceTrack(null as any).catch(() => {}));
-            }
-          }
-        });
+      // Use transceivers to keep m-lines stable
+      const audioTx = this.peerAudioTransceiver.get(userId);
+      const videoTx = this.peerVideoTransceiver.get(userId);
+      const localVideo = this.localStream?.getVideoTracks()[0] || null;
+      const localAudio = this.localStream?.getAudioTracks()[0] || null;
+      if (audioTx) {
+        const target = !this.meetingState.isMuted ? localAudio : null;
+        replacePromises.push(audioTx.sender.replaceTrack(target as any).catch(() => {}));
+      }
+      if (videoTx) {
+        // If screen sharing is active and there is no local camera track, keep the existing sender track (screen)
+        if (this.meetingState.isScreenSharing && !localVideo) {
+          // no-op: preserve current screen share track on sender
+        } else {
+          const target = (this.meetingState.isVideoOn || this.meetingState.isScreenSharing) ? localVideo : null;
+          replacePromises.push(videoTx.sender.replaceTrack(target as any).catch(() => {}));
+        }
       }
     });
 
@@ -510,7 +514,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         try {
           await this.ensureLocalStream();
         } catch (error) {
-          console.error('Failed to get microphone access:', error);
+      this.toast.error('Mikrofon izni reddedildi veya kullanılamıyor.');
           this.meetingState.isMuted = true;
           return;
         }
@@ -551,7 +555,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
               await this.swapLocalVideoTrack(newTrack);
             }
           } catch (error) {
-            console.error('Failed to get camera access:', error);
+      this.toast.error('Kamera izni reddedildi veya kullanılamıyor.');
             this.meetingState.isVideoOn = false;
             return;
           }
@@ -598,7 +602,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       await this.broadcastStateChange();
       this.triggerChangeDetection();
     } catch (error) {
-      console.error('Error toggling video:', error);
+      this.toast.error('Kamera değiştirilemedi. Lütfen tekrar deneyin.');
     } finally {
       // Add delay to prevent rapid clicking
       setTimeout(() => {
@@ -619,7 +623,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         await this.startScreenShare();
       }
     } catch (error) {
-      console.error('Error toggling screen share:', error);
+      this.toast.error('Ekran paylaşımı başlatılamadı. Tarayıcı izinlerini kontrol edin.');
     } finally {
       // Add delay to prevent rapid clicking
       setTimeout(() => {
@@ -643,18 +647,26 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         peerConnectionsCount: this.peerConnections.size
       });
       
-      // Replace video track in all peer connections
+      // Replace video track using transceivers to keep m-line order stable
       this.peerConnections.forEach((pc, userId) => {
-        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
-        if (sender) {
-          sender.replaceTrack(screenTrack);
+        const videoTx = this.peerVideoTransceiver.get(userId);
+        if (videoTx) {
+          videoTx.sender.replaceTrack(screenTrack).catch(() => {});
           console.log(`🔄 Replaced video track for ${userId} with screen share`);
-        } else {
-          // If no video sender exists, add the screen track
-          pc.addTrack(screenTrack, stream);
-          console.log(`➕ Added screen share track for ${userId}`);
         }
       });
+
+      // Remember current camera state and turn camera off while sharing for performance
+      this.wasVideoOnBeforeShare = this.meetingState.isVideoOn;
+      this.meetingState.isVideoOn = false;
+      // Stop and remove local camera track if exists
+      if (this.localStream && this.localStream.getVideoTracks()[0]) {
+        try {
+          const cam = this.localStream.getVideoTracks()[0];
+          cam.stop();
+          this.localStream.removeTrack(cam);
+        } catch {}
+      }
 
       this.meetingState.isScreenSharing = true;
       
@@ -670,7 +682,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       await this.broadcastStateChange();
       this.triggerChangeDetection();
     } catch (error) {
-      console.error('Error starting screen share:', error);
+      this.toast.error('Ekran paylaşımı başlatılamadı.');
     }
   }
 
@@ -682,23 +694,30 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     // Update participant state via service
     this.participantService.updateScreenShareState(this.currentUserId, false);
 
-    // Restore camera track or remove video track
+    // Restore camera track using transceivers
     this.peerConnections.forEach((pc, userId) => {
-      const sender = pc.getSenders().find(s => s.track?.kind === 'video');
-      if (sender) {
-        if (this.localStream && this.meetingState.isVideoOn) {
-          const cameraTrack = this.localStream.getVideoTracks()[0];
-          if (cameraTrack) {
-            sender.replaceTrack(cameraTrack);
-            console.log(`🔄 Restored camera track for ${userId}`);
-          }
-        } else {
-          // Remove video track if camera is off
-          pc.removeTrack(sender);
-          console.log(`🗑️ Removed video track for ${userId} (camera off)`);
-        }
+      const videoTx = this.peerVideoTransceiver.get(userId);
+      if (!videoTx) return;
+      if (this.localStream && (this.meetingState.isVideoOn || this.wasVideoOnBeforeShare)) {
+        const cameraTrack = this.localStream.getVideoTracks()[0] || null;
+        videoTx.sender.replaceTrack(cameraTrack as any).catch(() => {});
+        console.log(`🔄 Restored camera track for ${userId}`);
+      } else {
+        // Keep m-line stable; send null to stop video
+        videoTx.sender.replaceTrack(null as any).catch(() => {});
+        console.log(`🗑️ Stopped video for ${userId} (camera off)`);
       }
     });
+
+    // Restore meetingState video flag to pre-share state
+    if (this.wasVideoOnBeforeShare) {
+      this.meetingState.isVideoOn = true;
+      // If local camera track missing, try to reacquire video
+      if (!this.localStream || this.localStream.getVideoTracks().length === 0) {
+        try { await this.toggleVideo(); } catch {}
+      }
+    }
+    this.wasVideoOnBeforeShare = false;
 
     await this.broadcastStateChange();
     this.triggerChangeDetection();
@@ -796,11 +815,11 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     if (newParticipants.length > 0) {
       const connectionPromises = newParticipants.map(async (participant) => {
         await this.createPeerConnection(participant.userId);
-        
-        // Send offer immediately if we have local stream
-        if (this.localStream) {
-        await this.sendOffer(participant.userId);
-      }
+        // Attach local tracks; onnegotiationneeded will create an offer
+        const pc = this.peerConnections.get(participant.userId);
+        if (pc) {
+          this.applyLocalTracksToPc(pc);
+        }
       });
 
       // Execute all connections in parallel
@@ -817,6 +836,8 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         this.peerConnections.delete(userId);
         this.remoteStreams.delete(userId);
         this.pendingIceCandidates.delete(userId);
+        this.peerAudioTransceiver.delete(userId);
+        this.peerVideoTransceiver.delete(userId);
       }
     }
     
@@ -837,10 +858,12 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     const polite = this.currentUserId < userId;
     this.politeMap.set(userId, polite);
 
-    // Pre-create transceivers to stabilize m-line order
+    // Pre-create transceivers to stabilize m-line order and cache them
     try {
-      pc.addTransceiver('audio', { direction: 'sendrecv' });
-      pc.addTransceiver('video', { direction: 'sendrecv' });
+      const audioTx = pc.addTransceiver('audio', { direction: 'sendrecv' });
+      const videoTx = pc.addTransceiver('video', { direction: 'sendrecv' });
+      this.peerAudioTransceiver.set(userId, audioTx);
+      this.peerVideoTransceiver.set(userId, videoTx);
     } catch {}
 
     // Enable ICE candidate signaling for better connectivity
@@ -874,24 +897,32 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       }
     };
 
-    // Perfect negotiation: only one side creates offers
-    pc.onnegotiationneeded = async () => {
-      try {
-        if (this.makingOffer.get(userId)) return;
-        if (pc.signalingState !== 'stable') return; // avoid offers during remote-offer
-        this.makingOffer.set(userId, true);
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        await this.signalr.sendToRoom(this.roomKey, 'webrtc-offer', {
-          sdp: pc.localDescription,
-          targetUserId: userId
-        });
-      } catch (err) {
-        console.error('onnegotiationneeded error:', err);
-      } finally {
-        this.makingOffer.set(userId, false);
-      }
+    // Perfect negotiation with debounce to avoid glare
+    const scheduleNegotiation = (uid: string) => {
+      const timer = this.negotiationTimers.get(uid);
+      if (timer) return;
+      const handle = setTimeout(async () => {
+        this.negotiationTimers.delete(uid);
+        try {
+          if (this.makingOffer.get(uid)) return;
+          if (pc.signalingState !== 'stable') return;
+          this.makingOffer.set(uid, true);
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          await this.signalr.sendToRoom(this.roomKey, 'webrtc-offer', {
+            sdp: pc.localDescription,
+            targetUserId: uid
+          });
+        } catch (err) {
+          console.error('onnegotiationneeded error:', err);
+        } finally {
+          this.makingOffer.set(uid, false);
+        }
+      }, this.negotiationDebounceMs);
+      this.negotiationTimers.set(uid, handle);
     };
+
+    pc.onnegotiationneeded = () => scheduleNegotiation(userId);
 
     pc.ontrack = (event) => {
       this.zone.run(() => {
@@ -905,8 +936,20 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         streamAudioTracks: event.streams[0]?.getAudioTracks().length || 0
       });
       
-      const [incomingStream] = event.streams;
-      if (!incomingStream) return;
+      let [incomingStream] = event.streams;
+      // Some browsers may fire ontrack with empty streams when using transceivers/replaceTrack
+      if (!incomingStream) {
+        const existingOrNew = this.remoteStreams.get(userId) || new MediaStream();
+        try {
+          // Avoid duplicate tracks
+          const dup = existingOrNew.getTracks().some(t => t.id === event.track.id);
+          if (!dup) {
+            existingOrNew.addTrack(event.track);
+          }
+        } catch {}
+        this.remoteStreams.set(userId, existingOrNew);
+        incomingStream = existingOrNew;
+      }
 
       // Prevent duplicate stream/track additions
       const existing = this.remoteStreams.get(userId);
@@ -927,7 +970,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
             existing.getVideoTracks().forEach(t => existing.removeTrack(t));
           } catch {}
         }
-        existing.addTrack(event.track);
+        try { existing.addTrack(event.track); } catch {}
       }
       
       console.log(`✅ Remote ${event.track.kind} track added for ${userId}, total streams: ${this.remoteStreams.size}`);
@@ -982,60 +1025,37 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
 
     this.peerConnections.set(userId, pc);
     console.log(`🚀 Peer Connection created for ${userId}, total connections: ${this.peerConnections.size}`);
+    // Apply local tracks if available; onnegotiationneeded will send offer
+    this.applyLocalTracksToPc(pc);
     return pc;
   }
 
-  private async sendOffer(userId: string) {
-    const pc = this.peerConnections.get(userId);
+  private applyLocalTracksToPc(pc: RTCPeerConnection) {
     if (!pc) return;
-    
-    console.log(`📤 Sending offer to ${userId}:`, {
-      hasLocalStream: !!this.localStream,
-      localVideoTracks: this.localStream?.getVideoTracks().length || 0,
-      localAudioTracks: this.localStream?.getAudioTracks().length || 0,
-      meetingState: {
-        isVideoOn: this.meetingState.isVideoOn,
-        isScreenSharing: this.meetingState.isScreenSharing,
-        isMuted: this.meetingState.isMuted
-      }
-    });
-    
-    // Clear existing tracks first
-    const senders = pc.getSenders();
-    senders.forEach(sender => {
-      if (sender.track) {
-        pc.removeTrack(sender);
-        console.log(`🗑️ Removed existing ${sender.track.kind} track from ${userId}`);
-      }
-    });
-    
-    if (this.localStream) {
-      this.localStream.getTracks().forEach(track => {
-        // Only add tracks that should be active
-        const shouldAddVideo = track.kind === 'video' && (this.meetingState.isVideoOn || this.meetingState.isScreenSharing);
-        const shouldAddAudio = track.kind === 'audio' && !this.meetingState.isMuted;
-        
-        if (shouldAddVideo || shouldAddAudio) {
-          pc.addTrack(track, this.localStream!);
-          console.log(`🎵 Added ${track.kind} track to peer connection for ${userId} (enabled: ${track.enabled})`);
-        } else {
-          console.log(`⏭️ Skipped ${track.kind} track for ${userId} (not active)`);
-        }
-      });
-    }
+    const entry = Array.from(this.peerConnections.entries()).find(([, val]) => val === pc);
+    const userId = entry?.[0];
+    if (!userId) return;
 
-    const offer = await pc.createOffer({
-      offerToReceiveAudio: true,
-      offerToReceiveVideo: true
-    });
-    await pc.setLocalDescription(offer);
-    
-    await this.signalr.sendToRoom(this.roomKey, 'webrtc-offer', { 
-      sdp: pc.localDescription, 
-      targetUserId: userId 
-    });
-    
-    console.log(`📤 Offer sent to ${userId}, signaling state: ${pc.signalingState}`);
+    const audioTx = this.peerAudioTransceiver.get(userId);
+    const videoTx = this.peerVideoTransceiver.get(userId);
+
+    const audioTrack = this.localStream?.getAudioTracks()[0] || null;
+    const videoTrack = this.localStream?.getVideoTracks()[0] || null;
+
+    try {
+      if (audioTx) {
+        const shouldSendAudio = !!audioTrack && !this.meetingState.isMuted;
+        audioTx.direction = 'sendrecv';
+        audioTx.sender.replaceTrack(shouldSendAudio ? audioTrack : null as any).catch(() => {});
+      }
+      if (videoTx) {
+        const shouldSendVideo = !!videoTrack && (this.meetingState.isVideoOn || this.meetingState.isScreenSharing);
+        videoTx.direction = 'sendrecv';
+        videoTx.sender.replaceTrack(shouldSendVideo ? videoTrack : null as any).catch(() => {});
+      }
+    } catch (err) {
+      console.warn('applyLocalTracksToPc error:', err);
+    }
   }
 
   private async handleOffer(payload: any) {
@@ -1073,6 +1093,20 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       });
     } catch (error) {
       console.error('Error handling offer:', error);
+      // Self-heal on SDP/m-line issues: recreate peer connection cleanly
+      const isSdpOrderError = (error as any)?.message?.includes('m-lines') || (error as any)?.message?.includes('order');
+      if (isSdpOrderError) {
+        try {
+          this.cleanupPeerConnection(fromUserId);
+          const newPc = await this.createPeerConnection(fromUserId);
+          if (newPc) {
+            // Apply local tracks; negotiation will trigger
+            this.applyLocalTracksToPc(newPc);
+          }
+        } catch (e) {
+          console.warn('Failed to self-heal by recreating PC:', e);
+        }
+      }
     }
   }
 
@@ -1097,6 +1131,19 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       await this.processPendingIceCandidates(fromUserId);
     } catch (error) {
       console.error('Error handling answer:', error);
+      // Self-heal on SDP/m-line issues
+      const isSdpOrderError = (error as any)?.message?.includes('m-lines') || (error as any)?.message?.includes('order');
+      if (isSdpOrderError) {
+        try {
+          this.cleanupPeerConnection(fromUserId);
+          const newPc = await this.createPeerConnection(fromUserId);
+          if (newPc) {
+            this.applyLocalTracksToPc(newPc);
+          }
+        } catch (e) {
+          console.warn('Failed to self-heal by recreating PC (answer):', e);
+        }
+      }
     }
   }
 
@@ -1117,6 +1164,8 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         console.log(`ICE candidate added successfully from ${fromUserId}`);
       } catch (error) {
         console.warn(`Failed to add ICE candidate from ${fromUserId}:`, error);
+        // If ICE fails repeatedly, attempt restart once
+        try { pc.restartIce(); } catch {}
       }
     }
   }
@@ -1152,7 +1201,12 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     // Prefer actual track presence over broadcast flags for remote users
     const remoteStream = this.remoteStreams.get(userId);
     const hasVideoTrack = !!remoteStream && remoteStream.getVideoTracks().length > 0;
-    const computedIsVideoOn = hasVideoTrack || (stateData.isVideoOn ?? false);
+    // Use strict track presence for isVideoOn to avoid stale flags keeping video visible
+    const computedIsVideoOn = hasVideoTrack;
+    console.log(`🎬 MeetingRoom: Computed video state for ${userId}:`, {
+      rawIsVideoOn: stateData.isVideoOn,
+      computedIsVideoOn
+    });
     this.participantService.updateParticipantState(userId, {
       isVideoOn: computedIsVideoOn,
       isMuted: stateData.isMuted ?? false,
@@ -1285,6 +1339,8 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       this.peerConnections.clear();
       this.remoteStreams.clear();
       this.pendingIceCandidates.clear();
+      this.peerAudioTransceiver.clear();
+      this.peerVideoTransceiver.clear();
       
       // Stop local media tracks to turn off camera LED
       if (this.localStream) {
@@ -1340,6 +1396,8 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     this.peerConnections.delete(userId);
     this.remoteStreams.delete(userId);
     this.pendingIceCandidates.delete(userId);
+    this.peerAudioTransceiver.delete(userId);
+    this.peerVideoTransceiver.delete(userId);
     this.removeAudioAnalysis(userId);
   }
 
@@ -1399,21 +1457,17 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         this.isHost = false;
       }
     } catch (error) {
-      console.error('Error checking host status:', error);
+      this.toast.error('Host bilgisi alınamadı. Yenileyip tekrar deneyin.');
       this.isHost = false;
     }
   }
 
   private async swapLocalVideoTrack(newTrack: MediaStreamTrack) {
     try {
-      for (const [, pc] of this.peerConnections) {
-        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-        if (sender) {
-          await sender.replaceTrack(newTrack);
-        } else {
-          try {
-            pc.addTrack(newTrack, this.localStream!);
-          } catch {}
+      for (const [userId] of this.peerConnections) {
+        const videoTx = this.peerVideoTransceiver.get(userId);
+        if (videoTx) {
+          await videoTx.sender.replaceTrack(newTrack);
         }
       }
     } catch (err) {
