@@ -25,6 +25,7 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges {
   participants: Participant[] = [];
   private participantsSubscription?: Subscription;
   private lastVideoStates = new Map<string, boolean>();
+  pinnedUserId: string | null = null;
 
   @ViewChild('mainVideo', { static: true }) mainVideo!: ElementRef<HTMLVideoElement>;
 
@@ -106,6 +107,12 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges {
   getActiveSpeaker(): Participant | null {
     if (this.participants.length === 0) return null;
 
+    // 0. Manual pin override if target participant exists
+    if (this.pinnedUserId) {
+      const pinned = this.participants.find(p => p.userId === this.pinnedUserId);
+      if (pinned) return pinned;
+    }
+
     // Priority algorithm for speaker selection
     // 1. Screen sharing participants (highest priority)
     const screenSharingParticipants = this.participants.filter(p => p.isScreenSharing);
@@ -145,9 +152,27 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges {
     if (!activeSpeaker) return null;
 
     if (activeSpeaker.userId === this.currentUserId) {
-      return this.localStream || null;
+      const stream = this.localStream || null;
+      console.log(`🎯 Active speaker stream (local):`, {
+        hasStream: !!stream,
+        streamId: stream?.id,
+        videoTracks: stream?.getVideoTracks().length || 0,
+        isVideoOn: this.meetingState.isVideoOn,
+        isScreenSharing: this.meetingState.isScreenSharing
+      });
+      return stream;
     }
-    return this.remoteStreams.get(activeSpeaker.userId) || null;
+    
+    const stream = this.remoteStreams.get(activeSpeaker.userId) || null;
+    console.log(`🎯 Active speaker stream (remote):`, {
+      userId: activeSpeaker.userId,
+      hasStream: !!stream,
+      streamId: stream?.id,
+      videoTracks: stream?.getVideoTracks().length || 0,
+      participantVideoOn: activeSpeaker.isVideoOn,
+      participantScreenSharing: activeSpeaker.isScreenSharing
+    });
+    return stream;
   }
 
   getOtherParticipants(): Participant[] {
@@ -184,7 +209,6 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges {
       const videoTrack = this.localStream?.getVideoTracks()[0];
       const hasActiveVideoTrack = !!(this.localStream && 
                                     videoTrack && 
-                                    !videoTrack.muted && 
                                     videoTrack.readyState === 'live');
       const isVideoVisible = !!(hasActiveVideoTrack && (this.meetingState.isVideoOn || this.meetingState.isScreenSharing));
       
@@ -209,7 +233,6 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges {
     const remoteStream = this.remoteStreams.get(participant.userId);
     const videoTrack = remoteStream?.getVideoTracks()[0];
     const hasActiveVideoTrack = !!(videoTrack && 
-                                  !videoTrack.muted && 
                                   videoTrack.readyState === 'live');
     
     const isRemoteVideoVisible = !!(hasActiveVideoTrack && (participant.isVideoOn || participant.isScreenSharing));
@@ -274,5 +297,64 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges {
       return 'You';
     }
     return participant.name;
+  }
+
+  trackByUserId(index: number, item: Participant) {
+    return item.userId;
+  }
+
+  togglePin(participant: Participant) {
+    if (!participant) return;
+    if (this.pinnedUserId === participant.userId) {
+      this.pinnedUserId = null;
+    } else {
+      this.pinnedUserId = participant.userId;
+    }
+    this.cdr.detectChanges();
+  }
+
+  isPinned(participant?: Participant): boolean {
+    if (!participant) return false;
+    return this.pinnedUserId === participant.userId;
+  }
+
+  onMainVideoLoaded(event: Event) {
+    const video = event.target as HTMLVideoElement;
+    const activeSpeaker = this.getActiveSpeaker();
+    console.log(`✅ Main video loaded for ${activeSpeaker?.name}:`, {
+      videoWidth: video.videoWidth,
+      videoHeight: video.videoHeight,
+      duration: video.duration,
+      srcObject: !!video.srcObject
+    });
+    
+    // Force play the video
+    video.play().catch(error => {
+      console.warn(`Failed to play main video for ${activeSpeaker?.name}:`, error);
+    });
+  }
+
+  onMainVideoError(event: Event) {
+    const activeSpeaker = this.getActiveSpeaker();
+    console.error(`❌ Main video error for ${activeSpeaker?.name}:`, event);
+  }
+
+  onThumbnailVideoLoaded(event: Event, participant: Participant) {
+    const video = event.target as HTMLVideoElement;
+    console.log(`✅ Thumbnail video loaded for ${participant.name}:`, {
+      videoWidth: video.videoWidth,
+      videoHeight: video.videoHeight,
+      duration: video.duration,
+      srcObject: !!video.srcObject
+    });
+    
+    // Force play the video
+    video.play().catch(error => {
+      console.warn(`Failed to play thumbnail video for ${participant.name}:`, error);
+    });
+  }
+
+  onThumbnailVideoError(event: Event, participant: Participant) {
+    console.error(`❌ Thumbnail video error for ${participant.name}:`, event);
   }
 }

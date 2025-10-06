@@ -9,7 +9,9 @@
              autoplay
              playsinline
              [muted]="getActiveSpeaker()?.userId === currentUserId"
-             class="main-video">
+             class="main-video"
+             (loadedmetadata)="onMainVideoLoaded($event)"
+             (error)="onMainVideoError($event)">
       </video>
       
       <!-- Placeholder when no video -->
@@ -27,15 +29,21 @@
       </div>
     </div>
     
-    <!-- Main Speaker Name -->
-    <div class="main-speaker-name" *ngIf="getActiveSpeaker()">
-      {{ getParticipantDisplayName(getActiveSpeaker()!) }}
-      <span *ngIf="getActiveSpeaker()!.isHost" class="host-indicator">👑</span>
+    <!-- Main Speaker Name + Pin toggle -->
+    <div class="main-speaker-name" *ngIf="getActiveSpeaker() as main">
+      {{ getParticipantDisplayName(main) }}
+      <span *ngIf="main.isHost" class="host-indicator">👑</span>
+      <button class="pin-btn"
+              (click)="togglePin(main)"
+              [attr.aria-pressed]="isPinned(main)"
+              title="Konuşmacıyı sabitle/kaldır">
+        <span class="material-symbols-outlined">{{ isPinned(main) ? 'star' : 'star_border' }}</span>
+      </button>
     </div>
     
     <!-- Other Participants Thumbnails -->
     <div class="participants-thumbnails" *ngIf="getOtherParticipants().length > 0">
-    <div *ngFor="let participant of getOtherParticipants()" 
+    <div *ngFor="let participant of getOtherParticipants(); trackBy: trackByUserId" 
          class="participant-thumbnail">
       
       <!-- Participant Name -->
@@ -49,10 +57,12 @@
              autoplay
              playsinline
              [muted]="participant.userId === currentUserId"
-             class="thumbnail-video">
+             class="thumbnail-video"
+             (loadedmetadata)="onThumbnailVideoLoaded($event, participant)"
+             (error)="onThumbnailVideoError($event, participant)">
       </video>
       
-      <!-- Placeholder when novideo -->
+      <!-- Placeholder when no video -->
       <div *ngIf="!isParticipantVideoVisible(participant)"
            class="thumbnail-placeholder"
            [class]="getParticipantBackgroundColor(participant)">
@@ -60,6 +70,14 @@
           {{ getParticipantInitials(participant) }}
         </div>
       </div>
+
+      <!-- Pin toggle on thumbnail -->
+      <button class="pin-thumb-btn"
+              (click)="togglePin(participant)"
+              [attr.aria-pressed]="isPinned(participant)"
+              title="Sabitle/Kaldır">
+        <span class="material-symbols-outlined text-sm">{{ isPinned(participant) ? 'star' : 'star_border' }}</span>
+      </button>
       
     </div>
     

@@ -2,21 +2,23 @@
     <div class="video-grid-responsive w-full h-full" [ngClass]="getVideoGridClass()">
     
     <!-- Participant Video Tiles -->
-    <div *ngFor="let participant of participants" 
+    <div *ngFor="let participant of participants; trackBy: trackByUserId" 
          class="rounded-xl overflow-hidden relative group hover:shadow-xl transition-all duration-300 hover:scale-105 mb-2 aspect-video">
       
       <!-- Video Stream -->
-      <video *ngIf="isParticipantVideoVisible(participant)"
+      <video *ngIf="isParticipantVideoVisible(participant); else placeholder"
              [srcObject]="getParticipantVideo(participant)"
              autoplay
              playsinline
              [muted]="participant.userId === currentUserId"
-             class="w-full object-cover aspect-video rounded-xl">
+             class="w-full object-cover aspect-video rounded-xl"
+             (loadedmetadata)="onVideoLoaded($event, participant)"
+             (error)="onVideoError($event, participant)">
       </video>
       
       <!-- Placeholder when no video -->
-      <div *ngIf="!isParticipantVideoVisible(participant)"
-           class="w-full flex flex-col items-center justify-center aspect-video bg-gradient-to-br from-slate-300 to-slate-400 dark:from-slate-700 dark:to-slate-800 text-center"
+      <ng-template #placeholder>
+      <div class="w-full flex flex-col items-center justify-center aspect-video bg-gradient-to-br from-slate-300 to-slate-400 dark:from-slate-700 dark:to-slate-800 text-center"
            [class]="getParticipantBackgroundColor(participant)">
         <div class="text-4xl font-bold text-slate-700 dark:text-white mb-2 drop-shadow-lg">
           {{ getParticipantInitials(participant) }}
@@ -25,6 +27,7 @@
           {{ getParticipantDisplayName(participant) }}
         </div>
       </div>
+      </ng-template>
       
       
       <!-- Hover Actions (for host) -->

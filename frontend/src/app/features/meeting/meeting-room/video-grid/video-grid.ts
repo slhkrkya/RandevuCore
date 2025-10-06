@@ -78,6 +78,7 @@ export class VideoGridComponent implements OnInit, OnDestroy {
   }
 
   ngOnChanges() {
+    console.log('🔄 VideoGrid ngOnChanges triggered');
     this.updateLocalVideo();
     this.cdr.detectChanges(); // Force change detection to update video elements
   }
@@ -126,6 +127,12 @@ export class VideoGridComponent implements OnInit, OnDestroy {
       // For local user, return stream if video OR screen sharing is on and has video tracks
       if ((!!this.meetingState.isVideoOn || !!this.meetingState.isScreenSharing) && 
           this.localStream && this.localStream.getVideoTracks().length > 0) {
+        console.log(`📺 Local video stream for ${participant.name}:`, {
+          streamId: this.localStream.id,
+          videoTracks: this.localStream.getVideoTracks().length,
+          isVideoOn: this.meetingState.isVideoOn,
+          isScreenSharing: this.meetingState.isScreenSharing
+        });
         return this.localStream;
       }
       return null;
@@ -135,6 +142,12 @@ export class VideoGridComponent implements OnInit, OnDestroy {
     // For remote users, return stream if they have video OR screen sharing on and stream has video tracks
     if ((!!participant.isVideoOn || !!participant.isScreenSharing) && 
         remoteStream && remoteStream.getVideoTracks().length > 0) {
+      console.log(`📺 Remote video stream for ${participant.name}:`, {
+        streamId: remoteStream.id,
+        videoTracks: remoteStream.getVideoTracks().length,
+        participantVideoOn: participant.isVideoOn,
+        participantScreenSharing: participant.isScreenSharing
+      });
       return remoteStream;
     }
     return null;
@@ -150,18 +163,18 @@ export class VideoGridComponent implements OnInit, OnDestroy {
 
   isParticipantVideoVisible(participant: Participant): boolean {
     if (participant.userId === this.currentUserId) {
-      // For local user, check if video is on OR screen sharing and we have a video track
-      const hasStreamData = !!(this.localStream && 
-                              this.localStream.getVideoTracks().length > 0);
-      return !!(hasStreamData && (this.meetingState.isVideoOn || this.meetingState.isScreenSharing));
+      // For local user, show if we have live track when video/screen is enabled
+      const videoTrack = this.localStream?.getVideoTracks()[0];
+      const hasLive = !!(videoTrack && videoTrack.readyState === 'live');
+      return !!(hasLive && (this.meetingState.isVideoOn || this.meetingState.isScreenSharing));
     }
     
     // For remote participants, check if they have video on OR screen sharing AND we have their stream with video tracks
     const remoteStream = this.remoteStreams.get(participant.userId);
-    const hasVideoTrack = !!(remoteStream && remoteStream.getVideoTracks().length > 0);
-    
+    const videoTrack = remoteStream?.getVideoTracks()[0];
+    const hasLive = !!(videoTrack && videoTrack.readyState === 'live');
     // Check both video and screen sharing status
-    return !!(hasVideoTrack && (participant.isVideoOn || participant.isScreenSharing));
+    return !!(hasLive && (participant.isVideoOn || participant.isScreenSharing));
   }
 
   getParticipantDisplayName(participant: Participant): string {
@@ -225,5 +238,28 @@ export class VideoGridComponent implements OnInit, OnDestroy {
     }, 0);
     
     return colors[Math.abs(hash) % colors.length];
+  }
+
+  trackByUserId(index: number, item: Participant) {
+    return item.userId;
+  }
+
+  onVideoLoaded(event: Event, participant: Participant) {
+    const video = event.target as HTMLVideoElement;
+    console.log(`✅ Video loaded for ${participant.name}:`, {
+      videoWidth: video.videoWidth,
+      videoHeight: video.videoHeight,
+      duration: video.duration,
+      srcObject: !!video.srcObject
+    });
+    
+    // Force play the video
+    video.play().catch(error => {
+      console.warn(`Failed to play video for ${participant.name}:`, error);
+    });
+  }
+
+  onVideoError(event: Event, participant: Participant) {
+    console.error(`❌ Video error for ${participant.name}:`, event);
   }
 }

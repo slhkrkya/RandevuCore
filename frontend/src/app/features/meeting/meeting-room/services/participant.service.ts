@@ -18,6 +18,13 @@ export class ParticipantService {
   }
 
   setParticipants(participants: Participant[]): void {
+    // Avoid emitting if nothing changed (shallow compare by length and ids)
+    const sameLength = this.participants.length === participants.length;
+    const sameIds = sameLength && this.participants.every((p, i) => p.userId === participants[i].userId);
+    if (sameLength && sameIds) {
+      this.participants = participants;
+      return;
+    }
     this.participants = participants;
     this.participantsSubject.next(this.participants);
   }
@@ -25,12 +32,19 @@ export class ParticipantService {
   updateParticipantState(userId: string, updates: Partial<Participant>): void {
     const index = this.participants.findIndex(p => p.userId === userId);
     if (index !== -1) {
-      const oldState = { ...this.participants[index] };
-      this.participants[index] = { ...this.participants[index], ...updates };
-      
-      // Force a new array reference to trigger Angular change detection
-      const updatedParticipants = [...this.participants];
-      this.participantsSubject.next(updatedParticipants);
+      const current = this.participants[index];
+      const next = { ...current, ...updates } as Participant;
+      // Avoid redundant emits if nothing changed
+      const noChange =
+        current.isVideoOn === next.isVideoOn &&
+        current.isMuted === next.isMuted &&
+        current.isScreenSharing === next.isScreenSharing &&
+        current.isWhiteboardEnabled === next.isWhiteboardEnabled;
+      this.participants[index] = next;
+      if (!noChange) {
+        // Emit only when actual state changed
+        this.participantsSubject.next([...this.participants]);
+      }
       
       console.log(`🔥 ParticipantService: ${userId} updated:`, updates);
     } else {

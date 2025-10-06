@@ -70,6 +70,16 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   remoteStreams: Map<string, MediaStream> = new Map();
   peerConnections: Map<string, RTCPeerConnection> = new Map();
   pendingIceCandidates: Map<string, RTCIceCandidate[]> = new Map();
+  // Perfect negotiation state per peer
+  private makingOffer: Map<string, boolean> = new Map();
+  private politeMap: Map<string, boolean> = new Map();
+
+  // Active speaker detection
+  private audioContext?: AudioContext;
+  private audioSources: Map<string, MediaStreamAudioSourceNode> = new Map();
+  private analyserNodes: Map<string, AnalyserNode> = new Map();
+  private speakingVolumes: Map<string, number> = new Map();
+  private activeSpeakerAnimationFrame: number | null = null;
 
   // UI state
   showParticipantsPanel = false;
@@ -114,6 +124,17 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
 
     // Re-apply video effects on settings change
     window.addEventListener('settingschange', this.handleSettingsChange);
+
+    // Start active speaker loop (will take effect when analysers exist)
+    this.startActiveSpeakerLoop();
+
+    // Restore default view preference
+    try {
+      const saved = localStorage.getItem('meeting.defaultView');
+      if (saved === 'grid' || saved === 'speaker' || saved === 'whiteboard') {
+        this.setActiveView(saved as any);
+      }
+    } catch {}
   }
 
   async ngOnDestroy() {
@@ -205,10 +226,10 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       await this.handleAnswer(payload);
     });
 
-    // ICE candidates disabled to prevent connectivity errors
-    // this.signalr.on<any>('webrtc-ice', async (payload) => {
-    //   await this.handleIceCandidate(payload);
-    // });
+    // ICE candidates enabled for better connectivity
+    this.signalr.on<any>('webrtc-ice', async (payload) => {
+      await this.handleIceCandidate(payload);
+    });
 
     // Meeting state updates
     this.signalr.on<any>('meeting-state-update', (state) => {
@@ -345,6 +366,14 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       this.attachLocalTrackListeners();
       this.triggerChangeDetection();
       
+      // Setup active speaker analysis for local user's audio
+      try {
+        this.removeAudioAnalysis(this.currentUserId);
+        if (this.localStream) {
+          this.setupAudioAnalysisForStream(this.currentUserId, this.localStream);
+        }
+      } catch {}
+      
       // Update peers (initial connection uses the chosen stream)
       await this.updateAllPeerConnections();
       await this.sendOffersToNewParticipants();
@@ -361,85 +390,61 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   }
 
   private async updateAllPeerConnections() {
+    console.log(`🔄 Updating all peer connections:`, {
+      totalConnections: this.peerConnections.size,
+      hasLocalStream: !!this.localStream,
+      meetingState: this.meetingState
+    });
+
     // Batch renegotiation to avoid multiple simultaneous offers
-    const renegotiationPromises: Promise<void>[] = [];
+    const replacePromises: Promise<void>[] = [];
 
     this.peerConnections.forEach((pc, userId) => {
       // Check if connection is still valid
       if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+        console.log(`⏭️ Skipping ${userId} - connection state: ${pc.connectionState}`);
         return;
       }
 
-      // Remove existing tracks
-      const senders = pc.getSenders();
-      senders.forEach(sender => {
-        if (sender.track) {
-          try {
-            pc.removeTrack(sender);
-          } catch (error) {
-            console.warn('Error removing track:', error);
-          }
-        }
-      });
-      
-      // Add new tracks if local stream exists
+      console.log(`🔄 Updating peer connection for ${userId}`);
+      // Replace existing sender tracks with current local tracks
       if (this.localStream) {
-        this.localStream.getTracks().forEach(track => {
-          try {
-            pc.addTrack(track, this.localStream!);
-          } catch (error) {
-            console.warn('Error adding track:', error);
+        const localVideo = this.localStream.getVideoTracks()[0];
+        const localAudio = this.localStream.getAudioTracks()[0];
+        pc.getSenders().forEach(sender => {
+          if (sender.track?.kind === 'video') {
+            const target = (this.meetingState.isVideoOn || this.meetingState.isScreenSharing) ? localVideo : null;
+            if (target) {
+              replacePromises.push(sender.replaceTrack(target).catch(() => {}));
+            } else {
+              replacePromises.push(sender.replaceTrack(null as any).catch(() => {}));
+            }
+          }
+          if (sender.track?.kind === 'audio') {
+            const target = !this.meetingState.isMuted ? localAudio : null;
+            if (target) {
+              replacePromises.push(sender.replaceTrack(target).catch(() => {}));
+            } else {
+              replacePromises.push(sender.replaceTrack(null as any).catch(() => {}));
+            }
           }
         });
       }
-      
-      // Queue renegotiation
-      renegotiationPromises.push(this.renegotiateConnection(userId));
     });
 
     // Execute all renegotiations in parallel with error handling
     try {
-      await Promise.allSettled(renegotiationPromises);
+      await Promise.allSettled(replacePromises);
+      console.log(`✅ All peer connection senders updated successfully`);
     } catch (error) {
-      console.error('Error during batch renegotiation:', error);
+      console.error('Error during sender replacement:', error);
     }
   }
 
-  private async renegotiateConnection(userId: string) {
-    const pc = this.peerConnections.get(userId);
-    if (!pc) return;
-
-    try {
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      
-      await this.signalr.sendToRoom(this.roomKey, 'webrtc-offer', {
-        sdp: pc.localDescription,
-        targetUserId: userId
-      });
-    } catch (error) {
-      console.error('Error renegotiating connection:', error);
-    }
-  }
+  // Removed explicit renegotiation; using onnegotiationneeded
 
   private async sendOffersToNewParticipants() {
-    if (!this.localStream) return;
-
-    const connectionPromises = this.participants
-      .filter(participant => 
-        participant.userId !== this.currentUserId && 
-        !this.peerConnections.has(participant.userId)
-      )
-      .map(async (participant) => {
-        try {
-          await this.createPeerConnection(participant.userId);
-          await this.sendOffer(participant.userId);
-        } catch (error) {
-          console.error(`Error creating connection for ${participant.userId}:`, error);
-        }
-      });
-
-    await Promise.allSettled(connectionPromises);
+    // No-op: onnegotiationneeded will handle offers once PC/transceivers are set up
   }
 
   private updateParticipantStateFromTracks(userId: string, stream: MediaStream) {
@@ -479,6 +484,11 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
           this.remoteStreams.delete(userId);
         }
       }
+    }
+    
+    if (track.kind === 'audio') {
+      // Remove audio analysis nodes when remote audio ends
+      this.removeAudioAnalysis(userId);
     }
     
     this.triggerChangeDetection();
@@ -535,6 +545,11 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         if (!this.localStream || !this.localStream.getVideoTracks()[0]) {
           try {
             await this.ensureLocalStream();
+            // After obtaining a fresh local stream, proactively swap the video track on all senders
+            const newTrack = this.localStream?.getVideoTracks()[0];
+            if (newTrack) {
+              await this.swapLocalVideoTrack(newTrack);
+            }
           } catch (error) {
             console.error('Failed to get camera access:', error);
             this.meetingState.isVideoOn = false;
@@ -544,6 +559,9 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
           // Enable existing video track
           const videoTrack = this.localStream.getVideoTracks()[0];
           videoTrack.enabled = true;
+          try {
+            await this.swapLocalVideoTrack(videoTrack);
+          } catch {}
         }
       } else {
         // Turn off camera - stop the video track to turn off camera LED
@@ -574,7 +592,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       this.participantService.updateVideoState(this.currentUserId, this.meetingState.isVideoOn);
 
       // Update all peer connections with new stream
-      this.updateAllPeerConnections();
+      await this.updateAllPeerConnections();
 
       // Broadcast state change
       await this.broadcastStateChange();
@@ -619,11 +637,22 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
 
       const screenTrack = stream.getVideoTracks()[0];
       
+      console.log(`🖥️ Starting screen share:`, {
+        screenTrackId: screenTrack.id,
+        screenTrackEnabled: screenTrack.enabled,
+        peerConnectionsCount: this.peerConnections.size
+      });
+      
       // Replace video track in all peer connections
       this.peerConnections.forEach((pc, userId) => {
         const sender = pc.getSenders().find(s => s.track?.kind === 'video');
         if (sender) {
           sender.replaceTrack(screenTrack);
+          console.log(`🔄 Replaced video track for ${userId} with screen share`);
+        } else {
+          // If no video sender exists, add the screen track
+          pc.addTrack(screenTrack, stream);
+          console.log(`➕ Added screen share track for ${userId}`);
         }
       });
 
@@ -634,6 +663,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
 
       // Handle screen share end
       screenTrack.onended = async () => {
+        console.log(`🖥️ Screen share ended by user`);
         await this.stopScreenShare();
       };
 
@@ -645,23 +675,30 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   }
 
   private async stopScreenShare() {
+    console.log(`🖥️ Stopping screen share`);
+    
     this.meetingState.isScreenSharing = false;
     
     // Update participant state via service
     this.participantService.updateScreenShareState(this.currentUserId, false);
 
-    // Restore camera track
-    if (this.localStream) {
-      const cameraTrack = this.localStream.getVideoTracks()[0];
-      if (cameraTrack) {
-        this.peerConnections.forEach((pc, userId) => {
-          const sender = pc.getSenders().find(s => s.track?.kind === 'video');
-          if (sender) {
+    // Restore camera track or remove video track
+    this.peerConnections.forEach((pc, userId) => {
+      const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+      if (sender) {
+        if (this.localStream && this.meetingState.isVideoOn) {
+          const cameraTrack = this.localStream.getVideoTracks()[0];
+          if (cameraTrack) {
             sender.replaceTrack(cameraTrack);
+            console.log(`🔄 Restored camera track for ${userId}`);
           }
-        });
+        } else {
+          // Remove video track if camera is off
+          pc.removeTrack(sender);
+          console.log(`🗑️ Removed video track for ${userId} (camera off)`);
+        }
       }
-    }
+    });
 
     await this.broadcastStateChange();
     this.triggerChangeDetection();
@@ -706,6 +743,9 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       this.showWhiteboardPanel = false;
       this.meetingState.isWhiteboardActive = false;
     }
+
+    // Persist preference
+    try { localStorage.setItem('meeting.defaultView', view); } catch {}
   }
 
   // Permission management (host only)
@@ -785,15 +825,45 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
 
   private async createPeerConnection(userId: string) {
     const configuration = { 
-      iceServers: [] // Empty ICE servers - rely on host candidates only  
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
     };
     
     const pc = new RTCPeerConnection(configuration);
 
-    // Disable ICE candidate signaling to prevent peer connection errors
+    // Determine polite role deterministically to avoid glare
+    const polite = this.currentUserId < userId;
+    this.politeMap.set(userId, polite);
+
+    // Pre-create transceivers to stabilize m-line order
+    try {
+      pc.addTransceiver('audio', { direction: 'sendrecv' });
+      pc.addTransceiver('video', { direction: 'sendrecv' });
+    } catch {}
+
+    // Enable ICE candidate signaling for better connectivity
     pc.onicecandidate = (event) => {
-      // Skip ICE candidate exchange entirely - modern WebRTC can work without it
-      console.log(`ICE candidate gathering disabled for ${userId} - using offer/answer only`);
+      if (event.candidate) {
+        console.log(`ICE candidate generated for ${userId}:`, event.candidate);
+        // Store candidate locally
+        if (!this.pendingIceCandidates.has(userId)) {
+          this.pendingIceCandidates.set(userId, []);
+        }
+        this.pendingIceCandidates.get(userId)!.push(event.candidate);
+        // Send candidate to remote peer via signaling (trickle ICE)
+        try {
+          this.signalr.sendToRoom(this.roomKey, 'webrtc-ice', {
+            candidate: event.candidate,
+            targetUserId: userId
+          });
+        } catch (err) {
+          console.warn('Failed to send ICE candidate:', err);
+        }
+      } else {
+        console.log(`ICE candidate gathering completed for ${userId}`);
+      }
     };
 
     pc.onconnectionstatechange = () => {
@@ -804,43 +874,110 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       }
     };
 
+    // Perfect negotiation: only one side creates offers
+    pc.onnegotiationneeded = async () => {
+      try {
+        if (this.makingOffer.get(userId)) return;
+        if (pc.signalingState !== 'stable') return; // avoid offers during remote-offer
+        this.makingOffer.set(userId, true);
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await this.signalr.sendToRoom(this.roomKey, 'webrtc-offer', {
+          sdp: pc.localDescription,
+          targetUserId: userId
+        });
+      } catch (err) {
+        console.error('onnegotiationneeded error:', err);
+      } finally {
+        this.makingOffer.set(userId, false);
+      }
+    };
+
     pc.ontrack = (event) => {
+      this.zone.run(() => {
       console.log(`🎯 ONTRACK event received from ${userId}:`, {
         trackKind: event.track.kind,
         trackEnabled: event.track.enabled,
         trackMuted: event.track.muted,
+        trackReadyState: event.track.readyState,
         streamId: event.streams[0]?.id,
         streamVideoTracks: event.streams[0]?.getVideoTracks().length || 0,
         streamAudioTracks: event.streams[0]?.getAudioTracks().length || 0
       });
       
-      const [stream] = event.streams;
-      this.remoteStreams.set(userId, stream);
+      const [incomingStream] = event.streams;
+      if (!incomingStream) return;
+
+      // Prevent duplicate stream/track additions
+      const existing = this.remoteStreams.get(userId);
+      if (existing) {
+        const duplicate = existing.getTracks().some(t => t.id === event.track.id);
+        if (duplicate) {
+          console.log(`↩️ Duplicate track ignored for ${userId}: ${event.track.id}`);
+          return;
+        }
+      }
+
+      // Use incoming stream if first time; otherwise keep a single video track
+      if (!existing) {
+        this.remoteStreams.set(userId, incomingStream);
+      } else {
+        if (event.track.kind === 'video') {
+          try {
+            existing.getVideoTracks().forEach(t => existing.removeTrack(t));
+          } catch {}
+        }
+        existing.addTrack(event.track);
+      }
       
-      console.log(`✅ Remote stream added for ${userId}, total streams: ${this.remoteStreams.size}`);
+      console.log(`✅ Remote ${event.track.kind} track added for ${userId}, total streams: ${this.remoteStreams.size}`);
       
       // Update participant state based on received tracks
-      this.updateParticipantStateFromTracks(userId, stream);
+      const streamToUse = this.remoteStreams.get(userId)!;
+      this.updateParticipantStateFromTracks(userId, streamToUse);
       
       // Add track event listeners for cleanup
       event.track.onended = () => {
+        console.log(`📺 Track ended for ${userId}: ${event.track.kind}`);
         this.handleTrackEnded(userId, event.track);
       };
+      
       // Reflect mute/unmute on UI
       (event.track as any).onmute = () => {
+        console.log(`🔇 Track muted for ${userId}: ${event.track.kind}`);
         this.zone.run(() => {
-          this.updateParticipantStateFromTracks(userId, stream);
-          this.triggerChangeDetection();
-        });
-      };
-      (event.track as any).onunmute = () => {
-        this.zone.run(() => {
-          this.updateParticipantStateFromTracks(userId, stream);
+          const latest = this.remoteStreams.get(userId) || incomingStream;
+          this.updateParticipantStateFromTracks(userId, latest);
           this.triggerChangeDetection();
         });
       };
       
+      (event.track as any).onunmute = () => {
+        console.log(`🔊 Track unmuted for ${userId}: ${event.track.kind}`);
+        this.zone.run(() => {
+          const latest = this.remoteStreams.get(userId) || incomingStream;
+          this.updateParticipantStateFromTracks(userId, latest);
+          this.triggerChangeDetection();
+        });
+      };
+      
+      // Force immediate change detection for video tracks
+      if (event.track.kind === 'video') {
+        this.cdr.detectChanges();
+      }
+      
+      // Setup audio analyser for active speaker detection on remote audio
+      if (event.track.kind === 'audio') {
+        try {
+          const [incomingStream] = event.streams;
+          if (incomingStream) {
+            this.setupAudioAnalysisForStream(userId, incomingStream);
+          }
+        } catch {}
+      }
+      
       this.triggerChangeDetection();
+      });
     };
 
     this.peerConnections.set(userId, pc);
@@ -855,13 +992,35 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     console.log(`📤 Sending offer to ${userId}:`, {
       hasLocalStream: !!this.localStream,
       localVideoTracks: this.localStream?.getVideoTracks().length || 0,
-      localAudioTracks: this.localStream?.getAudioTracks().length || 0
+      localAudioTracks: this.localStream?.getAudioTracks().length || 0,
+      meetingState: {
+        isVideoOn: this.meetingState.isVideoOn,
+        isScreenSharing: this.meetingState.isScreenSharing,
+        isMuted: this.meetingState.isMuted
+      }
+    });
+    
+    // Clear existing tracks first
+    const senders = pc.getSenders();
+    senders.forEach(sender => {
+      if (sender.track) {
+        pc.removeTrack(sender);
+        console.log(`🗑️ Removed existing ${sender.track.kind} track from ${userId}`);
+      }
     });
     
     if (this.localStream) {
       this.localStream.getTracks().forEach(track => {
-        pc.addTrack(track, this.localStream!);
-        console.log(`🎵 Added ${track.kind} track to peer connection for ${userId}`);
+        // Only add tracks that should be active
+        const shouldAddVideo = track.kind === 'video' && (this.meetingState.isVideoOn || this.meetingState.isScreenSharing);
+        const shouldAddAudio = track.kind === 'audio' && !this.meetingState.isMuted;
+        
+        if (shouldAddVideo || shouldAddAudio) {
+          pc.addTrack(track, this.localStream!);
+          console.log(`🎵 Added ${track.kind} track to peer connection for ${userId} (enabled: ${track.enabled})`);
+        } else {
+          console.log(`⏭️ Skipped ${track.kind} track for ${userId} (not active)`);
+        }
       });
     }
 
@@ -890,26 +1049,14 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     }
 
     try {
-      // Check if peer connection is still in a valid state
-      if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
-        return;
-      }
-
-      // Check if we already have a remote description
-      if (pc.remoteDescription) {
-        return;
-      }
-
-      // Check if we're in the right state to handle offer
-      if (pc.signalingState !== 'stable') {
-        return;
-      }
-
-      // Add local tracks to the peer connection
-      if (this.localStream) {
-        this.localStream.getTracks().forEach(track => {
-          pc.addTrack(track, this.localStream!);
-        });
+      const polite = this.politeMap.get(fromUserId) ?? true;
+      const offerCollision = pc.signalingState !== 'stable';
+      if (offerCollision) {
+        if (!polite) {
+          console.log('Ignoring offer due to collision (impolite)');
+          return;
+        }
+        try { await pc.setLocalDescription({ type: 'rollback' } as any); } catch {}
       }
 
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
@@ -940,22 +1087,6 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     }
 
     try {
-      // Check if peer connection is still in a valid state
-      if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
-        return;
-      }
-
-      // Check if we already have a remote description
-      if (pc.remoteDescription) {
-        return;
-      }
-
-      // Check if local description is set (required for answer)
-      if (!pc.localDescription) {
-        return;
-      }
-
-      // Check if we're in the right state to set remote description
       if (pc.signalingState !== 'have-local-offer') {
         return;
       }
@@ -976,14 +1107,17 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
 
     const pc = this.peerConnections.get(fromUserId);
     if (!pc) {
+      console.log(`No peer connection found for ${fromUserId} when handling ICE candidate`);
       return;
     }
 
     if (candidate) {
-      // ICE candidates are causing connectivity issues - skip them entirely
-      // Modern WebRTC can establish connections with just offer/answer + track management
-      console.log(`ICE candidate from ${fromUserId} ignored to prevent connectivity errors`);
-      return;
+      try {
+        await pc.addIceCandidate(candidate);
+        console.log(`ICE candidate added successfully from ${fromUserId}`);
+      } catch (error) {
+        console.warn(`Failed to add ICE candidate from ${fromUserId}:`, error);
+      }
     }
   }
 
@@ -1009,32 +1143,25 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       remoteStreamsSize: this.remoteStreams.size
     });
     
-    // Debug: Check if we have a peer connection for this user
-    if (this.peerConnections.has(userId)) {
-      const pc = this.peerConnections.get(userId)!;
-      console.log(`🔗 Peer Connection Debug for ${userId}:`, {
-        connectionState: pc.connectionState,
-        iceConnectionState: pc.iceConnectionState,
-        signalingState: pc.signalingState,
-        receiversCount: pc.getReceivers().length,
-        sendersCount: pc.getSenders().length
-      });
-    } else {
-      console.log(`❌ No Peer Connection found for ${userId}`);
-    }
-    
     // If we still don't have userId, ignore this update
     if (!userId) {
       console.warn(`🎬 MeetingRoom: Ignoring meeting state update - no userId found`);
       return;
     }
     
+    // Prefer actual track presence over broadcast flags for remote users
+    const remoteStream = this.remoteStreams.get(userId);
+    const hasVideoTrack = !!remoteStream && remoteStream.getVideoTracks().length > 0;
+    const computedIsVideoOn = hasVideoTrack || (stateData.isVideoOn ?? false);
     this.participantService.updateParticipantState(userId, {
-      isVideoOn: stateData.isVideoOn ?? false,
+      isVideoOn: computedIsVideoOn,
       isMuted: stateData.isMuted ?? false,
       isScreenSharing: stateData.isScreenSharing ?? false,
       isWhiteboardEnabled: stateData.isWhiteboardEnabled ?? false
     });
+    
+    // Force immediate change detection for UI updates
+    this.cdr.detectChanges();
     
     // If current user's video state changed, trigger peer connection updates
     if (userId === this.currentUserId) {
@@ -1043,8 +1170,10 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       this.refreshVideoElements();
     }
     
-    console.log(`🎬 MeetingRoom: Triggering change detection`);
-    this.triggerChangeDetection();
+    // Additional change detection for video components
+    setTimeout(() => {
+      this.triggerChangeDetection();
+    }, 50);
   }
 
   private async handlePermissionGrant(permission: any) {
@@ -1067,13 +1196,23 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   }
 
   private async broadcastStateChange() {
-    // Use the proper SignalR hub method to ensure userId is included
-    await this.signalr.invoke('BroadcastMeetingStateUpdate', this.roomKey, {
-      isVideoOn: this.meetingState.isVideoOn,
-      isMuted: this.meetingState.isMuted,
-      isScreenSharing: this.meetingState.isScreenSharing,
-      isWhiteboardActive: this.meetingState.isWhiteboardActive
-    });
+    try {
+      // Use the proper SignalR hub method to ensure userId is included
+      await this.signalr.invoke('BroadcastMeetingStateUpdate', this.roomKey, {
+        isVideoOn: this.meetingState.isVideoOn,
+        isMuted: this.meetingState.isMuted,
+        isScreenSharing: this.meetingState.isScreenSharing,
+        isWhiteboardActive: this.meetingState.isWhiteboardActive
+      });
+      
+      console.log('📡 State broadcasted:', {
+        isVideoOn: this.meetingState.isVideoOn,
+        isMuted: this.meetingState.isMuted,
+        isScreenSharing: this.meetingState.isScreenSharing
+      });
+    } catch (error) {
+      console.error('❌ Failed to broadcast state change:', error);
+    }
   }
 
   private   refreshVideoElements() {
@@ -1172,6 +1311,18 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       if (this.remoteVideo?.nativeElement) {
         this.remoteVideo.nativeElement.srcObject = null;
       }
+      
+      // Stop active speaker monitoring and clean audio graph
+      this.stopActiveSpeakerLoop();
+      try {
+        this.analyserNodes.forEach(node => node.disconnect());
+        this.audioSources.forEach(src => src.disconnect());
+      } catch {}
+      this.analyserNodes.clear();
+      this.audioSources.clear();
+      this.speakingVolumes.clear();
+      try { this.audioContext?.close(); } catch {}
+      this.audioContext = undefined;
     } catch (error) {
       console.error('Error during cleanup:', error);
     }
@@ -1189,10 +1340,11 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     this.peerConnections.delete(userId);
     this.remoteStreams.delete(userId);
     this.pendingIceCandidates.delete(userId);
+    this.removeAudioAnalysis(userId);
   }
 
   private changeDetectionTimeout: any = null;
-  private readonly changeDetectionDelay = 16; // ~60fps
+  private readonly changeDetectionDelay = 8; // ~120fps for faster updates
 
   triggerChangeDetection() {
     // Use setTimeout to avoid excessive change detection cycles
@@ -1325,6 +1477,134 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         this.triggerChangeDetection();
       });
     };
+  }
+
+  // ===== Active speaker detection =====
+  private ensureAudioContext() {
+    if (!this.audioContext) {
+      try {
+        this.audioContext = new (window as any).AudioContext();
+      } catch (err) {
+        console.warn('Failed to create AudioContext for active speaker detection:', err);
+      }
+    }
+  }
+
+  private setupAudioAnalysisForStream(userId: string, stream: MediaStream) {
+    if (!stream) return;
+    const audioTracks = stream.getAudioTracks();
+    if (!audioTracks || audioTracks.length === 0) return;
+
+    this.ensureAudioContext();
+    if (!this.audioContext) return;
+
+    try {
+      // Recreate nodes if already exist
+      this.removeAudioAnalysis(userId);
+
+      const src = this.audioContext.createMediaStreamSource(stream);
+      const analyser = this.audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.8;
+      src.connect(analyser);
+
+      this.audioSources.set(userId, src);
+      this.analyserNodes.set(userId, analyser);
+      this.speakingVolumes.set(userId, 0);
+    } catch (err) {
+      console.warn('setupAudioAnalysisForStream failed for', userId, err);
+    }
+  }
+
+  private removeAudioAnalysis(userId: string) {
+    try {
+      const analyser = this.analyserNodes.get(userId);
+      const src = this.audioSources.get(userId);
+      if (analyser) {
+        try { analyser.disconnect(); } catch {}
+      }
+      if (src) {
+        try { src.disconnect(); } catch {}
+      }
+    } catch {}
+    this.analyserNodes.delete(userId);
+    this.audioSources.delete(userId);
+    this.speakingVolumes.delete(userId);
+  }
+
+  private computeRmsFromAnalyser(analyser: AnalyserNode): number {
+    const buffer = new Uint8Array((analyser as any).fftSize || 256);
+    try {
+      (analyser as any).getByteTimeDomainData(buffer);
+    } catch {
+      (analyser as any).getByteTimeDomainData(buffer);
+    }
+    let sumSquares = 0;
+    for (let i = 0; i < buffer.length; i++) {
+      const v = (buffer[i] - 128) / 128;
+      sumSquares += v * v;
+    }
+    const rms = Math.sqrt(sumSquares / buffer.length);
+    return rms;
+  }
+
+  private startActiveSpeakerLoop() {
+    if (this.activeSpeakerAnimationFrame != null) return;
+
+    let lastUserId = '';
+    let lastSwitchAt = performance.now();
+    const minHoldMs = 1200;
+
+    const tick = () => {
+      // Update volumes
+      this.analyserNodes.forEach((analyser, userId) => {
+        try {
+          const rms = this.computeRmsFromAnalyser(analyser);
+          const level = Math.max(0, rms - 0.02);
+          this.speakingVolumes.set(userId, level);
+        } catch {}
+      });
+
+      // Find loudest
+      let topUser: string | null = null;
+      let topVal = 0;
+      let secondVal = 0;
+      this.speakingVolumes.forEach((val, uid) => {
+        if (val > topVal) {
+          secondVal = topVal;
+          topVal = val;
+          topUser = uid;
+        } else if (val > secondVal) {
+          secondVal = val;
+        }
+      });
+
+      const now = performance.now();
+      const threshold = 0.06;
+      const margin = 0.03;
+
+      if (topUser && topVal > threshold && (topVal - secondVal) > margin) {
+        if ((topUser !== lastUserId && (now - lastSwitchAt) > minHoldMs) || !this.meetingState.activeSpeaker) {
+          lastUserId = topUser;
+          lastSwitchAt = now;
+          if (this.meetingState.activeSpeaker !== topUser) {
+            this.meetingState.activeSpeaker = topUser;
+            this.triggerChangeDetection();
+          }
+        }
+      }
+
+      this.activeSpeakerAnimationFrame = requestAnimationFrame(tick);
+    };
+
+    this.activeSpeakerAnimationFrame = requestAnimationFrame(tick);
+  }
+
+  private stopActiveSpeakerLoop() {
+    if (this.activeSpeakerAnimationFrame != null) {
+      cancelAnimationFrame(this.activeSpeakerAnimationFrame);
+      this.activeSpeakerAnimationFrame = null;
+    }
   }
 
 }
