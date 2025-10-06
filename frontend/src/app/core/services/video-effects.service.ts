@@ -66,11 +66,34 @@ export class VideoEffectsService {
     videoEl.srcObject = new MediaStream([track]);
 
     await new Promise<void>(resolve => {
-      if (videoEl.readyState >= 1 && videoEl.videoWidth && videoEl.videoHeight) return resolve();
-      const done = () => resolve();
-      videoEl.onloadedmetadata = done;
-      videoEl.onloadeddata = done;
-      videoEl.onerror = done;
+      // Wait until the video element has real dimensions and current data
+      const tryResolve = () => {
+        if (videoEl.readyState >= 2 && videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
+          cleanup();
+          resolve();
+        }
+      };
+      const onLoadedMeta = () => tryResolve();
+      const onLoadedData = () => tryResolve();
+      const onPlaying = () => tryResolve();
+      const onResize = () => tryResolve();
+      const onError = () => { cleanup(); resolve(); };
+      const cleanup = () => {
+        videoEl.removeEventListener('loadedmetadata', onLoadedMeta);
+        videoEl.removeEventListener('loadeddata', onLoadedData);
+        videoEl.removeEventListener('playing', onPlaying);
+        videoEl.removeEventListener('resize', onResize as any);
+        videoEl.removeEventListener('error', onError);
+      };
+      videoEl.addEventListener('loadedmetadata', onLoadedMeta);
+      videoEl.addEventListener('loadeddata', onLoadedData);
+      videoEl.addEventListener('playing', onPlaying);
+      videoEl.addEventListener('resize', onResize as any);
+      videoEl.addEventListener('error', onError);
+      // Also try an immediate resolve in case we're already ready
+      tryResolve();
+      // And a short timeout fallback to avoid hanging forever
+      setTimeout(() => { cleanup(); resolve(); }, 1500);
     });
     try { await videoEl.play(); } catch {}
 
@@ -124,9 +147,14 @@ export class VideoEffectsService {
           this.segmentationBusy = true;
           this.lastSegmentationAt = now;
           try {
-            this.selfieSegmentation.send({ image: videoEl }).finally(() => {
+            // Only send to MediaPipe when video has real frames and dimensions
+            if (videoEl.readyState >= 2 && videoEl.videoWidth > 0 && videoEl.videoHeight > 0 && !videoEl.paused && !videoEl.ended) {
+              this.selfieSegmentation.send({ image: videoEl }).finally(() => {
+                this.segmentationBusy = false;
+              });
+            } else {
               this.segmentationBusy = false;
-            });
+            }
           } catch {
             this.segmentationBusy = false;
           }
@@ -146,9 +174,13 @@ export class VideoEffectsService {
         }
 
         if (this.lastSegmentationMask) {
+          const mask: any = this.lastSegmentationMask as any;
+          const maskW = (mask && (mask.width || mask.videoWidth)) || 0;
+          const maskH = (mask && (mask.height || mask.videoHeight)) || 0;
+          if (maskW > 0 && maskH > 0) {
           // MediaPipe recommended order: mask -> source-in (person) -> destination-over (background)
           drawCtx.save();
-          drawCtx.drawImage(this.lastSegmentationMask as any, 0, 0, width, height);
+          drawCtx.drawImage(mask, 0, 0, width, height);
           drawCtx.globalCompositeOperation = 'source-in';
           drawCtx.drawImage(videoEl, 0, 0, width, height);
           drawCtx.globalCompositeOperation = 'destination-over';
@@ -160,17 +192,22 @@ export class VideoEffectsService {
             drawCtx.filter = 'none';
           }
           drawCtx.restore();
-        } else {
+          } else {
           // No mask yet: show full-frame blur immediately
           drawCtx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
           drawCtx.drawImage(videoEl, 0, 0, width, height);
           drawCtx.filter = 'none';
+          }
         }
       } else if (settings.mode === 'image') {
         if (this.lastSegmentationMask) {
+          const mask: any = this.lastSegmentationMask as any;
+          const maskW = (mask && (mask.width || mask.videoWidth)) || 0;
+          const maskH = (mask && (mask.height || mask.videoHeight)) || 0;
+          if (maskW > 0 && maskH > 0) {
           drawCtx.save();
           // Mask then draw person
-          drawCtx.drawImage(this.lastSegmentationMask as any, 0, 0, width, height);
+          drawCtx.drawImage(mask, 0, 0, width, height);
           drawCtx.globalCompositeOperation = 'source-in';
           drawCtx.drawImage(videoEl, 0, 0, width, height);
           // Draw background behind
@@ -182,9 +219,10 @@ export class VideoEffectsService {
             drawCtx.fillRect(0, 0, width, height);
           }
           drawCtx.restore();
-        } else {
+          } else {
           // No mask yet: keep original video to avoid empty preview
           drawCtx.drawImage(videoEl, 0, 0, width, height);
+          }
         }
       }
 
