@@ -116,8 +116,9 @@ export class VideoEffectsService {
       this.backgroundImageElement = null;
     }
 
-    // Ensure MediaPipe is ready for segmentation-based effects
-    await this.ensureSelfieSegmentation();
+    // Kick MediaPipe load in the background; don't block initial rendering
+    // so we can start with non-segmented frames immediately.
+    try { this.ensureSelfieSegmentation(); } catch {}
 
     // Configure blur amount
     const blurPx = this.mapBlur(settings.blurLevel);
@@ -213,7 +214,7 @@ export class VideoEffectsService {
           // Draw background behind
           drawCtx.globalCompositeOperation = 'destination-over';
           if (this.backgroundImageElement) {
-            this.drawCover(drawCtx, this.backgroundImageElement, width, height);
+            this.drawContainNoUpscale(drawCtx, this.backgroundImageElement, width, height);
           } else {
             drawCtx.fillStyle = '#000';
             drawCtx.fillRect(0, 0, width, height);
@@ -348,25 +349,16 @@ export class VideoEffectsService {
     });
   }
 
-  private drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, width: number, height: number) {
+  private drawContainNoUpscale(ctx: CanvasRenderingContext2D, img: HTMLImageElement, width: number, height: number) {
     const iw = img.naturalWidth || img.width;
     const ih = img.naturalHeight || img.height;
     if (!iw || !ih) return;
-    const ir = iw / ih;
-    const tr = width / height;
-    let dw = width;
-    let dh = height;
-    let dx = 0;
-    let dy = 0;
-    if (ir > tr) {
-      dh = height;
-      dw = ih * tr;
-      dx = (width - dw) / 2;
-    } else {
-      dw = width;
-      dh = iw / tr;
-      dy = (height - dh) / 2;
-    }
+    // Scale to fit inside target while preserving aspect ratio; never upscale
+    const scale = Math.min(width / iw, height / ih, 1);
+    const dw = Math.round(iw * scale);
+    const dh = Math.round(ih * scale);
+    const dx = Math.round((width - dw) / 2);
+    const dy = Math.round((height - dh) / 2);
     ctx.drawImage(img, dx, dy, dw, dh);
   }
 
