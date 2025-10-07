@@ -15,7 +15,7 @@ export class AuthService {
   private authState = signal<boolean>(!!this.getToken());
 
   constructor(private http: HttpClient, private cfg: AppConfigService) {
-    this.apiUrl = this.cfg.apiBaseUrl + '/api/auth';
+    this.apiUrl = this.cfg.apiBaseUrl + '/api/Auth';
   }
 
   get isAuthenticated() {

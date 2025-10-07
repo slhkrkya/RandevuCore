@@ -77,7 +77,7 @@ export class ProfileComponent implements OnInit {
       return;
     }
 
-    this.http.get<Profile>(`${this.cfg.apiBaseUrl}/api/auth/profile`, {
+    this.http.get<Profile>(`${this.cfg.apiBaseUrl}/api/Auth/profile`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -113,7 +113,7 @@ export class ProfileComponent implements OnInit {
 
     const formValue = this.profileForm.value;
 
-    this.http.put(`${this.cfg.apiBaseUrl}/api/auth/profile`, formValue, {
+    this.http.put(`${this.cfg.apiBaseUrl}/api/Auth/profile`, formValue, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -150,7 +150,7 @@ export class ProfileComponent implements OnInit {
 
     const formValue = this.passwordForm.value;
 
-    this.http.put(`${this.cfg.apiBaseUrl}/api/auth/change-password`, formValue, {
+    this.http.put(`${this.cfg.apiBaseUrl}/api/Auth/change-password`, formValue, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
