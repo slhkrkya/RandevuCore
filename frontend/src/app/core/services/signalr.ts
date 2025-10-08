@@ -21,9 +21,12 @@ export class SignalRService {
       (this.cfg.wsUrl || `${this.cfg.apiBaseUrl}/ws`);
     
     this.connection = new signalR.HubConnectionBuilder()
-      .withUrl(wsUrl, { accessTokenFactory: () => token })
-      .withAutomaticReconnect()
-      .configureLogging(signalR.LogLevel.Warning) // Reduce logging to suppress method warnings
+      .withUrl(wsUrl, { 
+        accessTokenFactory: () => token,
+        transport: signalR.HttpTransportType.LongPolling
+      })
+      .withAutomaticReconnect([0, 2000, 10000, 30000])
+      .configureLogging(signalR.LogLevel.Information)
       .build();
 
     return this.connection.start();
