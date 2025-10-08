@@ -17,13 +17,14 @@ export class SignalRService {
     
     // Use environment-appropriate URL
     const wsUrl = isProduction ? 
-      `wss://${window.location.host}/ws` : 
+      `https://${window.location.host}/ws` : 
       (this.cfg.wsUrl || `${this.cfg.apiBaseUrl}/ws`);
     
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl(wsUrl, { 
         accessTokenFactory: () => token,
-        transport: signalR.HttpTransportType.LongPolling
+        transport: signalR.HttpTransportType.LongPolling,
+        skipNegotiation: true
       })
       .withAutomaticReconnect([0, 2000, 10000, 30000])
       .configureLogging(signalR.LogLevel.Information)

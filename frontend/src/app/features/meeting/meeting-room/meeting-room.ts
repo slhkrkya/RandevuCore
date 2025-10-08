@@ -12,6 +12,7 @@ import { ChatPanelComponent } from './chat-panel/chat-panel';
 import { VideoEffectsService } from '../../../core/services/video-effects.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { SettingsService } from '../../../core/services/settings.service';
+import { AppConfigService } from '../../../core/services/app-config.service';
 
 export interface Participant {
   connectionId: string;
@@ -117,7 +118,8 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     private videoEffects: VideoEffectsService,
     private settingsService: SettingsService,
     private zone: NgZone,
-    private toast: ToastService
+    private toast: ToastService,
+    private cfg: AppConfigService
   ) {}
 
   async ngOnInit() {
@@ -1441,7 +1443,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         return;
       }
 
-      const base = (window as any).APP_API_BASE || (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content || 'http://localhost:5125';
+      const base = this.cfg.apiBaseUrl;
       const response = await fetch(`${base}/api/meetings/${this.meetingId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -12,7 +12,7 @@ export class AppConfigService {
   async load(): Promise<void> {
     // Load public config from /assets/config-v4.json at runtime
     try {
-      const res = await fetch('/assets/config-v4.json', { cache: 'no-store' });
+      const res = await fetch('/assets/config.json', { cache: 'no-store' });
       if (res.ok) {
         this.config = await res.json();
       }
