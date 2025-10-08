@@ -1,6 +1,6 @@
 {
-  "apiBaseUrl": "https://staj.salihkarakaya.com.tr",
-  "wsUrl": "wss://staj.salihkarakaya.com.tr/ws"
+  "apiBaseUrl": "http://staj.salihkarakaya.com.tr",
+  "wsUrl": "ws://staj.salihkarakaya.com.tr/ws"
 }
 
 

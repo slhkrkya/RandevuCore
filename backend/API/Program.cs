@@ -78,7 +78,7 @@ builder.Services.AddCors(options =>
 {
 	options.AddPolicy(FrontendCorsPolicy, policy =>
 	{
-		policy.WithOrigins("http://localhost:4200", "https://staj.salihkarakaya.com.tr")
+		policy.WithOrigins("http://localhost:4200", "http://staj.salihkarakaya.com.tr", "https://staj.salihkarakaya.com.tr")
 			.AllowAnyMethod()
 			.AllowAnyHeader()
 			.AllowCredentials();
