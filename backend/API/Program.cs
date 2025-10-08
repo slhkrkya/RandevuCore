@@ -78,7 +78,7 @@ builder.Services.AddCors(options =>
 {
 	options.AddPolicy(FrontendCorsPolicy, policy =>
 	{
-		policy.WithOrigins("http://localhost:4200")
+		policy.WithOrigins("http://localhost:4200", "https://staj.salihkarakaya.com.tr")
 			.AllowAnyMethod()
 			.AllowAnyHeader()
 			.AllowCredentials();
@@ -94,7 +94,25 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Force HTTPS in production
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+    app.Use(async (context, next) =>
+    {
+        if (!context.Request.IsHttps && context.Request.Headers["X-Forwarded-Proto"] != "https")
+        {
+            var httpsUrl = $"https://{context.Request.Host}{context.Request.PathBase}{context.Request.Path}{context.Request.QueryString}";
+            context.Response.Redirect(httpsUrl, permanent: true);
+            return;
+        }
+        await next();
+    });
+}
+else
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors(FrontendCorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();

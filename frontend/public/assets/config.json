@@ -1,6 +1,6 @@
 {
-  "apiBaseUrl": "http://localhost:5125",
-  "wsUrl": "http://localhost:5125/ws"
+  "apiBaseUrl": "https://staj.salihkarakaya.com.tr",
+  "wsUrl": "wss://staj.salihkarakaya.com.tr/ws"
 }
 
 
