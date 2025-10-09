@@ -74,7 +74,14 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = true;
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+    options.HandshakeTimeout = TimeSpan.FromSeconds(15);
+    options.MaximumReceiveMessageSize = 1024 * 1024; // 1MB
+});
 
 // CORS (configurable via configuration/env: Cors:Origins as comma-separated list)
 const string FrontendCorsPolicy = "FrontendCorsPolicy";

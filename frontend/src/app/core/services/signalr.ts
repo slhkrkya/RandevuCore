@@ -30,7 +30,23 @@ export class SignalRService {
       .configureLogging(signalR.LogLevel.Information)
       .build();
 
+    // Add visibility change listener to handle tab switching
+    this.setupVisibilityChangeHandler();
+    
     return this.connection.start();
+  }
+  
+  private setupVisibilityChangeHandler() {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && 
+          this.connection && 
+          this.connection.state !== signalR.HubConnectionState.Connected) {
+        console.log('🔄 Tab became visible, reconnecting SignalR...');
+        this.connection.start().catch(error => {
+          console.warn('Failed to reconnect SignalR on visibility change:', error);
+        });
+      }
+    });
   }
 
   on<T>(eventName: string, handler: (payload: T) => void) {

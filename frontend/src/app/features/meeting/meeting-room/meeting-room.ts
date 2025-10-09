@@ -544,72 +544,96 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     this.isVideoToggling = true;
     
     try {
-      this.meetingState.isVideoOn = !this.meetingState.isVideoOn;
+      const newVideoState = !this.meetingState.isVideoOn;
+      console.log(`🎥 Toggling video: ${this.meetingState.isVideoOn} -> ${newVideoState}`);
       
-      if (this.meetingState.isVideoOn) {
-        // Turn on camera - ensure we have a video track
-        if (!this.localStream || !this.localStream.getVideoTracks()[0]) {
-          try {
-            await this.ensureLocalStream();
-            // After obtaining a fresh local stream, proactively swap the video track on all senders
-            const newTrack = this.localStream?.getVideoTracks()[0];
-            if (newTrack) {
-              await this.swapLocalVideoTrack(newTrack);
-            }
-          } catch (error) {
-      this.toast.error('Kamera izni reddedildi veya kullanılamıyor.');
-            this.meetingState.isVideoOn = false;
-            return;
-          }
-        } else {
-          // Enable existing video track
-          const videoTrack = this.localStream.getVideoTracks()[0];
-          videoTrack.enabled = true;
-          try {
-            await this.swapLocalVideoTrack(videoTrack);
-          } catch {}
-        }
+      if (newVideoState) {
+        // Turn on camera
+        await this.enableCamera();
       } else {
-        // Turn off camera - stop the video track to turn off camera LED
-        if (this.localStream && this.localStream.getVideoTracks()[0]) {
-          const videoTrack = this.localStream.getVideoTracks()[0];
-          videoTrack.stop(); // This will turn off the camera LED
-          
-          // Remove the track from the stream
-          this.localStream.removeTrack(videoTrack);
-          
-          // Create a new stream without video for audio-only
-          const audioTracks = this.localStream.getAudioTracks();
-          if (audioTracks.length > 0) {
-            const newStream = new MediaStream(audioTracks);
-            this.localStream = newStream;
-          }
-
-          // Stop video effects processing when camera is off
-          try { this.videoEffects.stop(); } catch {}
-        }
+        // Turn off camera
+        await this.disableCamera();
       }
-
+      
+      this.meetingState.isVideoOn = newVideoState;
+      
+      // Update participant state via service
+      this.participantService.updateVideoState(this.currentUserId, this.meetingState.isVideoOn);
+      
+      // Update all peer connections with new stream
+      await this.updateAllPeerConnections();
+      
+      // Broadcast state change
+      await this.broadcastStateChange();
+      
       // Notify UI and refresh listeners
       this.attachLocalTrackListeners();
       this.triggerChangeDetection();
-
-      // Update participant state via service
-      this.participantService.updateVideoState(this.currentUserId, this.meetingState.isVideoOn);
-
-      // Update all peer connections with new stream
-      await this.updateAllPeerConnections();
-
-      // Broadcast state change
-      await this.broadcastStateChange();
-      this.triggerChangeDetection();
+      
+      console.log(`✅ Video toggled successfully: ${this.meetingState.isVideoOn}`);
     } catch (error) {
+      console.error('Failed to toggle video:', error);
       this.toast.error('Kamera değiştirilemedi. Lütfen tekrar deneyin.');
+      // Revert state on error
+      this.meetingState.isVideoOn = !this.meetingState.isVideoOn;
     } finally {
       // Add delay to prevent rapid clicking
       setTimeout(() => {
         this.isVideoToggling = false;
-      }, 1000); // Video operations can take longer
+      }, 1000);
+    }
+  }
+  
+  private async enableCamera() {
+    try {
+      // Check if we already have a video track
+      if (this.localStream && this.localStream.getVideoTracks().length > 0) {
+        const videoTrack = this.localStream.getVideoTracks()[0];
+        videoTrack.enabled = true;
+        console.log('✅ Enabled existing video track');
+        return;
+      }
+      
+      // Get fresh camera stream
+      await this.ensureLocalStream();
+      
+      // Apply video effects if needed
+      if (this.localStream) {
+        const settings = this.settingsService.settings().videoBackground;
+        const processed = await this.videoEffects.apply(this.localStream, settings);
+        this.localStream = processed;
+        console.log('✅ Applied video effects to camera stream');
+      }
+      
+    } catch (error) {
+      console.error('Failed to enable camera:', error);
+      throw new Error('Kamera izni reddedildi veya kullanılamıyor.');
+    }
+  }
+  
+  private async disableCamera() {
+    try {
+      if (this.localStream && this.localStream.getVideoTracks().length > 0) {
+        const videoTrack = this.localStream.getVideoTracks()[0];
+        videoTrack.stop(); // This will turn off the camera LED
+        this.localStream.removeTrack(videoTrack);
+        
+        // Create audio-only stream
+        const audioTracks = this.localStream.getAudioTracks();
+        if (audioTracks.length > 0) {
+          this.localStream = new MediaStream(audioTracks);
+        }
+        
+        // Stop video effects processing
+        try { 
+          this.videoEffects.stop(); 
+        } catch {}
+        
+        console.log('✅ Disabled camera and stopped video track');
+      }
+    } catch (error) {
+      console.error('Failed to disable camera:', error);
+      throw error;
     }
   }
 
@@ -847,11 +871,16 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   }
 
   private async createPeerConnection(userId: string) {
-    const configuration = { 
+    const configuration: RTCConfiguration = { 
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ]
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' }
+      ],
+      iceCandidatePoolSize: 10,
+      bundlePolicy: 'max-bundle' as RTCBundlePolicy,
+      rtcpMuxPolicy: 'require' as RTCRtcpMuxPolicy
     };
     
     const pc = new RTCPeerConnection(configuration);
@@ -938,85 +967,80 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         streamAudioTracks: event.streams[0]?.getAudioTracks().length || 0
       });
       
-      let [incomingStream] = event.streams;
-      // Some browsers may fire ontrack with empty streams when using transceivers/replaceTrack
-      if (!incomingStream) {
-        const existingOrNew = this.remoteStreams.get(userId) || new MediaStream();
-        try {
-          // Avoid duplicate tracks
-          const dup = existingOrNew.getTracks().some(t => t.id === event.track.id);
-          if (!dup) {
-            existingOrNew.addTrack(event.track);
-          }
-        } catch {}
-        this.remoteStreams.set(userId, existingOrNew);
-        incomingStream = existingOrNew;
-      }
-
-      // Prevent duplicate stream/track additions
-      const existing = this.remoteStreams.get(userId);
-      if (existing) {
-        const duplicate = existing.getTracks().some(t => t.id === event.track.id);
-        if (duplicate) {
-          console.log(`↩️ Duplicate track ignored for ${userId}: ${event.track.id}`);
-          return;
-        }
-      }
-
-      // Use incoming stream if first time; otherwise keep a single video track
-      if (!existing) {
-        this.remoteStreams.set(userId, incomingStream);
-      } else {
-        if (event.track.kind === 'video') {
-          try {
-            existing.getVideoTracks().forEach(t => existing.removeTrack(t));
-          } catch {}
-        }
-        try { existing.addTrack(event.track); } catch {}
+      // Handle track events more robustly
+      const track = event.track;
+      let stream = this.remoteStreams.get(userId);
+      
+      if (!stream) {
+        stream = new MediaStream();
+        this.remoteStreams.set(userId, stream);
       }
       
-      console.log(`✅ Remote ${event.track.kind} track added for ${userId}, total streams: ${this.remoteStreams.size}`);
+      // Check for duplicate tracks
+      const existingTrack = stream.getTracks().find(t => t.id === track.id);
+      if (existingTrack) {
+        console.log(`↩️ Duplicate track ignored for ${userId}: ${track.id}`);
+        return;
+      }
       
-      // Update participant state based on received tracks
-      const streamToUse = this.remoteStreams.get(userId)!;
-      this.updateParticipantStateFromTracks(userId, streamToUse);
+      // Add the track to the stream
+      try {
+        stream.addTrack(track);
+        console.log(`✅ Added ${track.kind} track for ${userId}: ${track.id}`);
+        
+        // Update participant state based on track availability
+        this.updateParticipantStateFromTracks(userId, stream);
+        
+        // Force immediate change detection for video tracks
+        if (track.kind === 'video') {
+          this.triggerChangeDetection();
+        }
+      } catch (error) {
+        console.warn(`Failed to add track for ${userId}:`, error);
+      }
+      
+      console.log(`✅ Remote ${track.kind} track added for ${userId}, total streams: ${this.remoteStreams.size}`);
       
       // Add track event listeners for cleanup
-      event.track.onended = () => {
-        console.log(`📺 Track ended for ${userId}: ${event.track.kind}`);
-        this.handleTrackEnded(userId, event.track);
+      track.onended = () => {
+        console.log(`📺 Track ended for ${userId}: ${track.kind}`);
+        this.handleTrackEnded(userId, track);
       };
       
       // Reflect mute/unmute on UI
-      (event.track as any).onmute = () => {
-        console.log(`🔇 Track muted for ${userId}: ${event.track.kind}`);
+      (track as any).onmute = () => {
+        console.log(`🔇 Track muted for ${userId}: ${track.kind}`);
         this.zone.run(() => {
-          const latest = this.remoteStreams.get(userId) || incomingStream;
-          this.updateParticipantStateFromTracks(userId, latest);
-          this.triggerChangeDetection();
+          const latest = this.remoteStreams.get(userId);
+          if (latest) {
+            this.updateParticipantStateFromTracks(userId, latest);
+            this.triggerChangeDetection();
+          }
         });
       };
       
-      (event.track as any).onunmute = () => {
-        console.log(`🔊 Track unmuted for ${userId}: ${event.track.kind}`);
+      (track as any).onunmute = () => {
+        console.log(`🔊 Track unmuted for ${userId}: ${track.kind}`);
         this.zone.run(() => {
-          const latest = this.remoteStreams.get(userId) || incomingStream;
-          this.updateParticipantStateFromTracks(userId, latest);
-          this.triggerChangeDetection();
+          const latest = this.remoteStreams.get(userId);
+          if (latest) {
+            this.updateParticipantStateFromTracks(userId, latest);
+            this.triggerChangeDetection();
+          }
         });
       };
       
       // Force immediate change detection for video tracks
-      if (event.track.kind === 'video') {
+      if (track.kind === 'video') {
         this.cdr.detectChanges();
       }
       
       // Setup audio analyser for active speaker detection on remote audio
-      if (event.track.kind === 'audio') {
+      if (track.kind === 'audio') {
         try {
-          const [incomingStream] = event.streams;
-          if (incomingStream) {
-            this.setupAudioAnalysisForStream(userId, incomingStream);
+          const stream = this.remoteStreams.get(userId);
+          if (stream) {
+            this.setupAudioAnalysisForStream(userId, stream);
           }
         } catch {}
       }
