@@ -76,17 +76,21 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSignalR();
 
-// CORS
+// CORS (configurable via configuration/env: Cors:Origins as comma-separated list)
 const string FrontendCorsPolicy = "FrontendCorsPolicy";
+var corsOrigins = builder.Configuration.GetSection("Cors").GetValue<string>("Origins");
+var allowedOrigins = (corsOrigins ?? "http://localhost:4200,https://staj.salihkarakaya.com.tr,http://staj.salihkarakaya.com.tr")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
 builder.Services.AddCors(options =>
 {
-	options.AddPolicy(FrontendCorsPolicy, policy =>
-	{
-		policy.WithOrigins("http://localhost:4200", "http://staj.salihkarakaya.com.tr", "https://staj.salihkarakaya.com.tr")
-			.AllowAnyMethod()
-			.AllowAnyHeader()
-			.AllowCredentials();
-	});
+    options.AddPolicy(FrontendCorsPolicy, policy =>
+    {
+        policy.WithOrigins(allowedOrigins)
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
+    });
 });
 
 var app = builder.Build();

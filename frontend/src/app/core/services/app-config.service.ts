@@ -22,6 +22,15 @@ export class AppConfigService {
       }
     } catch {}
 
+    // Runtime env override via window.__env
+    const runtimeEnv = (window as any).__env || {};
+    if (runtimeEnv.apiBaseUrl) {
+      this.config.apiBaseUrl = runtimeEnv.apiBaseUrl;
+    }
+    if (runtimeEnv.wsUrl) {
+      this.config.wsUrl = runtimeEnv.wsUrl;
+    }
+
     if (isLocalhost) {
       // Force local defaults to avoid hitting production when running locally
       const apiPort = 5125;
