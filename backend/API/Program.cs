@@ -9,12 +9,16 @@ using RandevuCore.Infrastructure.Services; // JwtTokenService, MeetingService
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // DbContext
 builder.Services.AddDbContext<RandevuDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sql => sql.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null)
+    )
 );
 
 // Dependency Injection
@@ -92,12 +96,23 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    // Auto-apply EF Core migrations in development for easier local setup
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<RandevuDbContext>();
+        db.Database.Migrate();
+    }
 }
 
 // Force HTTPS in production
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
+    // Respect reverse proxy headers (X-Forwarded-Proto/For/Host)
+    app.UseForwardedHeaders(new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
+    });
     app.Use(async (context, next) =>
     {
         if (!context.Request.IsHttps && context.Request.Headers["X-Forwarded-Proto"] != "https")
@@ -109,10 +124,7 @@ if (!app.Environment.IsDevelopment())
         await next();
     });
 }
-else
-{
-    app.UseHttpsRedirection();
-}
+// In development, do not force HTTPS redirection to simplify local testing
 app.UseCors(FrontendCorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();

@@ -15,15 +15,15 @@ export class SignalRService {
                         !window.location.hostname.includes('127.0.0.1') &&
                         !window.location.hostname.includes('dev');
     
-    // Use environment-appropriate URL
+    // Use environment-appropriate URL (dev uses proxy /ws)
     const wsUrl = isProduction ? 
       `https://${window.location.host}/ws` : 
-      (this.cfg.wsUrl || `${this.cfg.apiBaseUrl}/ws`);
+      `/ws`;
     
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl(wsUrl, { 
         accessTokenFactory: () => token,
-        transport: signalR.HttpTransportType.LongPolling,
+        transport: signalR.HttpTransportType.WebSockets,
         skipNegotiation: true
       })
       .withAutomaticReconnect([0, 2000, 10000, 30000])
@@ -46,7 +46,10 @@ export class SignalRService {
   }
 
   sendToRoom(roomId: string, eventName: string, payload: unknown) {
-    return this.connection?.invoke('SendToRoom', roomId, eventName, payload);
+    if (this.connection?.state !== signalR.HubConnectionState.Connected) {
+      throw new Error("SignalR connection not ready");
+    }
+    return this.connection.invoke('SendToRoom', roomId, eventName, payload);
   }
 
   grant(roomId: string, targetUserId: string, permission: 'cam' | 'mic' | 'screen') {
@@ -54,7 +57,10 @@ export class SignalRService {
   }
 
   invoke(methodName: string, ...args: any[]) {
-    return this.connection?.invoke(methodName, ...args);
+    if (this.connection?.state !== signalR.HubConnectionState.Connected) {
+      throw new Error("SignalR connection not ready");
+    }
+    return this.connection.invoke(methodName, ...args);
   }
 
   stop() {
