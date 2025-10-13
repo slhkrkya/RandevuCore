@@ -41,6 +41,8 @@ export class VideoGridComponent implements OnInit, OnDestroy, AfterViewChecked {
   ) {}
 
   ngOnInit() {
+    console.log('🔄 VideoGrid ngOnInit - Subscribing to participants');
+    
     // Subscribe to participant service updates
     this.participantsSubscription = this.participantService.participants$.subscribe(participants => {
       
@@ -61,11 +63,42 @@ export class VideoGridComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   ngAfterViewInit() {
+    console.log('🔄 VideoGrid ngAfterViewInit - ViewChild ready, clearing video elements');
+    
+    // ✅ FIX: Clear all remote video elements AFTER ViewChild is initialized
+    if (this.remoteVideos) {
+      this.remoteVideos.forEach(videoRef => {
+        const el = videoRef.nativeElement;
+        el.pause();
+        el.srcObject = null;
+        el.load();
+      });
+    }
+    
     this.updateLocalVideo();
+    this.cdr.detectChanges();
   }
 
   ngOnDestroy() {
+    console.log('🧹 VideoGrid ngOnDestroy - Cleaning up');
     this.participantsSubscription?.unsubscribe();
+    
+    // ✅ FIX: Clear all video elements on destroy
+    if (this.remoteVideos) {
+      this.remoteVideos.forEach(videoRef => {
+        const el = videoRef.nativeElement;
+        el.pause();
+        el.srcObject = null;
+        el.load();
+      });
+    }
+    
+    if (this.localVideo?.nativeElement) {
+      const el = this.localVideo.nativeElement;
+      el.pause();
+      el.srcObject = null;
+      el.load();
+    }
   }
 
   ngOnChanges() {

@@ -1,4 +1,37 @@
 <div class="meeting-room-container flex h-screen w-full bg-gradient-to-br from-slate-100 via-slate-200 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 text-slate-900 dark:text-white overflow-hidden pt-20">
+  
+  <!-- ✨ Loading Overlay (during initialization and auto-refresh) -->
+  <div *ngIf="isInitializing" 
+       class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/95 backdrop-blur-md">
+    <div class="flex flex-col items-center space-y-6 p-8 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10">
+      <!-- Animated Logo/Icon -->
+      <div class="relative">
+        <div class="absolute inset-0 animate-ping opacity-20">
+          <div class="w-20 h-20 rounded-full bg-primary-500"></div>
+        </div>
+        <div class="relative w-20 h-20 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center shadow-lg shadow-primary-500/50">
+          <span class="material-symbols-outlined text-4xl text-white">videocam</span>
+        </div>
+      </div>
+      
+      <!-- Loading Spinner -->
+      <div class="spinner-lg spinner-white"></div>
+      
+      <!-- Loading Message -->
+      <div class="text-center space-y-2">
+        <h3 class="text-xl font-semibold text-white">{{ initializingMessage }}</h3>
+        <p class="text-sm text-slate-300">Lütfen bekleyin...</p>
+      </div>
+      
+      <!-- Progress Dots -->
+      <div class="flex space-x-2">
+        <div class="w-2 h-2 rounded-full bg-primary-400 animate-bounce" style="animation-delay: 0ms;"></div>
+        <div class="w-2 h-2 rounded-full bg-primary-400 animate-bounce" style="animation-delay: 150ms;"></div>
+        <div class="w-2 h-2 rounded-full bg-primary-400 animate-bounce" style="animation-delay: 300ms;"></div>
+      </div>
+    </div>
+  </div>
+  
   <!-- Main Content Area -->
   <div class="meeting-main-area flex-1 flex flex-col relative transition-all duration-300"
        [class.mr-80]="showParticipantsPanel || showChatPanel">

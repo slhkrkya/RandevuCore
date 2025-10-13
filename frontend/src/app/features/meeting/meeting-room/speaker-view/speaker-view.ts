@@ -1,4 +1,4 @@
-import { Component, Input, ViewChild, ViewChildren, QueryList, ElementRef, ChangeDetectorRef, OnInit, OnDestroy, OnChanges, AfterViewChecked } from '@angular/core';
+import { Component, Input, ViewChild, ViewChildren, QueryList, ElementRef, ChangeDetectorRef, OnInit, OnDestroy, OnChanges, AfterViewInit, AfterViewChecked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { Participant, MeetingState } from '../meeting-room';
@@ -12,7 +12,7 @@ import { ParticipantService } from '../services/participant.service';
   templateUrl: './speaker-view.html',
   styleUrls: ['./speaker-view.css']
 })
-export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges, AfterViewChecked {
+export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges, AfterViewChecked {
   @Input() currentUserId = '';
   @Input() localStream?: MediaStream;
   @Input() remoteStreams: Map<string, MediaStream> = new Map();
@@ -43,6 +43,8 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges, After
   })();
 
   ngOnInit() {
+    console.log('🔄 SpeakerView ngOnInit - Subscribing to participants');
+    
     // Subscribe to participant service updates
     this.participantsSubscription = this.participantService.participants$.subscribe(participants => {
       
@@ -75,9 +77,50 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges, After
     });
   }
 
+  ngAfterViewInit() {
+    console.log('🔄 SpeakerView ngAfterViewInit - ViewChild ready, clearing video elements');
+    
+    // ✅ FIX: Clear all video elements AFTER ViewChild is initialized
+    if (this.mainVideo?.nativeElement) {
+      const el = this.mainVideo.nativeElement;
+      el.pause();
+      el.srcObject = null;
+      el.load();
+    }
+    
+    if (this.thumbnailVideos) {
+      this.thumbnailVideos.forEach(videoRef => {
+        const el = videoRef.nativeElement;
+        el.pause();
+        el.srcObject = null;
+        el.load();
+      });
+    }
+    
+    this.cdr.detectChanges();
+  }
+
   ngOnDestroy() {
+    console.log('🧹 SpeakerView ngOnDestroy - Cleaning up');
     this.participantsSubscription?.unsubscribe();
     this.lastVideoStates.clear(); // Prevent memory leak
+    
+    // ✅ FIX: Clear all video elements on destroy
+    if (this.mainVideo?.nativeElement) {
+      const el = this.mainVideo.nativeElement;
+      el.pause();
+      el.srcObject = null;
+      el.load();
+    }
+    
+    if (this.thumbnailVideos) {
+      this.thumbnailVideos.forEach(videoRef => {
+        const el = videoRef.nativeElement;
+        el.pause();
+        el.srcObject = null;
+        el.load();
+      });
+    }
   }
 
   ngOnChanges() {

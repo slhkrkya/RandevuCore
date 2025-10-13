@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { SignalRService } from '../../../core/services/signalr';
@@ -64,7 +64,7 @@ export interface ParticipantStateVersioned {
   templateUrl: './meeting-room.html',
   styleUrls: ['./meeting-room.css']
 })
-export class MeetingRoomComponent implements OnInit, OnDestroy {
+export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
   // Core properties
   meetingId = '';
   roomKey = '';
@@ -113,6 +113,10 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   showWhiteboardPanel = false;
   isFullscreen = false;
   activeView: 'grid' | 'speaker' | 'whiteboard' = 'speaker'; // Default to speaker view for testing
+  
+  // ✨ NEW: Loading state for auto-refresh
+  isInitializing = false;
+  initializingMessage = 'Toplantı hazırlanıyor...';
 
   // Control states to prevent rapid clicking
   isVideoToggling = false;
@@ -143,12 +147,42 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   ) {}
 
   async ngOnInit() {
+    console.log('🔄 MeetingRoom ngOnInit - Starting fresh initialization');
+    
+    // ✅ Show loading overlay during initialization
+    this.isInitializing = true;
+    this.initializingMessage = 'Toplantı hazırlanıyor...';
+    
     // Preload segmentation to reduce first-frame latency
     try { await this.videoEffects.preload(); } catch {}
     // Ensure local media first so initial offer contains stable m-lines
     await this.initializeMedia();
     // Then connect signaling and join room
     await this.initializeMeeting();
+    
+    // ✅ WORKAROUND: Auto-refresh once after joining to fix video element binding issues
+    // This ensures DOM is in perfect sync with media streams
+    const refreshKey = `meeting-auto-refresh-${this.meetingId}`;
+    const hasAutoRefreshed = sessionStorage.getItem(refreshKey);
+    
+    if (!hasAutoRefreshed) {
+      console.log('🔄 First join detected - scheduling auto-refresh for clean state...');
+      sessionStorage.setItem(refreshKey, 'true');
+      
+      // Update loading message
+      this.initializingMessage = 'Bağlantı optimize ediliyor...';
+      
+      // Give SignalR time to establish connection and sync state (500ms)
+      setTimeout(() => {
+        console.log('🔄 Auto-refreshing for optimal video element binding...');
+        window.location.reload();
+      }, 500);
+      
+      // Don't continue with rest of initialization - will restart after reload
+      return;
+    }
+    
+    console.log('✅ Auto-refresh already completed - continuing with normal flow');
     
     // Subscribe to participant service updates
     this.participantService.participants$.subscribe(participants => {
@@ -168,12 +202,35 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         this.setActiveView(saved as any);
       }
     } catch {}
+    
+    // ✅ Hide loading overlay after everything is ready
+    setTimeout(() => {
+      this.isInitializing = false;
+      this.cdr.detectChanges();
+    }, 300); // Small delay to ensure UI is ready
+  }
+
+  ngAfterViewInit() {
+    console.log('🔄 MeetingRoom ngAfterViewInit - ViewChild ready, clearing video elements');
+    
+    // ✅ FIX: Clear video elements AFTER ViewChild is initialized
+    // This ensures we're working with actual DOM elements, not undefined references
+    this.clearAllVideoElements();
+    
+    // Force change detection after clearing
+    this.cdr.detectChanges();
   }
 
   async ngOnDestroy() {
     window.removeEventListener('settingschange', this.handleSettingsChange);
     // Stop any ongoing video processing
     try { this.videoEffects.stop(); } catch {}
+    
+    // ✅ Clear auto-refresh flag so next join will refresh again
+    const refreshKey = `meeting-auto-refresh-${this.meetingId}`;
+    sessionStorage.removeItem(refreshKey);
+    console.log('🧹 Cleared auto-refresh flag for next join');
+    
     await this.cleanup();
   }
 
@@ -1791,6 +1848,11 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
 
   async endMeeting() {
     try {
+      // ✅ Clear auto-refresh flag so next join will refresh again
+      const refreshKey = `meeting-auto-refresh-${this.meetingId}`;
+      sessionStorage.removeItem(refreshKey);
+      console.log('🧹 Cleared auto-refresh flag on meeting end');
+      
       // Notify backend to end the meeting (only if host)
       if (this.isHost) {
         await this.signalr.invoke('EndMeeting', this.roomKey);
@@ -1804,8 +1866,37 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     }
   }
 
+  // ✅ NEW: Clear all video elements (called on init and cleanup)
+  private clearAllVideoElements() {
+    try {
+      console.log('🧹 Clearing all video elements');
+      
+      // Clear local video
+      if (this.localVideo?.nativeElement) {
+        const el = this.localVideo.nativeElement;
+        el.pause();
+        el.srcObject = null;
+        el.load(); // Force reset
+      }
+      
+      // Clear remote video
+      if (this.remoteVideo?.nativeElement) {
+        const el = this.remoteVideo.nativeElement;
+        el.pause();
+        el.srcObject = null;
+        el.load();
+      }
+      
+      console.log('✅ Video elements cleared');
+    } catch (error) {
+      console.warn('Error clearing video elements:', error);
+    }
+  }
+
   private async cleanup() {
     try {
+      console.log('🧹 Starting cleanup...');
+      
       // Clear change detection timeout
       if (this.changeDetectionTimeout) {
         clearTimeout(this.changeDetectionTimeout);
@@ -1853,13 +1944,8 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         this.rawLocalStream = undefined;
       }
 
-      // Clear video elements
-      if (this.localVideo?.nativeElement) {
-        this.localVideo.nativeElement.srcObject = null;
-      }
-      if (this.remoteVideo?.nativeElement) {
-        this.remoteVideo.nativeElement.srcObject = null;
-      }
+      // ✅ FIX: Aggressively clear video elements
+      this.clearAllVideoElements();
       
       // Stop active speaker monitoring and clean audio graph
       this.stopActiveSpeakerLoop();
