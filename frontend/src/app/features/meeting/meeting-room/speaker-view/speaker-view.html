@@ -5,7 +5,7 @@
     <div class="main-video-container">
       <video *ngIf="getActiveSpeaker() && isParticipantVideoVisible(getActiveSpeaker()!)"
              #mainVideo
-             [srcObject]="getActiveSpeakerStream()"
+             [attr.data-user-id]="getActiveSpeaker()?.userId"
              autoplay
              playsinline
              [muted]="getActiveSpeaker()?.userId === currentUserId"
@@ -53,7 +53,8 @@
       
       <!-- Video Stream -->
       <video *ngIf="isParticipantVideoVisible(participant)"
-             [srcObject]="getParticipantStream(participant)"
+             #thumbnailVideo
+             [attr.data-user-id]="participant.userId"
              autoplay
              playsinline
              [muted]="participant.userId === currentUserId"

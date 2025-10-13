@@ -1,4 +1,4 @@
-import { Component, Input, ViewChild, ElementRef, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
+import { Component, Input, ViewChild, ViewChildren, QueryList, ElementRef, ChangeDetectorRef, OnInit, OnDestroy, AfterViewChecked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { Participant, MeetingState } from '../meeting-room';
@@ -12,7 +12,7 @@ import { ParticipantService } from '../services/participant.service';
   templateUrl: './video-grid.html',
   styleUrls: ['./video-grid.css']
 })
-export class VideoGridComponent implements OnInit, OnDestroy {
+export class VideoGridComponent implements OnInit, OnDestroy, AfterViewChecked {
   @Input() currentUserId = '';
   @Input() localStream?: MediaStream;
   @Input() remoteStreams: Map<string, MediaStream> = new Map();
@@ -26,6 +26,7 @@ export class VideoGridComponent implements OnInit, OnDestroy {
   participants: Participant[] = [];
 
   @ViewChild('localVideo', { static: true }) localVideo!: ElementRef<HTMLVideoElement>;
+  @ViewChildren('remoteVideo') remoteVideos!: QueryList<ElementRef<HTMLVideoElement>>;
 
   private participantsSubscription?: Subscription;
   private readonly logUi = ((): boolean => {
@@ -73,6 +74,14 @@ export class VideoGridComponent implements OnInit, OnDestroy {
   private updateLocalVideo() {
     if (this.localVideo) {
       if (this.localStream && this.localStream.getVideoTracks().length > 0) {
+        const track = this.localStream.getVideoTracks()[0];
+        // Verify track is ready before setting srcObject
+        if (track.readyState !== 'live') {
+          console.warn('Local video track not live yet, waiting...');
+          setTimeout(() => this.updateLocalVideo(), 100);
+          return;
+        }
+        
         const el = this.localVideo.nativeElement;
         el.srcObject = this.localStream;
         el.muted = true;
@@ -196,11 +205,54 @@ export class VideoGridComponent implements OnInit, OnDestroy {
   onVideoLoaded(event: Event, participant: Participant) {
     const video = event.target as HTMLVideoElement;
     
+    console.log(`📹 Video loaded for ${participant.name}:`, {
+      userId: participant.userId,
+      videoWidth: video.videoWidth,
+      videoHeight: video.videoHeight,
+      readyState: video.readyState,
+      srcObject: !!video.srcObject
+    });
+    
     // Force play the video
     video.play().catch(error => {
+      console.error(`Failed to play video for ${participant.name}:`, error);
     });
   }
 
   onVideoError(event: Event, participant: Participant) {
+    console.error(`Video error for ${participant.name}:`, event);
+  }
+  
+  // Manually set srcObject for remote videos when stream changes
+  ngAfterViewChecked() {
+    if (!this.remoteVideos) return;
+    
+    // Update video elements with correct streams
+    this.remoteVideos.forEach(videoRef => {
+      const videoElement = videoRef.nativeElement;
+      const userId = videoElement.getAttribute('data-user-id');
+      
+      if (userId) {
+        const participant = this.participants.find(p => p.userId === userId);
+        if (participant && this.isParticipantVideoVisible(participant)) {
+          const stream = this.getParticipantVideo(participant);
+          
+          // Only update if stream is different
+          if (stream && videoElement.srcObject !== stream) {
+            console.log(`🎬 Setting srcObject for ${participant.name}:`, {
+              userId,
+              streamId: stream.id,
+              videoTracks: stream.getVideoTracks().length,
+              audioTracks: stream.getAudioTracks().length
+            });
+            
+            videoElement.srcObject = stream;
+            videoElement.play().catch(error => {
+              console.error(`Failed to play video for ${participant.name}:`, error);
+            });
+          }
+        }
+      }
+    });
   }
 }

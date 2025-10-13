@@ -3,7 +3,8 @@ import { Participant, MeetingState } from '../meeting-room';
 export function isVideoTrackLive(stream?: MediaStream | null): boolean {
   if (!stream) return false;
   const track = stream.getVideoTracks()[0];
-  return !!(track && track.readyState === 'live' && !(track as any).muted);
+  // Check: track exists, is live, enabled, and not muted
+  return !!(track && track.readyState === 'live' && track.enabled && !track.muted);
 }
 
 export function isParticipantVideoVisible(

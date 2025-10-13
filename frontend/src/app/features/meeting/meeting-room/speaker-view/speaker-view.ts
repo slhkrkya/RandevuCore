@@ -1,4 +1,4 @@
-import { Component, Input, ViewChild, ElementRef, ChangeDetectorRef, OnInit, OnDestroy, OnChanges } from '@angular/core';
+import { Component, Input, ViewChild, ViewChildren, QueryList, ElementRef, ChangeDetectorRef, OnInit, OnDestroy, OnChanges, AfterViewChecked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { Participant, MeetingState } from '../meeting-room';
@@ -12,7 +12,7 @@ import { ParticipantService } from '../services/participant.service';
   templateUrl: './speaker-view.html',
   styleUrls: ['./speaker-view.css']
 })
-export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges {
+export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges, AfterViewChecked {
   @Input() currentUserId = '';
   @Input() localStream?: MediaStream;
   @Input() remoteStreams: Map<string, MediaStream> = new Map();
@@ -28,7 +28,8 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges {
   private lastVideoStates = new Map<string, boolean>();
   pinnedUserId: string | null = null;
 
-  @ViewChild('mainVideo', { static: true }) mainVideo!: ElementRef<HTMLVideoElement>;
+  @ViewChild('mainVideo') mainVideo?: ElementRef<HTMLVideoElement>;
+  @ViewChildren('thumbnailVideo') thumbnailVideos!: QueryList<ElementRef<HTMLVideoElement>>;
 
   constructor(
     private cdr: ChangeDetectorRef,
@@ -74,6 +75,7 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges {
 
   ngOnDestroy() {
     this.participantsSubscription?.unsubscribe();
+    this.lastVideoStates.clear(); // Prevent memory leak
   }
 
   ngOnChanges() {
@@ -199,5 +201,50 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges {
 
   onThumbnailVideoError(event: Event, participant: Participant) {
     // handled silently to avoid console noise
+  }
+  
+  ngAfterViewChecked() {
+    // Update main video srcObject
+    if (this.mainVideo) {
+      const activeSpeaker = this.getActiveSpeaker();
+      if (activeSpeaker && this.isParticipantVideoVisible(activeSpeaker)) {
+        const stream = this.getActiveSpeakerStream();
+        const videoElement = this.mainVideo.nativeElement;
+        
+        if (stream && videoElement.srcObject !== stream) {
+          console.log(`🎬 Setting main video srcObject for ${activeSpeaker.name}:`, {
+            userId: activeSpeaker.userId,
+            streamId: stream.id,
+            videoTracks: stream.getVideoTracks().length
+          });
+          
+          videoElement.srcObject = stream;
+          videoElement.play().catch(error => {
+            console.error(`Failed to play main video for ${activeSpeaker.name}:`, error);
+          });
+        }
+      }
+    }
+    
+    // Update thumbnail videos
+    if (this.thumbnailVideos) {
+      this.thumbnailVideos.forEach(videoRef => {
+        const videoElement = videoRef.nativeElement;
+        const userId = videoElement.getAttribute('data-user-id');
+        
+        if (userId) {
+          const participant = this.participants.find(p => p.userId === userId);
+          if (participant && this.isParticipantVideoVisible(participant)) {
+            const stream = this.getParticipantStream(participant);
+            
+            if (stream && videoElement.srcObject !== stream) {
+              console.log(`🎬 Setting thumbnail srcObject for ${participant.name}`);
+              videoElement.srcObject = stream;
+              videoElement.play().catch(() => {});
+            }
+          }
+        }
+      });
+    }
   }
 }
