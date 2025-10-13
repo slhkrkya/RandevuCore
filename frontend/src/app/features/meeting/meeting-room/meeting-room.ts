@@ -1467,7 +1467,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         return;
       }
 
-      const base = this.cfg.apiBaseUrl;
+      const base = this.cfg.apiBaseUrl || '';
       const response = await fetch(`${base}/api/meetings/${this.meetingId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,

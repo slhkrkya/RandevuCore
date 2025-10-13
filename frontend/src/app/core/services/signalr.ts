@@ -17,7 +17,7 @@ export class SignalRService {
     
     // Use environment-appropriate URL (dev uses proxy /ws)
     const wsUrl = isProduction ? 
-      `https://${window.location.host}/ws` : 
+      `wss://${window.location.host}/ws` : 
       `/ws`;
     
     this.connection = new signalR.HubConnectionBuilder()

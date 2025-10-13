@@ -26,7 +26,7 @@ export class AppointmentList implements OnInit {
     const token = localStorage.getItem('token');
     const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
     
-    this.http.get<any[]>(`${this.cfg.apiBaseUrl}/api/appointments`, { headers })
+    this.http.get<any[]>(`${this.cfg.apiBaseUrl || ''}/api/appointments`, { headers })
       .subscribe({
         next: (items) => {
           this.items = items;
@@ -55,7 +55,7 @@ export class AppointmentList implements OnInit {
       const token = localStorage.getItem('token');
       const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
       
-      this.http.delete(`${this.cfg.apiBaseUrl}/api/appointments/${appointment.id}`, { headers })
+      this.http.delete(`${this.cfg.apiBaseUrl || ''}/api/appointments/${appointment.id}`, { headers })
         .subscribe({
           next: () => {
             this.loadAppointments(); // Listeyi yenile

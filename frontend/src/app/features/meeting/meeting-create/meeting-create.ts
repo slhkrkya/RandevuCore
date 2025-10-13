@@ -31,7 +31,7 @@ export class MeetingCreateComponent {
   }
 
   ngOnInit() {
-    this.http.get<any[]>(`${this.cfg.apiBaseUrl}/api/users`)
+    this.http.get<any[]>(`${this.cfg.apiBaseUrl || ''}/api/users`)
       .subscribe(u => this.users = u);
   }
 
@@ -41,7 +41,7 @@ export class MeetingCreateComponent {
     this.error = null;
     const value = this.form.value;
     const payload = { ...value, inviteeIds: this.selectedInvitees };
-    this.http.post(`${this.cfg.apiBaseUrl}/api/meetings`, payload).subscribe({
+    this.http.post(`${this.cfg.apiBaseUrl || ''}/api/meetings`, payload).subscribe({
       next: () => this.router.navigate(['/meetings']),
       error: (err) => {
         this.error = err?.error?.error || 'Kaydetme başarısız';

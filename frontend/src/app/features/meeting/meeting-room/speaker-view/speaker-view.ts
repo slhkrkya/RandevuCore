@@ -190,7 +190,6 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges {
 
   onThumbnailVideoLoaded(event: Event, participant: Participant) {
     const video = event.target as HTMLVideoElement;
-    // debug log removed in production build
     
     // Force play the video
     video.play().catch(error => {

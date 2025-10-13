@@ -32,7 +32,7 @@ export class AppointmentForm {
     if (this.form.invalid || this.loading) return;
     this.loading = true;
     this.error = null;
-    this.http.post(`${this.cfg.apiBaseUrl}/api/appointments`, this.form.value).subscribe({
+    this.http.post(`${this.cfg.apiBaseUrl || ''}/api/appointments`, this.form.value).subscribe({
       next: () => this.router.navigate(['/appointments']),
       error: (err) => {
         this.error = err?.error?.error || 'Kaydetme başarısız';

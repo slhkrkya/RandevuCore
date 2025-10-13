@@ -59,7 +59,7 @@ export class MeetingListComponent implements OnInit {
       return;
     }
 
-    this.http.get<Meeting[]>(`${this.cfg.apiBaseUrl}/api/meetings`, {
+    this.http.get<Meeting[]>(`${this.cfg.apiBaseUrl || ''}/api/meetings`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -116,7 +116,7 @@ export class MeetingListComponent implements OnInit {
       const token = this.auth.getToken();
       if (!token) return;
 
-      this.http.delete(`${this.cfg.apiBaseUrl}/api/meetings/${meeting.id}`, {
+      this.http.delete(`${this.cfg.apiBaseUrl || ''}/api/meetings/${meeting.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

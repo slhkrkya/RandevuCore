@@ -15,6 +15,10 @@ export class AppConfigService {
       window.location.hostname === 'localhost' ||
       window.location.hostname === '127.0.0.1'
     );
+    
+    // Check if we're in production (not localhost)
+    const isProduction = !isLocalhost;
+    
     try {
       const res = await fetch('/assets/config.json', { cache: 'no-store' });
       if (res.ok) {
@@ -36,6 +40,10 @@ export class AppConfigService {
       const apiPort = 5125;
       this.config.apiBaseUrl = `http://localhost:${apiPort}`;
       this.config.wsUrl = `http://localhost:${apiPort}/ws`;
+    } else if (isProduction && !this.config.apiBaseUrl) {
+      // In production, use relative URLs if no config is provided
+      this.config.apiBaseUrl = '';
+      this.config.wsUrl = 'wss://' + window.location.host + '/ws';
     }
   }
 
