@@ -33,6 +33,22 @@ export interface MeetingState {
   activeSpeaker?: string;
 }
 
+// ✨ NEW: Participant state with versioning
+export interface ParticipantStateVersioned {
+  userId: string;
+  isVideoOn: boolean;
+  isMuted: boolean;
+  isScreenSharing: boolean;
+  wasVideoOnBeforeShare: boolean;
+  version: number;
+  timestamp: string;
+  
+  // UI reconciliation states
+  videoTrackArrived?: boolean;
+  audioTrackArrived?: boolean;
+  videoStatus?: 'on' | 'off' | 'pending';
+}
+
 @Component({
   selector: 'app-meeting-room',
   standalone: true,
@@ -67,6 +83,10 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
 
   // Participants
   participants: Participant[] = [];
+  
+  // ✨ NEW: Versioned participant states (server-authoritative)
+  participantStatesVersioned: Map<string, ParticipantStateVersioned> = new Map();
+  
   localStream?: MediaStream; // active (processed or raw)
   private rawLocalStream?: MediaStream; // original camera/mic stream for processing
   remoteStreams: Map<string, MediaStream> = new Map();
@@ -229,6 +249,21 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     this.signalr.on<any>('presence', (participants) => {
       this.handlePresenceUpdate(participants);
     });
+    
+    // ✨ NEW: Initial participant states snapshot (when joining)
+    this.signalr.on<any>('initial-participant-states', (states: any[]) => {
+      this.handleInitialParticipantStates(states);
+    });
+    
+    // ✨ NEW: Versioned participant state updates (server-authoritative)
+    this.signalr.on<any>('participant-state-updated', (state: any) => {
+      this.handleParticipantStateUpdated(state);
+    });
+    
+    // ✨ NEW: Track-ready event (WebRTC track arrival confirmation)
+    this.signalr.on<any>('participant-track-ready', (data: any) => {
+      this.handleParticipantTrackReady(data);
+    });
 
     // WebRTC signaling
     this.signalr.on<any>('webrtc-offer', async (payload) => {
@@ -244,7 +279,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       await this.handleIceCandidate(payload);
     });
 
-    // Meeting state updates
+    // 🔄 DEPRECATED: Old meeting state updates (kept for backward compatibility)
     this.signalr.on<any>('meeting-state-update', (state) => {
       this.handleMeetingStateUpdate(state);
     });
@@ -282,15 +317,13 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         console.log('User joining without camera or microphone');
       }
       
-      // CRITICAL: Broadcast initial state after media is initialized
-      // This ensures other participants know our camera/mic state when we join
-      setTimeout(async () => {
-        await this.broadcastStateChange();
-        console.log('📡 Initial media state broadcasted:', {
-          isVideoOn: this.meetingState.isVideoOn,
-          isMuted: this.meetingState.isMuted
-        });
-      }, 1000);
+      // ✅ FIXED: Broadcast initial state immediately after media is initialized
+      // No setTimeout - broadcast happens synchronously after media setup
+      await this.broadcastStateChange();
+      console.log('📡 Initial media state broadcasted:', {
+        isVideoOn: this.meetingState.isVideoOn,
+        isMuted: this.meetingState.isMuted
+      });
       
     } catch (error) {
       this.toast.error('Kamera/Mikrofon başlatılamadı. Ayarlarınızı kontrol edin.');
@@ -298,10 +331,8 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       this.meetingState.isVideoOn = false;
       this.meetingState.isMuted = true;
       
-      // Still broadcast the state even if media fails
-      setTimeout(async () => {
-        await this.broadcastStateChange();
-      }, 1000);
+      // ✅ FIXED: Broadcast state immediately even if media fails (no setTimeout)
+      await this.broadcastStateChange();
     }
   }
 
@@ -802,6 +833,8 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       this.wasVideoOnBeforeShare = this.meetingState.isVideoOn;
       this.meetingState.isVideoOn = false;
       
+      console.log(`🖥️ Screen share starting - wasVideoOnBeforeShare: ${this.wasVideoOnBeforeShare}`);
+      
       // Stop and remove local camera track if exists
       if (this.localStream && this.localStream.getVideoTracks()[0]) {
         try {
@@ -1038,21 +1071,18 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         // Attach local tracks; onnegotiationneeded will create an offer
         const pc = this.peerConnections.get(participant.userId);
         if (pc) {
-          this.applyLocalTracksToPc(pc);
+          await this.applyLocalTracksToPc(pc);
         }
       });
 
-      // Execute all connections in parallel
-      Promise.all(connectionPromises).catch(error => {
+      // Execute all connections in parallel and wait for completion
+      await Promise.all(connectionPromises).catch(error => {
         console.error('Error creating peer connections:', error);
       });
       
-      // CRITICAL: Broadcast our current state to new participants
-      // They need to know if we have camera/mic/screen on
-      setTimeout(async () => {
-        await this.broadcastStateChange();
-        console.log('📡 State re-broadcasted for new participants');
-      }, 1500);
+      // ✅ FIXED: Broadcast state immediately after peer connections are ready (no setTimeout)
+      await this.broadcastStateChange();
+      console.log('📡 State broadcasted for new participants');
     }
 
     // Remove connections for participants who left
@@ -1189,12 +1219,37 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         stream.addTrack(track);
         console.log(`✅ Added ${track.kind} track for ${userId}: ${track.id}`);
         
+        // ✨ NEW: Notify server that track is ready (for reconciliation)
+        this.signalr.invoke('NotifyTrackReady', this.roomKey, {
+          participantUserId: userId,
+          hasVideo: track.kind === 'video',
+          hasAudio: track.kind === 'audio'
+        }).catch(err => console.warn('Failed to notify track ready:', err));
+        
         // Update participant state based on track availability
         this.updateParticipantStateFromTracks(userId, stream);
         
-        // Force immediate change detection for video tracks
+        // ✨ NEW: Update versioned state with track arrival
+        const versionedState = this.participantStatesVersioned.get(userId);
+        if (versionedState) {
+          if (track.kind === 'video') {
+            versionedState.videoTrackArrived = true;
+            if (versionedState.isVideoOn) {
+              versionedState.videoStatus = 'on';
+              this.participantService.updateVideoState(userId, true);
+            }
+          }
+          if (track.kind === 'audio') {
+            versionedState.audioTrackArrived = true;
+          }
+          this.participantStatesVersioned.set(userId, versionedState);
+        }
+        
+        // ✅ FIX: Force immediate change detection for video tracks to update DOM
         if (track.kind === 'video') {
+          this.cdr.detectChanges();
           this.triggerChangeDetection();
+          console.log(`🎬 Video track added - change detection triggered for ${userId}`);
         }
       } catch (error) {
         console.warn(`Failed to add track for ${userId}:`, error);
@@ -1253,11 +1308,14 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     this.peerConnections.set(userId, pc);
     console.log(`🚀 Peer Connection created for ${userId}, total connections: ${this.peerConnections.size}`);
     // Apply local tracks if available; onnegotiationneeded will send offer
-    this.applyLocalTracksToPc(pc);
+    // Note: Not awaiting here as we want the connection to be returned immediately
+    // The track application will happen asynchronously
+    this.applyLocalTracksToPc(pc).catch(err => console.warn('Failed to apply tracks:', err));
     return pc;
   }
 
-  private applyLocalTracksToPc(pc: RTCPeerConnection) {
+  // ✨ NEW: Made async and returns Promise for proper synchronization
+  private async applyLocalTracksToPc(pc: RTCPeerConnection): Promise<void> {
     if (!pc) return;
     const entry = Array.from(this.peerConnections.entries()).find(([, val]) => val === pc);
     const userId = entry?.[0];
@@ -1269,19 +1327,33 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     const audioTrack = this.localStream?.getAudioTracks()[0] || null;
     const videoTrack = this.localStream?.getVideoTracks()[0] || null;
 
+    const replacePromises: Promise<void>[] = [];
+
     try {
       if (audioTx) {
         const shouldSendAudio = !!audioTrack && !this.meetingState.isMuted;
         // Set direction based on whether we're sending
         audioTx.direction = shouldSendAudio ? 'sendrecv' : 'recvonly';
-        audioTx.sender.replaceTrack(shouldSendAudio ? audioTrack : null as any).catch(() => {});
+        replacePromises.push(
+          audioTx.sender.replaceTrack(shouldSendAudio ? audioTrack : null as any)
+            .then(() => console.log(`✅ Audio track applied for ${userId}`))
+            .catch(err => console.warn(`⚠️ Audio track apply failed for ${userId}:`, err))
+        );
       }
       if (videoTx) {
         const shouldSendVideo = !!videoTrack && (this.meetingState.isVideoOn || this.meetingState.isScreenSharing);
         // Set direction based on whether we're sending
         videoTx.direction = shouldSendVideo ? 'sendrecv' : 'recvonly';
-        videoTx.sender.replaceTrack(shouldSendVideo ? videoTrack : null as any).catch(() => {});
+        replacePromises.push(
+          videoTx.sender.replaceTrack(shouldSendVideo ? videoTrack : null as any)
+            .then(() => console.log(`✅ Video track applied for ${userId}`))
+            .catch(err => console.warn(`⚠️ Video track apply failed for ${userId}:`, err))
+        );
       }
+      
+      // ✅ Wait for all track replacements to complete
+      await Promise.allSettled(replacePromises);
+      console.log(`✅ All tracks applied for peer ${userId}`);
     } catch (err) {
       console.warn('applyLocalTracksToPc error:', err);
     }
@@ -1330,7 +1402,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
           const newPc = await this.createPeerConnection(fromUserId);
           if (newPc) {
             // Apply local tracks; negotiation will trigger
-            this.applyLocalTracksToPc(newPc);
+            await this.applyLocalTracksToPc(newPc);
           }
         } catch (e) {
           console.warn('Failed to self-heal by recreating PC:', e);
@@ -1367,7 +1439,7 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
           this.cleanupPeerConnection(fromUserId);
           const newPc = await this.createPeerConnection(fromUserId);
           if (newPc) {
-            this.applyLocalTracksToPc(newPc);
+            await this.applyLocalTracksToPc(newPc);
           }
         } catch (e) {
           console.warn('Failed to self-heal by recreating PC (answer):', e);
@@ -1399,6 +1471,136 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     }
   }
 
+  // ✨ NEW: Handle initial state snapshot when joining
+  private handleInitialParticipantStates(states: any[]) {
+    console.log(`📊 Received initial participant states:`, states);
+    
+    states.forEach(state => {
+      const versionedState: ParticipantStateVersioned = {
+        userId: state.userId,
+        isVideoOn: state.isVideoOn,
+        isMuted: state.isMuted,
+        isScreenSharing: state.isScreenSharing,
+        wasVideoOnBeforeShare: state.wasVideoOnBeforeShare,
+        version: state.version,
+        timestamp: state.timestamp,
+        videoTrackArrived: false,
+        audioTrackArrived: false,
+        videoStatus: state.isVideoOn ? 'pending' : 'off'
+      };
+      
+      this.participantStatesVersioned.set(state.userId, versionedState);
+      
+      // ✨ NEW: Restore wasVideoOnBeforeShare for current user (screen share state persistence)
+      if (state.userId === this.currentUserId && state.wasVideoOnBeforeShare !== undefined) {
+        this.wasVideoOnBeforeShare = state.wasVideoOnBeforeShare;
+        console.log(`✅ Restored wasVideoOnBeforeShare from server: ${this.wasVideoOnBeforeShare}`);
+      }
+      
+      // Update participant service with initial state
+      this.participantService.updateParticipantState(state.userId, {
+        isVideoOn: state.isVideoOn,
+        isMuted: state.isMuted,
+        isScreenSharing: state.isScreenSharing
+      });
+    });
+    
+    this.triggerChangeDetection();
+  }
+  
+  // ✨ NEW: Handle versioned state updates with version checking
+  private handleParticipantStateUpdated(state: any) {
+    const userId = state.userId;
+    const existingState = this.participantStatesVersioned.get(userId);
+    
+    // Version check - ignore older versions
+    if (existingState && state.version <= existingState.version) {
+      console.log(`⏭️ Ignoring old state version for ${userId}: ${state.version} <= ${existingState.version}`);
+      return;
+    }
+    
+    console.log(`📊 Participant state updated for ${userId}:`, {
+      version: state.version,
+      isVideoOn: state.isVideoOn,
+      isMuted: state.isMuted,
+      isScreenSharing: state.isScreenSharing
+    });
+    
+    // Check if we have track for this user
+    const remoteStream = this.remoteStreams.get(userId);
+    const hasVideoTrack = !!remoteStream && remoteStream.getVideoTracks().length > 0;
+    const hasAudioTrack = !!remoteStream && remoteStream.getAudioTracks().length > 0;
+    
+    // Determine video status based on state and track arrival
+    let videoStatus: 'on' | 'off' | 'pending' = 'off';
+    if (state.isVideoOn) {
+      videoStatus = hasVideoTrack ? 'on' : 'pending';
+    }
+    
+    const versionedState: ParticipantStateVersioned = {
+      userId: userId,
+      isVideoOn: state.isVideoOn,
+      isMuted: state.isMuted,
+      isScreenSharing: state.isScreenSharing,
+      wasVideoOnBeforeShare: state.wasVideoOnBeforeShare,
+      version: state.version,
+      timestamp: state.timestamp,
+      videoTrackArrived: hasVideoTrack,
+      audioTrackArrived: hasAudioTrack,
+      videoStatus: videoStatus
+    };
+    
+    this.participantStatesVersioned.set(userId, versionedState);
+    
+    // ✨ NEW: Restore wasVideoOnBeforeShare for current user (if updated)
+    if (userId === this.currentUserId && state.wasVideoOnBeforeShare !== undefined) {
+      this.wasVideoOnBeforeShare = state.wasVideoOnBeforeShare;
+    }
+    
+    // Update participant service (for UI)
+    this.participantService.updateParticipantState(userId, {
+      isVideoOn: videoStatus === 'on', // Only show as on if track is ready
+      isMuted: state.isMuted,
+      isScreenSharing: state.isScreenSharing
+    });
+    
+    this.triggerChangeDetection();
+  }
+  
+  // ✨ NEW: Handle track-ready event (confirms WebRTC track arrival)
+  private handleParticipantTrackReady(data: any) {
+    const userId = data.userId;
+    console.log(`🎯 Track ready for ${userId}:`, data);
+    
+    const versionedState = this.participantStatesVersioned.get(userId);
+    if (!versionedState) return;
+    
+    // Update track arrival flags
+    if (data.hasVideo) {
+      versionedState.videoTrackArrived = true;
+      // If state says video is on and track is now ready, update status
+      if (versionedState.isVideoOn) {
+        versionedState.videoStatus = 'on';
+        
+        // Update participant service to show video
+        this.participantService.updateVideoState(userId, true);
+      }
+    }
+    
+    if (data.hasAudio) {
+      versionedState.audioTrackArrived = true;
+    }
+    
+    this.participantStatesVersioned.set(userId, versionedState);
+    
+    // ✅ FIX: Force immediate change detection for video element update
+    this.cdr.detectChanges();
+    this.triggerChangeDetection();
+    
+    console.log(`✅ Track ready reconciliation complete for ${userId}`);
+  }
+  
+  // 🔄 DEPRECATED: Old meeting state update handler (kept for backward compatibility)
   private async handleMeetingStateUpdate(state: any) {
     // Extract userId from various possible formats
     let userId = state.userId || state.userId || state.fromUserId || state.user;
@@ -1508,21 +1710,22 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
 
   private async broadcastStateChange() {
     try {
-      // Use the proper SignalR hub method to ensure userId is included
-      await this.signalr.invoke('BroadcastMeetingStateUpdate', this.roomKey, {
+      // ✨ NEW: Use versioned UpdateParticipantState for server-authoritative state
+      await this.signalr.invoke('UpdateParticipantState', this.roomKey, {
         isVideoOn: this.meetingState.isVideoOn,
         isMuted: this.meetingState.isMuted,
         isScreenSharing: this.meetingState.isScreenSharing,
-        isWhiteboardActive: this.meetingState.isWhiteboardActive
+        wasVideoOnBeforeShare: this.wasVideoOnBeforeShare || null
       });
       
-      console.log('📡 State broadcasted:', {
+      console.log('📡 State updated on server:', {
         isVideoOn: this.meetingState.isVideoOn,
         isMuted: this.meetingState.isMuted,
-        isScreenSharing: this.meetingState.isScreenSharing
+        isScreenSharing: this.meetingState.isScreenSharing,
+        wasVideoOnBeforeShare: this.wasVideoOnBeforeShare
       });
     } catch (error) {
-      console.error('❌ Failed to broadcast state change:', error);
+      console.error('❌ Failed to update participant state:', error);
     }
   }
 
@@ -1549,6 +1752,30 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   // Utility methods
   getVideoParticipants() {
     return this.participants;
+  }
+  
+  // ✨ NEW: Get video status for a participant (on/off/pending)
+  getParticipantVideoStatus(userId: string): 'on' | 'off' | 'pending' {
+    const versionedState = this.participantStatesVersioned.get(userId);
+    if (!versionedState) {
+      // Fallback to checking actual stream
+      const stream = this.remoteStreams.get(userId);
+      const hasVideo = stream && stream.getVideoTracks().length > 0;
+      return hasVideo ? 'on' : 'off';
+    }
+    return versionedState.videoStatus || 'off';
+  }
+  
+  // ✨ NEW: Check if participant video is loading (pending state)
+  isParticipantVideoLoading(userId: string): boolean {
+    return this.getParticipantVideoStatus(userId) === 'pending';
+  }
+  
+  // ✨ NEW: Return bound function for template usage
+  getIsVideoLoadingFn(): (participant: Participant) => boolean {
+    return (participant: Participant) => {
+      return this.isParticipantVideoLoading(participant.userId);
+    };
   }
 
   getVideoGridClass() {

@@ -22,6 +22,8 @@ export class VideoGridComponent implements OnInit, OnDestroy, AfterViewChecked {
     isScreenSharing: false,
     isWhiteboardActive: false
   };
+  // ✨ NEW: Function to check if video is loading (pending state)
+  @Input() isVideoLoading: (participant: Participant) => boolean = () => false;
 
   participants: Participant[] = [];
 
@@ -234,22 +236,40 @@ export class VideoGridComponent implements OnInit, OnDestroy, AfterViewChecked {
       
       if (userId) {
         const participant = this.participants.find(p => p.userId === userId);
-        if (participant && this.isParticipantVideoVisible(participant)) {
-          const stream = this.getParticipantVideo(participant);
+        if (participant) {
+          // ✅ FIX: DOĞRUDAN remoteStreams.get() kullan - getParticipantVideo() isVideoOn kontrolü yapıyor!
+          let stream: MediaStream | undefined;
+          if (participant.userId === this.currentUserId) {
+            stream = this.localStream;
+          } else {
+            stream = this.remoteStreams.get(participant.userId); // ✅ Direct access, no state check!
+          }
           
-          // Only update if stream is different
-          if (stream && videoElement.srcObject !== stream) {
-            console.log(`🎬 Setting srcObject for ${participant.name}:`, {
-              userId,
-              streamId: stream.id,
-              videoTracks: stream.getVideoTracks().length,
-              audioTracks: stream.getAudioTracks().length
-            });
+          // Stream varsa ve video track varsa update et
+          if (stream && stream.getVideoTracks().length > 0) {
+            const videoTrack = stream.getVideoTracks()[0];
+            const isTrackLive = videoTrack && videoTrack.readyState === 'live' && videoTrack.enabled;
             
-            videoElement.srcObject = stream;
-            videoElement.play().catch(error => {
-              console.error(`Failed to play video for ${participant.name}:`, error);
-            });
+            // Only update if stream is different and track is live
+            if (isTrackLive && videoElement.srcObject !== stream) {
+              console.log(`🎬 Setting srcObject for ${participant.name}:`, {
+                userId,
+                streamId: stream.id,
+                videoTracks: stream.getVideoTracks().length,
+                audioTracks: stream.getAudioTracks().length,
+                trackReadyState: videoTrack.readyState,
+                trackEnabled: videoTrack.enabled
+              });
+              
+              videoElement.srcObject = stream;
+              videoElement.play().catch(error => {
+                console.error(`Failed to play video for ${participant.name}:`, error);
+              });
+            }
+          } else if (videoElement.srcObject) {
+            // ✅ FIX: Stream yoksa veya track inactive ise temizle
+            console.log(`🗑️ Clearing srcObject for ${participant.name} - no active video track`);
+            videoElement.srcObject = null;
           }
         }
       }

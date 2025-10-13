@@ -12,7 +12,8 @@
           [currentUserId]="currentUserId"
           [localStream]="localStream"
           [remoteStreams]="remoteStreams"
-          [meetingState]="meetingState">
+          [meetingState]="meetingState"
+          [isVideoLoading]="getIsVideoLoadingFn()">
         </app-video-grid>
       </div>
 
@@ -22,7 +23,8 @@
           [currentUserId]="currentUserId"
           [localStream]="localStream"
           [remoteStreams]="remoteStreams"
-          [meetingState]="meetingState">
+          [meetingState]="meetingState"
+          [isVideoLoading]="getIsVideoLoadingFn()">
         </app-speaker-view>
       </div>
 

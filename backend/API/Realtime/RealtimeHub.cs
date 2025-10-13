@@ -13,6 +13,13 @@ namespace RandevuCore.API.Realtime
         private static readonly ConcurrentDictionary<string, string> ConnectionIdToRoom = new();
         private static readonly ConcurrentDictionary<string, DateTimeOffset> RoomStartTimes = new();
         private static readonly ConcurrentDictionary<string, Timer> RoomDurationTimers = new();
+        
+        // ✨ NEW: Server-side authoritative state store
+        private static readonly ConcurrentDictionary<string, ConcurrentDictionary<Guid, ParticipantState>> RoomParticipantStates = new();
+        
+        // Room end times for TTL-based cleanup
+        private static readonly ConcurrentDictionary<string, DateTimeOffset> RoomEndTimes = new();
+        
         private readonly RandevuDbContext _db;
 
         public RealtimeHub(RandevuDbContext db)
@@ -28,6 +35,24 @@ namespace RandevuCore.API.Realtime
         }
 
         private record Participant(string ConnectionId, Guid UserId, string Name);
+        
+        // ✨ NEW: Participant state model with versioning
+        private class ParticipantState
+        {
+            public Guid UserId { get; set; }
+            public bool IsVideoOn { get; set; }
+            public bool IsScreenSharing { get; set; }
+            public bool IsMuted { get; set; }
+            public bool WasVideoOnBeforeShare { get; set; } // For screen share state persistence
+            public long Version { get; set; } // Monotonic version number
+            public DateTimeOffset LastUpdatedUtc { get; set; }
+            
+            public ParticipantState()
+            {
+                Version = 0;
+                LastUpdatedUtc = DateTimeOffset.UtcNow;
+            }
+        }
 
         public override async Task OnConnectedAsync()
         {
@@ -45,6 +70,18 @@ namespace RandevuCore.API.Realtime
                 members[Context.ConnectionId] = new Participant(Context.ConnectionId, uid, name);
                 ConnectionIdToRoom[Context.ConnectionId] = roomId;
                 
+                // Check if room was recently ended (TTL check)
+                if (RoomEndTimes.TryGetValue(roomId, out var endTime))
+                {
+                    var elapsed = DateTimeOffset.UtcNow - endTime;
+                    // If room ended less than 30 seconds ago, clear old state for fresh start
+                    if (elapsed.TotalSeconds < 30)
+                    {
+                        RoomParticipantStates.TryRemove(roomId, out _);
+                        RoomEndTimes.TryRemove(roomId, out _);
+                    }
+                }
+                
                 // Set room start time if this is the first participant
                 if (members.Count == 1)
                 {
@@ -53,6 +90,22 @@ namespace RandevuCore.API.Realtime
                     await UpdateMeetingActualStartTime(roomId);
                     StartDurationTimer(roomId);
                 }
+                
+                // ✨ NEW: Send initial state snapshot to the joining user
+                var states = RoomParticipantStates.GetOrAdd(roomId, _ => new ConcurrentDictionary<Guid, ParticipantState>());
+                var stateSnapshot = states.Values.Select(s => new
+                {
+                    userId = s.UserId,
+                    isVideoOn = s.IsVideoOn,
+                    isScreenSharing = s.IsScreenSharing,
+                    isMuted = s.IsMuted,
+                    wasVideoOnBeforeShare = s.WasVideoOnBeforeShare,
+                    version = s.Version,
+                    timestamp = s.LastUpdatedUtc
+                }).ToList();
+                
+                // Send initial state only to the caller (newly joined user)
+                await Clients.Caller.SendAsync("initial-participant-states", stateSnapshot);
                 
                 await BroadcastPresence(roomId, members);
                 await BroadcastMeetingDuration(roomId);
@@ -185,7 +238,64 @@ namespace RandevuCore.API.Realtime
             await BroadcastMeetingDuration(roomId);
         }
 
-        // Handle meeting state updates from clients
+        // ✨ NEW: Authoritative state update - client sends state, server stores & broadcasts with version
+        public async Task UpdateParticipantState(string roomId, ParticipantStateDto dto)
+        {
+            if (!roomId.StartsWith("meeting-")) return;
+            
+            var (userId, _) = GetUser();
+            var states = RoomParticipantStates.GetOrAdd(roomId, _ => new ConcurrentDictionary<Guid, ParticipantState>());
+            
+            // Get or create participant state
+            var state = states.GetOrAdd(userId, _ => new ParticipantState { UserId = userId });
+            
+            // Update state fields
+            state.IsVideoOn = dto.IsVideoOn;
+            state.IsScreenSharing = dto.IsScreenSharing;
+            state.IsMuted = dto.IsMuted;
+            
+            // Handle screen share persistence
+            if (dto.WasVideoOnBeforeShare.HasValue)
+            {
+                state.WasVideoOnBeforeShare = dto.WasVideoOnBeforeShare.Value;
+            }
+            
+            // Increment version (monotonic)
+            state.Version++;
+            state.LastUpdatedUtc = DateTimeOffset.UtcNow;
+            
+            // Broadcast to all participants in the room
+            await Clients.Group(roomId).SendAsync("participant-state-updated", new
+            {
+                userId = userId,
+                isVideoOn = state.IsVideoOn,
+                isScreenSharing = state.IsScreenSharing,
+                isMuted = state.IsMuted,
+                wasVideoOnBeforeShare = state.WasVideoOnBeforeShare,
+                version = state.Version,
+                timestamp = state.LastUpdatedUtc
+            });
+        }
+        
+        // ✨ NEW: Notify when WebRTC track is ready (track arrival confirmation)
+        public async Task NotifyTrackReady(string roomId, TrackReadyDto dto)
+        {
+            if (!roomId.StartsWith("meeting-")) return;
+            
+            var (userId, _) = GetUser();
+            
+            // Broadcast track-ready event to all participants
+            await Clients.Group(roomId).SendAsync("participant-track-ready", new
+            {
+                userId = dto.ParticipantUserId ?? userId,
+                hasVideo = dto.HasVideo,
+                hasAudio = dto.HasAudio,
+                timestamp = DateTimeOffset.UtcNow
+            });
+        }
+        
+        // 🔄 DEPRECATED but kept for backward compatibility - use UpdateParticipantState instead
+        [Obsolete("Use UpdateParticipantState for versioned state management")]
         public async Task BroadcastMeetingStateUpdate(string roomId, object stateData)
         {
             var (userId, _) = GetUser();
@@ -194,6 +304,22 @@ namespace RandevuCore.API.Realtime
                 userId = userId,
                 state = stateData
             });
+        }
+        
+        // Helper DTOs for typed communication
+        public class ParticipantStateDto
+        {
+            public bool IsVideoOn { get; set; }
+            public bool IsScreenSharing { get; set; }
+            public bool IsMuted { get; set; }
+            public bool? WasVideoOnBeforeShare { get; set; }
+        }
+        
+        public class TrackReadyDto
+        {
+            public Guid? ParticipantUserId { get; set; }
+            public bool HasVideo { get; set; }
+            public bool HasAudio { get; set; }
         }
 
         public async Task EndMeeting(string roomId)
@@ -212,10 +338,32 @@ namespace RandevuCore.API.Realtime
                     }
                 }
 
-                // Stop all timers and clear room data
+                // Stop all timers
                 StopDurationTimer(roomId);
                 RoomStartTimes.TryRemove(roomId, out _);
+                
+                // ✨ NEW: Mark room end time for TTL-based cleanup (instead of immediate removal)
+                // This allows graceful handling if users rejoin immediately
+                RoomEndTimes[roomId] = DateTimeOffset.UtcNow;
+                
+                // Clear participant list (but keep state for TTL period)
                 RoomIdToParticipants.TryRemove(roomId, out _);
+                
+                // Schedule state cleanup after TTL (30 seconds)
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(30));
+                    // Clean up old state if room is still marked as ended
+                    if (RoomEndTimes.TryGetValue(roomId, out var endTime))
+                    {
+                        var elapsed = DateTimeOffset.UtcNow - endTime;
+                        if (elapsed.TotalSeconds >= 30)
+                        {
+                            RoomParticipantStates.TryRemove(roomId, out _);
+                            RoomEndTimes.TryRemove(roomId, out _);
+                        }
+                    }
+                });
                 
                 // Notify all participants that meeting has ended
                 await Clients.Group(roomId).SendAsync("meeting-ended");

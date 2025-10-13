@@ -22,6 +22,8 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges, After
     isScreenSharing: false,
     isWhiteboardActive: false
   };
+  // ✨ NEW: Function to check if video is loading (pending state)
+  @Input() isVideoLoading: (participant: Participant) => boolean = () => false;
 
   participants: Participant[] = [];
   private participantsSubscription?: Subscription;
@@ -207,21 +209,38 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges, After
     // Update main video srcObject
     if (this.mainVideo) {
       const activeSpeaker = this.getActiveSpeaker();
-      if (activeSpeaker && this.isParticipantVideoVisible(activeSpeaker)) {
-        const stream = this.getActiveSpeakerStream();
+      if (activeSpeaker) {
+        // ✅ FIX: DOĞRUDAN stream al - getActiveSpeakerStream() isVideoOn kontrolü yapıyor!
+        let stream: MediaStream | undefined;
+        if (activeSpeaker.userId === this.currentUserId) {
+          stream = this.localStream;
+        } else {
+          stream = this.remoteStreams.get(activeSpeaker.userId); // ✅ Direct access!
+        }
+        
         const videoElement = this.mainVideo.nativeElement;
         
-        if (stream && videoElement.srcObject !== stream) {
-          console.log(`🎬 Setting main video srcObject for ${activeSpeaker.name}:`, {
-            userId: activeSpeaker.userId,
-            streamId: stream.id,
-            videoTracks: stream.getVideoTracks().length
-          });
+        if (stream && stream.getVideoTracks().length > 0) {
+          const videoTrack = stream.getVideoTracks()[0];
+          const isTrackLive = videoTrack && videoTrack.readyState === 'live' && videoTrack.enabled;
           
-          videoElement.srcObject = stream;
-          videoElement.play().catch(error => {
-            console.error(`Failed to play main video for ${activeSpeaker.name}:`, error);
-          });
+          if (isTrackLive && videoElement.srcObject !== stream) {
+            console.log(`🎬 Setting main video srcObject for ${activeSpeaker.name}:`, {
+              userId: activeSpeaker.userId,
+              streamId: stream.id,
+              videoTracks: stream.getVideoTracks().length,
+              trackReadyState: videoTrack.readyState
+            });
+            
+            videoElement.srcObject = stream;
+            videoElement.play().catch(error => {
+              console.error(`Failed to play main video for ${activeSpeaker.name}:`, error);
+            });
+          }
+        } else if (videoElement.srcObject) {
+          // ✅ FIX: Stream yoksa veya track inactive ise temizle
+          console.log(`🗑️ Clearing main video srcObject - no active track`);
+          videoElement.srcObject = null;
         }
       }
     }
@@ -234,13 +253,27 @@ export class SpeakerViewComponent implements OnInit, OnDestroy, OnChanges, After
         
         if (userId) {
           const participant = this.participants.find(p => p.userId === userId);
-          if (participant && this.isParticipantVideoVisible(participant)) {
-            const stream = this.getParticipantStream(participant);
+          if (participant) {
+            // ✅ FIX: DOĞRUDAN remoteStreams.get() - getParticipantStream() isVideoOn kontrolü yapıyor!
+            let stream: MediaStream | undefined;
+            if (participant.userId === this.currentUserId) {
+              stream = this.localStream;
+            } else {
+              stream = this.remoteStreams.get(participant.userId); // ✅ Direct access!
+            }
             
-            if (stream && videoElement.srcObject !== stream) {
-              console.log(`🎬 Setting thumbnail srcObject for ${participant.name}`);
-              videoElement.srcObject = stream;
-              videoElement.play().catch(() => {});
+            if (stream && stream.getVideoTracks().length > 0) {
+              const videoTrack = stream.getVideoTracks()[0];
+              const isTrackLive = videoTrack && videoTrack.readyState === 'live' && videoTrack.enabled;
+              
+              if (isTrackLive && videoElement.srcObject !== stream) {
+                console.log(`🎬 Setting thumbnail srcObject for ${participant.name}`);
+                videoElement.srcObject = stream;
+                videoElement.play().catch(() => {});
+              }
+            } else if (videoElement.srcObject) {
+              // ✅ FIX: Temizle
+              videoElement.srcObject = null;
             }
           }
         }

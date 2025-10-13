@@ -18,6 +18,14 @@
       <div *ngIf="!getActiveSpeaker() || !isParticipantVideoVisible(getActiveSpeaker()!)"
            class="main-video-placeholder"
            [class]="getActiveSpeaker() ? getParticipantBackgroundColor(getActiveSpeaker()!) : 'bg-gradient-to-br from-slate-300 to-slate-400 dark:from-slate-700 dark:to-slate-800'">
+        <!-- ✨ NEW: Loading spinner when video is pending -->
+        <div *ngIf="getActiveSpeaker() && isVideoLoading(getActiveSpeaker()!)" 
+             class="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm z-10">
+          <div class="flex flex-col items-center space-y-3">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+            <div class="text-sm text-white font-medium">Video yükleniyor...</div>
+          </div>
+        </div>
         <div class="placeholder-content">
           <div class="participant-initials">
             {{ getActiveSpeaker() ? getParticipantInitials(getActiveSpeaker()!) : '?' }}
@@ -67,6 +75,11 @@
       <div *ngIf="!isParticipantVideoVisible(participant)"
            class="thumbnail-placeholder"
            [class]="getParticipantBackgroundColor(participant)">
+        <!-- ✨ NEW: Loading spinner when video is pending -->
+        <div *ngIf="isVideoLoading(participant)" 
+             class="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm z-10">
+          <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+        </div>
         <div class="thumbnail-initials">
           {{ getParticipantInitials(participant) }}
         </div>
