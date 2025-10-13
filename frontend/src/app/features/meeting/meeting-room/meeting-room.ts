@@ -281,11 +281,27 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
         // Both camera and mic are disabled, user can join without media
         console.log('User joining without camera or microphone');
       }
+      
+      // CRITICAL: Broadcast initial state after media is initialized
+      // This ensures other participants know our camera/mic state when we join
+      setTimeout(async () => {
+        await this.broadcastStateChange();
+        console.log('📡 Initial media state broadcasted:', {
+          isVideoOn: this.meetingState.isVideoOn,
+          isMuted: this.meetingState.isMuted
+        });
+      }, 1000);
+      
     } catch (error) {
       this.toast.error('Kamera/Mikrofon başlatılamadı. Ayarlarınızı kontrol edin.');
       // If media fails, continue without media - user can still participate
       this.meetingState.isVideoOn = false;
       this.meetingState.isMuted = true;
+      
+      // Still broadcast the state even if media fails
+      setTimeout(async () => {
+        await this.broadcastStateChange();
+      }, 1000);
     }
   }
 
@@ -971,14 +987,33 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
   // WebRTC methods
   private async handlePresenceUpdate(participants: any[]) {
     // Update participants list and ensure all participants have required properties
-    const updatedParticipants = participants.map(p => ({
-      ...p,
-      isVideoOn: p.isVideoOn ?? false,
-      isMuted: p.isMuted ?? false,
-      isScreenSharing: p.isScreenSharing ?? false,
-      isWhiteboardEnabled: p.isWhiteboardEnabled ?? false,
-      isHost: p.userId === this.currentUserId ? this.isHost : false
-    }));
+    // IMPORTANT: Preserve existing state for participants already in the room
+    const updatedParticipants = participants.map(p => {
+      const existing = this.participants.find(ep => ep.userId === p.userId);
+      
+      if (existing) {
+        // Keep existing state - it will be updated via meeting-state-update events
+        return {
+          ...p,
+          isVideoOn: existing.isVideoOn,
+          isMuted: existing.isMuted,
+          isScreenSharing: existing.isScreenSharing,
+          isWhiteboardEnabled: existing.isWhiteboardEnabled,
+          isHost: p.userId === this.currentUserId ? this.isHost : existing.isHost
+        };
+      } else {
+        // New participant - initialize with defaults
+        // Their actual state will come via meeting-state-update broadcast
+        return {
+          ...p,
+          isVideoOn: p.isVideoOn ?? false,
+          isMuted: p.isMuted ?? false,
+          isScreenSharing: p.isScreenSharing ?? false,
+          isWhiteboardEnabled: p.isWhiteboardEnabled ?? false,
+          isHost: p.userId === this.currentUserId ? this.isHost : false
+        };
+      }
+    });
     
     // Update participant service
     this.participantService.setParticipants(updatedParticipants);
@@ -996,6 +1031,8 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
     );
 
     if (newParticipants.length > 0) {
+      console.log(`🆕 New participants joined: ${newParticipants.map(p => p.name).join(', ')}`);
+      
       const connectionPromises = newParticipants.map(async (participant) => {
         await this.createPeerConnection(participant.userId);
         // Attach local tracks; onnegotiationneeded will create an offer
@@ -1009,6 +1046,13 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       Promise.all(connectionPromises).catch(error => {
         console.error('Error creating peer connections:', error);
       });
+      
+      // CRITICAL: Broadcast our current state to new participants
+      // They need to know if we have camera/mic/screen on
+      setTimeout(async () => {
+        await this.broadcastStateChange();
+        console.log('📡 State re-broadcasted for new participants');
+      }, 1500);
     }
 
     // Remove connections for participants who left
