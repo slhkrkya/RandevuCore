@@ -1826,6 +1826,15 @@ export class MeetingRoomComponent implements OnInit, OnDestroy {
       this.peerAudioTransceiver.clear();
       this.peerVideoTransceiver.clear();
       
+      // ✅ FIX: Clear versioned state to prevent stale data on rejoin
+      this.participantStatesVersioned.clear();
+      this.processedIceCandidates.clear();
+      this.makingOffer.clear();
+      this.politeMap.clear();
+      this.negotiationTimers.forEach(timer => clearTimeout(timer));
+      this.negotiationTimers.clear();
+      console.log('🧹 Cleared versioned states, ICE candidates, and negotiation state');
+      
       // Stop local media tracks to turn off camera LED
       if (this.localStream) {
         this.localStream.getTracks().forEach(track => {
