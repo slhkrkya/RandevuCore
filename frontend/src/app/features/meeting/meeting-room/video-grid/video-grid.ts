@@ -1,4 +1,4 @@
-import { Component, Input, ViewChild, ViewChildren, QueryList, ElementRef, ChangeDetectorRef, OnInit, OnDestroy, AfterViewChecked } from '@angular/core';
+import { Component, Input, ViewChild, ViewChildren, QueryList, ElementRef, ChangeDetectorRef, OnInit, OnDestroy, OnChanges, AfterViewInit, AfterViewChecked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { Participant, MeetingState } from '../meeting-room';
@@ -12,7 +12,7 @@ import { ParticipantService } from '../services/participant.service';
   templateUrl: './video-grid.html',
   styleUrls: ['./video-grid.css']
 })
-export class VideoGridComponent implements OnInit, OnDestroy, AfterViewChecked {
+export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterViewInit, AfterViewChecked {
   @Input() currentUserId = '';
   @Input() localStream?: MediaStream;
   @Input() remoteStreams: Map<string, MediaStream> = new Map();
@@ -22,12 +22,11 @@ export class VideoGridComponent implements OnInit, OnDestroy, AfterViewChecked {
     isScreenSharing: false,
     isWhiteboardActive: false
   };
-  // ✨ NEW: Function to check if video is loading (pending state)
+  // Function to check if video is loading (pending state)
   @Input() isVideoLoading: (participant: Participant) => boolean = () => false;
 
   participants: Participant[] = [];
 
-  @ViewChild('localVideo', { static: true }) localVideo!: ElementRef<HTMLVideoElement>;
   @ViewChildren('remoteVideo') remoteVideos!: QueryList<ElementRef<HTMLVideoElement>>;
 
   private participantsSubscription?: Subscription;
@@ -41,8 +40,6 @@ export class VideoGridComponent implements OnInit, OnDestroy, AfterViewChecked {
   ) {}
 
   ngOnInit() {
-    console.log('🔄 VideoGrid ngOnInit - Subscribing to participants');
-    
     // Subscribe to participant service updates
     this.participantsSubscription = this.participantService.participants$.subscribe(participants => {
       
@@ -63,9 +60,7 @@ export class VideoGridComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   ngAfterViewInit() {
-    console.log('🔄 VideoGrid ngAfterViewInit - ViewChild ready, clearing video elements');
-    
-    // ✅ FIX: Clear all remote video elements AFTER ViewChild is initialized
+    // Clear all remote video elements AFTER ViewChild is initialized
     if (this.remoteVideos) {
       this.remoteVideos.forEach(videoRef => {
         const el = videoRef.nativeElement;
@@ -75,15 +70,13 @@ export class VideoGridComponent implements OnInit, OnDestroy, AfterViewChecked {
       });
     }
     
-    this.updateLocalVideo();
     this.cdr.detectChanges();
   }
 
   ngOnDestroy() {
-    console.log('🧹 VideoGrid ngOnDestroy - Cleaning up');
     this.participantsSubscription?.unsubscribe();
     
-    // ✅ FIX: Clear all video elements on destroy
+    // Clear all video elements on destroy
     if (this.remoteVideos) {
       this.remoteVideos.forEach(videoRef => {
         const el = videoRef.nativeElement;
@@ -92,44 +85,11 @@ export class VideoGridComponent implements OnInit, OnDestroy, AfterViewChecked {
         el.load();
       });
     }
-    
-    if (this.localVideo?.nativeElement) {
-      const el = this.localVideo.nativeElement;
-      el.pause();
-      el.srcObject = null;
-      el.load();
-    }
   }
 
   ngOnChanges() {
-    this.updateLocalVideo();
-    this.cdr.detectChanges(); // Force change detection to update video elements
-  }
-
-  private updateLocalVideo() {
-    if (this.localVideo) {
-      if (this.localStream && this.localStream.getVideoTracks().length > 0) {
-        const track = this.localStream.getVideoTracks()[0];
-        // Verify track is ready before setting srcObject
-        if (track.readyState !== 'live') {
-          console.warn('Local video track not live yet, waiting...');
-          setTimeout(() => this.updateLocalVideo(), 100);
-          return;
-        }
-        
-        const el = this.localVideo.nativeElement;
-        el.srcObject = this.localStream;
-        el.muted = true;
-        (el as any).playsInline = true;
-        el.autoplay = true;
-        try { el.play(); } catch {}
-        // tiny retry to avoid race in SPA navigations
-        setTimeout(() => { try { el.play(); } catch {} }, 50);
-      } else {
-        // Clear video element when no video track
-        this.localVideo.nativeElement.srcObject = null;
-      }
-    }
+    // Trigger change detection when inputs change (streams, meeting state, etc.)
+    this.cdr.detectChanges();
   }
 
   getVideoGridClass(): string {
@@ -239,15 +199,6 @@ export class VideoGridComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   onVideoLoaded(event: Event, participant: Participant) {
     const video = event.target as HTMLVideoElement;
-    
-    console.log(`📹 Video loaded for ${participant.name}:`, {
-      userId: participant.userId,
-      videoWidth: video.videoWidth,
-      videoHeight: video.videoHeight,
-      readyState: video.readyState,
-      srcObject: !!video.srcObject
-    });
-    
     // Force play the video
     video.play().catch(error => {
       console.error(`Failed to play video for ${participant.name}:`, error);
@@ -270,18 +221,19 @@ export class VideoGridComponent implements OnInit, OnDestroy, AfterViewChecked {
       if (userId) {
         const participant = this.participants.find(p => p.userId === userId);
         if (participant) {
-          // ✅ FIX: DOĞRUDAN remoteStreams.get() kullan - getParticipantVideo() isVideoOn kontrolü yapıyor!
+          // DOĞRUDAN remoteStreams.get() kullan - getParticipantVideo() isVideoOn kontrolü yapıyor!
           let stream: MediaStream | undefined;
           if (participant.userId === this.currentUserId) {
             stream = this.localStream;
           } else {
-            stream = this.remoteStreams.get(participant.userId); // ✅ Direct access, no state check!
+            stream = this.remoteStreams.get(participant.userId); // Direct access, no state check!
           }
           
           // Stream varsa ve video track varsa update et
           if (stream && stream.getVideoTracks().length > 0) {
             const videoTrack = stream.getVideoTracks()[0];
-            const isTrackLive = videoTrack && videoTrack.readyState === 'live' && videoTrack.enabled;
+            // Use same check as isVideoTrackLive for consistency
+            const isTrackLive = videoTrack && videoTrack.readyState === 'live' && videoTrack.enabled && !videoTrack.muted;
             
             // Only update if stream is different and track is live
             if (isTrackLive && videoElement.srcObject !== stream) {
@@ -291,17 +243,20 @@ export class VideoGridComponent implements OnInit, OnDestroy, AfterViewChecked {
                 videoTracks: stream.getVideoTracks().length,
                 audioTracks: stream.getAudioTracks().length,
                 trackReadyState: videoTrack.readyState,
-                trackEnabled: videoTrack.enabled
+                trackEnabled: videoTrack.enabled,
+                trackMuted: videoTrack.muted
               });
               
               videoElement.srcObject = stream;
               videoElement.play().catch(error => {
                 console.error(`Failed to play video for ${participant.name}:`, error);
               });
+            } else if (videoElement.srcObject && !isTrackLive) {
+              // Track not live anymore, clear video
+              videoElement.srcObject = null;
             }
           } else if (videoElement.srcObject) {
-            // ✅ FIX: Stream yoksa veya track inactive ise temizle
-            console.log(`🗑️ Clearing srcObject for ${participant.name} - no active video track`);
+            // Stream yoksa veya track inactive ise temizle
             videoElement.srcObject = null;
           }
         }

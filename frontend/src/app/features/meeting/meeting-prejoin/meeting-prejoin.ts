@@ -28,6 +28,11 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
   isMicOn = false;
   cameraError = false;
   audioLevel = 0;
+  
+  isDeviceReady = false;
+  deviceCheckMessage = 'Cihazlar hazırlanıyor...';
+  cameraReady = false;
+  micReady = false;
 
   availableCameras: MediaDeviceInfo[] = [];
   availableMicrophones: MediaDeviceInfo[] = [];
@@ -52,20 +57,37 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
 
   async ngOnInit() {
     this.meetingId = this.route.snapshot.paramMap.get('id') || '';
-    // initialize mirrorPreview getter after settings is injected
     const pref = this.settings.settings().videoBackground.mirrorPreview;
     this.mirrorPreview = () => !!pref;
-    try { await this.effects.preload(); } catch {}
-    window.addEventListener('settingschange', this.onSettingsChange as any);
+    
+    this.deviceCheckMessage = 'Cihazlar kontrol ediliyor...';
     
     try {
-      // First request permission to get device labels
+      await this.effects.preload();
+      
+      this.deviceCheckMessage = 'İzinler alınıyor...';
       await this.requestInitialPermission();
+      
+      this.deviceCheckMessage = 'Cihazlar yükleniyor...';
       await this.loadDevices();
+      
+      this.deviceCheckMessage = 'Önizleme hazırlanıyor...';
       await this.startPreview();
+      
+      this.deviceCheckMessage = 'Bağlantı test ediliyor...';
+      await new Promise(r => setTimeout(r, 1500));
+      
+      this.cameraReady = this.isCameraOn;
+      this.micReady = this.isMicOn;
+      this.isDeviceReady = true;
+      this.deviceCheckMessage = 'Hazır!';
     } catch (error) {
       console.error('Error initializing prejoin:', error);
+      this.deviceCheckMessage = 'Hata! Cihaz izinlerini kontrol edin.';
+      this.isDeviceReady = false;
     }
+    
+    window.addEventListener('settingschange', this.onSettingsChange as any);
   }
 
   private async requestInitialPermission() {
@@ -235,8 +257,6 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
       
       const bufferLength = this.analyser.frequencyBinCount;
       this.dataArray = new Uint8Array(new ArrayBuffer(bufferLength));
-      
-      console.log('Audio analysis setup complete');
     } catch (error) {
       console.error('Error setting up audio analysis:', error);
     }
@@ -282,43 +302,70 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
 
   private stopPreview() {
     if (this.localStream) {
-      this.localStream.getTracks().forEach(track => track.stop());
+      this.localStream.getTracks().forEach(track => {
+        track.stop();
+        track.enabled = false;
+      });
       this.localStream = undefined;
     }
+    
     try { this.effects.stop(); } catch {}
+    
     if (this.processedStream) {
-      this.processedStream.getTracks().forEach(t => { try { t.stop(); } catch {} });
+      this.processedStream.getTracks().forEach(t => { 
+        try { 
+          t.stop(); 
+          t.enabled = false;
+        } catch {} 
+      });
       this.processedStream = undefined;
     }
     
     if (this.audioContext) {
-      this.audioContext.close();
+      try {
+        this.audioContext.close();
+      } catch {}
       this.audioContext = undefined;
     }
     
     this.stopAudioLevelMonitoring();
     
-    // Clear video element
     if (this.previewVideo) {
-      this.previewVideo.nativeElement.srcObject = null;
+      const el = this.previewVideo.nativeElement;
+      el.pause();
+      el.srcObject = null;
+      el.load();
     }
   }
 
   async toggleCamera() {
     this.isCameraOn = !this.isCameraOn;
     await this.startPreview();
+    
+    if (this.isCameraOn && this.isDeviceReady) {
+      setTimeout(() => {
+        this.cameraReady = true;
+      }, 500);
+    } else {
+      this.cameraReady = false;
+    }
   }
 
   async toggleMicrophone() {
     this.isMicOn = !this.isMicOn;
     await this.startPreview();
     
-    // Start/stop audio monitoring based on mic state
     if (this.isMicOn) {
       this.startAudioLevelMonitoring();
+      if (this.isDeviceReady) {
+        setTimeout(() => {
+          this.micReady = true;
+        }, 500);
+      }
     } else {
       this.stopAudioLevelMonitoring();
       this.audioLevel = 0;
+      this.micReady = false;
     }
   }
 
@@ -339,22 +386,60 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
   }
 
   async joinMeeting() {
+    if (!this.isDeviceReady) {
+      return;
+    }
+    
     try {
       this.loading = true;
       
-      // Store device preferences
       localStorage.setItem('preferredCamera', this.selectedCamera);
       localStorage.setItem('preferredMicrophone', this.selectedMicrophone);
       localStorage.setItem('cameraEnabled', this.isCameraOn.toString());
       localStorage.setItem('microphoneEnabled', this.isMicOn.toString());
       
-      // Navigate to meeting room
+      this.deviceCheckMessage = 'Cihazlar kapatılıyor...';
+      this.stopPreview();
+      
+      const hasEffects = this.processedStream !== undefined;
+      const initialWaitTime = hasEffects ? 800 : 400;
+      
+      this.deviceCheckMessage = hasEffects ? 'Efektler temizleniyor...' : 'Hazırlanıyor...';
+      await new Promise(resolve => setTimeout(resolve, initialWaitTime));
+      
+      this.deviceCheckMessage = 'Kamera kontrol ediliyor...';
+      const cameraReleased = await this.waitForCameraRelease();
+      
+      if (cameraReleased) {
+        this.deviceCheckMessage = 'Toplantıya yönlendiriliyor...';
+      } else {
+        this.deviceCheckMessage = 'Katılıyor...';
+      }
+      
       this.router.navigate(['/meetings', this.meetingId]);
     } catch (error) {
       console.error('Error joining meeting:', error);
-    } finally {
       this.loading = false;
     }
+  }
+  
+  private async waitForCameraRelease(maxWaitMs = 2000): Promise<boolean> {
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < maxWaitMs) {
+      try {
+        const testStream = await navigator.mediaDevices.getUserMedia({
+          video: { deviceId: this.selectedCamera ? { exact: this.selectedCamera } : undefined }
+        });
+        
+        testStream.getTracks().forEach(t => t.stop());
+        return true;
+      } catch {
+        await new Promise(r => setTimeout(r, 100));
+      }
+    }
+    
+    return false;
   }
 
   goBack() {

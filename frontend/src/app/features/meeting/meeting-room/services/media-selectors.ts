@@ -77,4 +77,3 @@ export function selectActiveSpeaker(
   return participants[0];
 }
 
-

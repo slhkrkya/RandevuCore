@@ -22,7 +22,7 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
     isScreenSharing: false,
     isWhiteboardActive: false
   };
-  // ✨ NEW: Function to check if video is loading (pending state)
+  // Function to check if video is loading (pending state)
   @Input() isVideoLoading: (participant: Participant) => boolean = () => false;
 
   participants: Participant[] = [];
@@ -43,8 +43,6 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
   })();
 
   ngOnInit() {
-    console.log('🔄 SpeakerView ngOnInit - Subscribing to participants');
-    
     // Subscribe to participant service updates
     this.participantsSubscription = this.participantService.participants$.subscribe(participants => {
       
@@ -78,9 +76,7 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
   }
 
   ngAfterViewInit() {
-    console.log('🔄 SpeakerView ngAfterViewInit - ViewChild ready, clearing video elements');
-    
-    // ✅ FIX: Clear all video elements AFTER ViewChild is initialized
+    // Clear all video elements AFTER ViewChild is initialized
     if (this.mainVideo?.nativeElement) {
       const el = this.mainVideo.nativeElement;
       el.pause();
@@ -101,11 +97,10 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
   }
 
   ngOnDestroy() {
-    console.log('🧹 SpeakerView ngOnDestroy - Cleaning up');
     this.participantsSubscription?.unsubscribe();
     this.lastVideoStates.clear(); // Prevent memory leak
     
-    // ✅ FIX: Clear all video elements on destroy
+    // Clear all video elements on destroy
     if (this.mainVideo?.nativeElement) {
       const el = this.mainVideo.nativeElement;
       el.pause();
@@ -176,7 +171,6 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
     const visible = isVisibleSel(participant, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams);
     if (this.shouldLogVideoState(participant.userId, visible)) {
       if (this.logUi) {
-        console.log(`Video visibility changed`, participant.userId, visible);
       }
       setTimeout(() => this.cdr.detectChanges(), 100);
     }
@@ -226,7 +220,6 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
     
     // Force play the video
     video.play().catch(error => {
-      console.warn(`Failed to play main video for ${activeSpeaker?.name}:`, error);
     });
   }
 
@@ -240,7 +233,6 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
     
     // Force play the video
     video.play().catch(error => {
-      console.warn(`Failed to play thumbnail video for ${participant.name}:`, error);
     });
   }
 
@@ -253,36 +245,41 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
     if (this.mainVideo) {
       const activeSpeaker = this.getActiveSpeaker();
       if (activeSpeaker) {
-        // ✅ FIX: DOĞRUDAN stream al - getActiveSpeakerStream() isVideoOn kontrolü yapıyor!
+        // DOĞRUDAN stream al - getActiveSpeakerStream() isVideoOn kontrolü yapıyor!
         let stream: MediaStream | undefined;
         if (activeSpeaker.userId === this.currentUserId) {
           stream = this.localStream;
         } else {
-          stream = this.remoteStreams.get(activeSpeaker.userId); // ✅ Direct access!
+          stream = this.remoteStreams.get(activeSpeaker.userId); // Direct access!
         }
         
         const videoElement = this.mainVideo.nativeElement;
         
         if (stream && stream.getVideoTracks().length > 0) {
           const videoTrack = stream.getVideoTracks()[0];
-          const isTrackLive = videoTrack && videoTrack.readyState === 'live' && videoTrack.enabled;
+          // Use same check as isVideoTrackLive for consistency
+          const isTrackLive = videoTrack && videoTrack.readyState === 'live' && videoTrack.enabled && !videoTrack.muted;
           
           if (isTrackLive && videoElement.srcObject !== stream) {
             console.log(`🎬 Setting main video srcObject for ${activeSpeaker.name}:`, {
               userId: activeSpeaker.userId,
               streamId: stream.id,
               videoTracks: stream.getVideoTracks().length,
-              trackReadyState: videoTrack.readyState
+              trackReadyState: videoTrack.readyState,
+              trackEnabled: videoTrack.enabled,
+              trackMuted: videoTrack.muted
             });
             
             videoElement.srcObject = stream;
             videoElement.play().catch(error => {
               console.error(`Failed to play main video for ${activeSpeaker.name}:`, error);
             });
+          } else if (videoElement.srcObject && !isTrackLive) {
+            // Track not live anymore, clear video
+            videoElement.srcObject = null;
           }
         } else if (videoElement.srcObject) {
-          // ✅ FIX: Stream yoksa veya track inactive ise temizle
-          console.log(`🗑️ Clearing main video srcObject - no active track`);
+          // Stream yoksa veya track inactive ise temizle
           videoElement.srcObject = null;
         }
       }
@@ -297,25 +294,28 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
         if (userId) {
           const participant = this.participants.find(p => p.userId === userId);
           if (participant) {
-            // ✅ FIX: DOĞRUDAN remoteStreams.get() - getParticipantStream() isVideoOn kontrolü yapıyor!
+            // DOĞRUDAN remoteStreams.get() - getParticipantStream() isVideoOn kontrolü yapıyor!
             let stream: MediaStream | undefined;
             if (participant.userId === this.currentUserId) {
               stream = this.localStream;
             } else {
-              stream = this.remoteStreams.get(participant.userId); // ✅ Direct access!
+              stream = this.remoteStreams.get(participant.userId); // Direct access!
             }
             
             if (stream && stream.getVideoTracks().length > 0) {
               const videoTrack = stream.getVideoTracks()[0];
-              const isTrackLive = videoTrack && videoTrack.readyState === 'live' && videoTrack.enabled;
+              // Use same check as isVideoTrackLive for consistency
+              const isTrackLive = videoTrack && videoTrack.readyState === 'live' && videoTrack.enabled && !videoTrack.muted;
               
               if (isTrackLive && videoElement.srcObject !== stream) {
-                console.log(`🎬 Setting thumbnail srcObject for ${participant.name}`);
                 videoElement.srcObject = stream;
                 videoElement.play().catch(() => {});
+              } else if (videoElement.srcObject && !isTrackLive) {
+                // Track not live anymore, clear video
+                videoElement.srcObject = null;
               }
             } else if (videoElement.srcObject) {
-              // ✅ FIX: Temizle
+              // Temizle
               videoElement.srcObject = null;
             }
           }

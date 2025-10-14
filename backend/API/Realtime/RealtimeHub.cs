@@ -14,7 +14,7 @@ namespace RandevuCore.API.Realtime
         private static readonly ConcurrentDictionary<string, DateTimeOffset> RoomStartTimes = new();
         private static readonly ConcurrentDictionary<string, Timer> RoomDurationTimers = new();
         
-        // ✨ NEW: Server-side authoritative state store
+        // NEW: Server-side authoritative state store
         private static readonly ConcurrentDictionary<string, ConcurrentDictionary<Guid, ParticipantState>> RoomParticipantStates = new();
         
         // Room end times for TTL-based cleanup
@@ -36,7 +36,7 @@ namespace RandevuCore.API.Realtime
 
         private record Participant(string ConnectionId, Guid UserId, string Name);
         
-        // ✨ NEW: Participant state model with versioning
+        // NEW: Participant state model with versioning
         private class ParticipantState
         {
             public Guid UserId { get; set; }
@@ -91,7 +91,7 @@ namespace RandevuCore.API.Realtime
                     StartDurationTimer(roomId);
                 }
                 
-                // ✨ NEW: Send initial state snapshot to the joining user
+                // NEW: Send initial state snapshot to the joining user
                 var states = RoomParticipantStates.GetOrAdd(roomId, _ => new ConcurrentDictionary<Guid, ParticipantState>());
                 var stateSnapshot = states.Values.Select(s => new
                 {
@@ -277,7 +277,7 @@ namespace RandevuCore.API.Realtime
             });
         }
         
-        // ✨ NEW: Notify when WebRTC track is ready (track arrival confirmation)
+        // NEW: Notify when WebRTC track is ready (track arrival confirmation)
         public async Task NotifyTrackReady(string roomId, TrackReadyDto dto)
         {
             if (!roomId.StartsWith("meeting-")) return;
@@ -294,7 +294,7 @@ namespace RandevuCore.API.Realtime
             });
         }
         
-        // 🔄 DEPRECATED but kept for backward compatibility - use UpdateParticipantState instead
+        // DEPRECATED but kept for backward compatibility - use UpdateParticipantState instead
         [Obsolete("Use UpdateParticipantState for versioned state management")]
         public async Task BroadcastMeetingStateUpdate(string roomId, object stateData)
         {
@@ -342,7 +342,7 @@ namespace RandevuCore.API.Realtime
                 StopDurationTimer(roomId);
                 RoomStartTimes.TryRemove(roomId, out _);
                 
-                // ✨ NEW: Mark room end time for TTL-based cleanup (instead of immediate removal)
+                // NEW: Mark room end time for TTL-based cleanup (instead of immediate removal)
                 // This allows graceful handling if users rejoin immediately
                 RoomEndTimes[roomId] = DateTimeOffset.UtcNow;
                 
@@ -404,5 +404,3 @@ namespace RandevuCore.API.Realtime
         }
     }
 }
-
-
