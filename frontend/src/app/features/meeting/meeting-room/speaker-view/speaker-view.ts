@@ -181,13 +181,13 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
     });
   }
   
-  // ✅ OPTIMIZED: Single change detection per component
+  // ✅ FIXED: Single change detection per component
   private scheduleChangeDetection() {
     if (this.changeDetectionScheduled) return;
     
     this.changeDetectionScheduled = true;
     requestAnimationFrame(() => {
-      this.scheduleChangeDetection();
+      this.cdr.detectChanges();
       this.changeDetectionScheduled = false;
     });
   }

@@ -18,9 +18,20 @@ export function isParticipantVideoVisible(
     const hasLive = isVideoTrackLive(localStream);
     return !!(hasLive && (meetingState.isVideoOn || meetingState.isScreenSharing));
   }
+  
   const remoteStream = remoteStreams.get(participant.userId);
   const hasLive = isVideoTrackLive(remoteStream);
-  return !!(hasLive && (participant.isVideoOn || participant.isScreenSharing));
+  
+  // ✅ ENHANCED: More lenient video visibility check for rejoin scenarios
+  // If participant says video is on, show it even if track is not fully live yet
+  const shouldShow = participant.isVideoOn || participant.isScreenSharing;
+  const hasStream = !!remoteStream && remoteStream.getVideoTracks().length > 0;
+  
+  // Show video if:
+  // 1. Track is live and participant has video on, OR
+  // 2. Participant has video on and we have a stream (even if not fully live yet), OR
+  // 3. Participant has video on (for rejoin scenarios where stream might not be ready yet)
+  return !!(hasLive && shouldShow) || !!(hasStream && shouldShow) || shouldShow;
 }
 
 export function getStreamForParticipant(

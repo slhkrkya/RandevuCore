@@ -150,13 +150,13 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
     });
   }
   
-  // ✅ OPTIMIZED: Single change detection per component
+  // ✅ FIXED: Single change detection per component
   private scheduleChangeDetection() {
     if (this.changeDetectionScheduled) return;
     
     this.changeDetectionScheduled = true;
     requestAnimationFrame(() => {
-      this.scheduleChangeDetection();
+      this.cdr.detectChanges();
       this.changeDetectionScheduled = false;
     });
   }
