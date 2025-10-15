@@ -10,7 +10,7 @@ import { MeetingState } from '../meeting-room';
   styleUrls: ['./meeting-controls.css']
 })
 export class MeetingControlsComponent {
-  @Input() meetingState: MeetingState = {
+  @Input() meetingState: MeetingState | null = {
     isMuted: false,
     isVideoOn: false,
     isScreenSharing: false,
@@ -19,14 +19,14 @@ export class MeetingControlsComponent {
   
   @Input() isHost = false;
   @Input() participantsCount = 0;
-  @Input() showParticipantsPanel = false;
-  @Input() showChatPanel = false;
-  @Input() showWhiteboardPanel = false;
-  @Input() activeView: 'grid' | 'speaker' | 'whiteboard' = 'grid';
-  @Input() isMuteToggling = false;
-  @Input() isVideoToggling = false;
-  @Input() isScreenShareToggling = false;
-  @Input() meetingDuration = '00:00:00';
+  @Input() showParticipantsPanel: boolean | null = false;
+  @Input() showChatPanel: boolean | null = false;
+  @Input() showWhiteboardPanel: boolean | null = false;
+  @Input() activeView: 'grid' | 'speaker' | 'whiteboard' | null = 'grid';
+  @Input() isMuteToggling: boolean | null = false;
+  @Input() isVideoToggling: boolean | null = false;
+  @Input() isScreenShareToggling: boolean | null = false;
+  @Input() meetingDuration: string | null = '00:00:00';
 
   @Output() toggleMute = new EventEmitter<void>();
   @Output() toggleVideo = new EventEmitter<void>();
@@ -75,19 +75,19 @@ export class MeetingControlsComponent {
   }
 
   getMuteButtonClass(): string {
-    return this.meetingState.isMuted 
+    return this.meetingState?.isMuted 
       ? 'bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-500' 
       : 'bg-slate-600 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600';
   }
 
   getVideoButtonClass(): string {
-    return this.meetingState.isVideoOn 
+    return this.meetingState?.isVideoOn 
       ? 'bg-slate-600 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600' 
       : 'bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-500';
   }
 
   getScreenShareButtonClass(): string {
-    return this.meetingState.isScreenSharing 
+    return this.meetingState?.isScreenSharing 
       ? 'bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-500' 
       : 'bg-slate-600 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600';
   }

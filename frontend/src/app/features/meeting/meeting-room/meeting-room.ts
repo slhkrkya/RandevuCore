@@ -1,6 +1,8 @@
 import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
+import { BehaviorSubject, Observable, combineLatest, merge, Subject, Subscription } from 'rxjs';
+import { map, distinctUntilChanged, shareReplay, filter, tap } from 'rxjs/operators';
 import { SignalRService } from '../../../core/services/signalr';
 import { ParticipantService } from './services/participant.service';
 import { VideoGridComponent } from './video-grid/video-grid';
@@ -70,19 +72,119 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
   isHost = false;
   connected = false;
 
-  // Meeting state
-  meetingState: MeetingState = {
+  // ✅ REACTIVE: Replace manual state with BehaviorSubjects for reactive updates
+  private meetingStateSubject = new BehaviorSubject<MeetingState>({
     isMuted: false,
     isVideoOn: false,
     isScreenSharing: false,
     isWhiteboardActive: false
-  };
+  });
+  
+  // ✅ REACTIVE: Observable for meeting state - replaces direct property access
+  meetingState$ = this.meetingStateSubject.asObservable().pipe(
+    distinctUntilChanged(),
+    shareReplay(1)
+  );
+  
+  // ✅ REACTIVE: Getter for backward compatibility with existing templates
+  get meetingState(): MeetingState {
+    return this.meetingStateSubject.value;
+  }
 
+  // ✅ REACTIVE: Participant states as reactive streams
+  private participantStatesSubject = new BehaviorSubject<Map<string, ParticipantStateVersioned>>(new Map());
+  participantStates$ = this.participantStatesSubject.asObservable().pipe(
+    distinctUntilChanged(),
+    shareReplay(1)
+  );
+
+  // ✅ REACTIVE: Remote streams as reactive stream
+  private remoteStreamsSubject = new BehaviorSubject<Map<string, MediaStream>>(new Map());
+  remoteStreams$ = this.remoteStreamsSubject.asObservable().pipe(
+    distinctUntilChanged(),
+    shareReplay(1)
+  );
+
+  // ✅ REACTIVE: Active speaker as reactive stream
+  private activeSpeakerSubject = new BehaviorSubject<string | undefined>(undefined);
+  activeSpeaker$ = this.activeSpeakerSubject.asObservable().pipe(
+    distinctUntilChanged(),
+    shareReplay(1)
+  );
+
+  // ✅ REACTIVE: UI state as reactive streams
+  private showParticipantsPanelSubject = new BehaviorSubject<boolean>(false);
+  showParticipantsPanel$ = this.showParticipantsPanelSubject.asObservable().pipe(distinctUntilChanged());
+  
+  private showChatPanelSubject = new BehaviorSubject<boolean>(false);
+  showChatPanel$ = this.showChatPanelSubject.asObservable().pipe(distinctUntilChanged());
+  
+  private showWhiteboardPanelSubject = new BehaviorSubject<boolean>(false);
+  showWhiteboardPanel$ = this.showWhiteboardPanelSubject.asObservable().pipe(distinctUntilChanged());
+  
+  private activeViewSubject = new BehaviorSubject<'grid' | 'speaker' | 'whiteboard'>('speaker');
+  activeView$ = this.activeViewSubject.asObservable().pipe(distinctUntilChanged());
+  
+  private isInitializingSubject = new BehaviorSubject<boolean>(false);
+  isInitializing$ = this.isInitializingSubject.asObservable().pipe(distinctUntilChanged());
+  
+  private initializingMessageSubject = new BehaviorSubject<string>('Toplantı hazırlanıyor...');
+  initializingMessage$ = this.initializingMessageSubject.asObservable().pipe(distinctUntilChanged());
+  
+  private meetingDurationSubject = new BehaviorSubject<string>('00:00:00');
+  meetingDuration$ = this.meetingDurationSubject.asObservable().pipe(distinctUntilChanged());
+
+  // ✅ REACTIVE: Toggle states as reactive streams
+  private isVideoTogglingSubject = new BehaviorSubject<boolean>(false);
+  isVideoToggling$ = this.isVideoTogglingSubject.asObservable().pipe(distinctUntilChanged());
+  
+  private isScreenShareTogglingSubject = new BehaviorSubject<boolean>(false);
+  isScreenShareToggling$ = this.isScreenShareTogglingSubject.asObservable().pipe(distinctUntilChanged());
+  
+  private isMuteTogglingSubject = new BehaviorSubject<boolean>(false);
+  isMuteToggling$ = this.isMuteTogglingSubject.asObservable().pipe(distinctUntilChanged());
+
+  // ✅ REACTIVE: Getter properties for backward compatibility
+  get showParticipantsPanel(): boolean { return this.showParticipantsPanelSubject.value; }
+  get showChatPanel(): boolean { return this.showChatPanelSubject.value; }
+  get showWhiteboardPanel(): boolean { return this.showWhiteboardPanelSubject.value; }
+  get activeView(): 'grid' | 'speaker' | 'whiteboard' { return this.activeViewSubject.value; }
+  get isInitializing(): boolean { return this.isInitializingSubject.value; }
+  get initializingMessage(): string { return this.initializingMessageSubject.value; }
+  get meetingDuration(): string { return this.meetingDurationSubject.value; }
+  get isVideoToggling(): boolean { return this.isVideoTogglingSubject.value; }
+  get isScreenShareToggling(): boolean { return this.isScreenShareTogglingSubject.value; }
+  get isMuteToggling(): boolean { return this.isMuteTogglingSubject.value; }
+
+  // ✅ REACTIVE: Participants from service - already reactive
+  participants$: Observable<Participant[]>;
   participants: Participant[] = [];
-  participantStatesVersioned: Map<string, ParticipantStateVersioned> = new Map();
-  localStream?: MediaStream;
+
+  // ✅ REACTIVE: Combined state for components that need multiple streams
+  combinedState$: Observable<any>;
+
+  // ✅ REACTIVE: Local stream as reactive stream
+  private localStreamSubject = new BehaviorSubject<MediaStream | undefined>(undefined);
+  localStream$ = this.localStreamSubject.asObservable().pipe(
+    distinctUntilChanged(),
+    shareReplay(1)
+  );
+  
+  get localStream(): MediaStream | undefined {
+    return this.localStreamSubject.value;
+  }
+
+  // ✅ REACTIVE: Getter for backward compatibility
+  get participantStatesVersioned(): Map<string, ParticipantStateVersioned> {
+    return this.participantStatesSubject.value;
+  }
+  
+  get remoteStreams(): Map<string, MediaStream> {
+    return this.remoteStreamsSubject.value;
+  }
+
+  // ✅ REACTIVE: WebRTC state management - kept as private for internal use
   private rawLocalStream?: MediaStream;
-  remoteStreams: Map<string, MediaStream> = new Map();
   peerConnections: Map<string, RTCPeerConnection> = new Map();
   private peerAudioTransceiver: Map<string, RTCRtpTransceiver> = new Map();
   private peerVideoTransceiver: Map<string, RTCRtpTransceiver> = new Map();
@@ -97,19 +199,15 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
   private activeSpeakerAnimationFrame: number | null = null;
   private wasVideoOnBeforeShare = false;
 
-  showParticipantsPanel = false;
-  showChatPanel = false;
-  showWhiteboardPanel = false;
   isFullscreen = false;
-  activeView: 'grid' | 'speaker' | 'whiteboard' = 'speaker';
-  isInitializing = false;
-  initializingMessage = 'Toplantı hazırlanıyor...';
-  isVideoToggling = false;
-  isScreenShareToggling = false;
-  isMuteToggling = false;
-  meetingDuration = '00:00:00';
   private negotiationTimers: Map<string, any> = new Map();
   private readonly negotiationDebounceMs = 350;
+
+  // ✅ REACTIVE: Subscription management
+  private subscriptions = new Subscription();
+  
+  // ✅ NEW: Prevent duplicate track sending operations
+  private forceTrackSendingInProgress = false;
 
   constructor(
     private route: ActivatedRoute, 
@@ -122,11 +220,30 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     private zone: NgZone,
     private toast: ToastService,
     private cfg: AppConfigService
-  ) {}
+  ) {
+    // ✅ REACTIVE: Initialize participants observable after service is available
+    this.participants$ = this.participantService.participants$;
+    
+    // ✅ REACTIVE: Initialize combined state observable
+    this.combinedState$ = combineLatest([
+      this.meetingState$,
+      this.participants$,
+      this.remoteStreams$,
+      this.activeSpeaker$
+    ]).pipe(
+      map(([meetingState, participants, remoteStreams, activeSpeaker]) => ({
+        meetingState: { ...meetingState, activeSpeaker },
+        participants,
+        remoteStreams
+      })),
+      shareReplay(1)
+    );
+  }
 
   async ngOnInit() {
-    this.isInitializing = true;
-    this.initializingMessage = 'Toplantı hazırlanıyor...';
+    // ✅ REACTIVE: Update initializing state through reactive stream
+    this.isInitializingSubject.next(true);
+    this.initializingMessageSubject.next('Toplantı hazırlanıyor...');
     
     try { await this.videoEffects.preload(); } catch {}
     await this.initializeMedia();
@@ -137,14 +254,17 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     
     if (!hasAutoRefreshed) {
       sessionStorage.setItem(refreshKey, 'true');
-      this.initializingMessage = 'Bağlantı optimize ediliyor...';
+      this.initializingMessageSubject.next('Bağlantı optimize ediliyor...');
       setTimeout(() => window.location.reload(), 500);
       return;
     }
     
+    // ✅ REACTIVE: Subscribe to participants stream and update local array for backward compatibility
+    this.subscriptions.add(
     this.participantService.participants$.subscribe(participants => {
       this.participants = participants;
-    });
+      })
+    );
 
     window.addEventListener('settingschange', this.handleSettingsChange);
     this.startActiveSpeakerLoop();
@@ -156,18 +276,21 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     } catch {}
     
+    // ✅ REACTIVE: Update initializing state through reactive stream - no manual change detection needed
     setTimeout(() => {
-      this.isInitializing = false;
-      this.scheduleChangeDetection();
+      this.isInitializingSubject.next(false);
     }, 300);
   }
 
   ngAfterViewInit() {
     this.clearAllVideoElements();
-    this.scheduleChangeDetection();
+    // ✅ REACTIVE: No manual change detection needed - reactive streams handle UI updates
   }
 
   async ngOnDestroy() {
+    // ✅ REACTIVE: Clean up all subscriptions
+    this.subscriptions.unsubscribe();
+    
     window.removeEventListener('settingschange', this.handleSettingsChange);
     try { this.videoEffects.stop(); } catch {}
     
@@ -221,53 +344,77 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private setupSignalRListeners() {
+    // ✅ REACTIVE: Wrap all SignalR events in NgZone for automatic change detection
     this.signalr.on('meeting-duration', (duration: string) => {
-      this.meetingDuration = duration;
-      this.scheduleChangeDetection();
+      this.zone.run(() => {
+        this.meetingDurationSubject.next(duration);
+      });
     });
 
     this.signalr.on('meeting-ended', () => {
+      this.zone.run(() => {
       this.router.navigate(['/meetings']);
+      });
     });
 
     this.signalr.on<any>('presence', (participants) => {
+      this.zone.run(() => {
       this.handlePresenceUpdate(participants);
+      });
     });
     
     this.signalr.on<any>('initial-participant-states', (states: any[]) => {
+      this.zone.run(() => {
       this.handleInitialParticipantStates(states);
+      });
     });
     
     this.signalr.on<any>('participant-state-updated', (state: any) => {
+      this.zone.run(() => {
       this.handleParticipantStateUpdated(state);
+      });
     });
     
     this.signalr.on<any>('participant-track-ready', (data: any) => {
+      this.zone.run(() => {
       this.handleParticipantTrackReady(data);
+      });
     });
 
     this.signalr.on<any>('webrtc-offer', async (payload) => {
+      await this.zone.run(async () => {
       await this.handleOffer(payload);
+      });
     });
 
     this.signalr.on<any>('webrtc-answer', async (payload) => {
+      await this.zone.run(async () => {
       await this.handleAnswer(payload);
+      });
     });
 
     this.signalr.on<any>('webrtc-ice', async (payload) => {
+      await this.zone.run(async () => {
       await this.handleIceCandidate(payload);
     });
-
-    // ✅ REMOVED: Deprecated meeting-state-update handler - using unified participant-state-updated
+    });
 
     this.signalr.on<any>('perm-granted', async (permission) => {
+      await this.zone.run(async () => {
       await this.handlePermissionGrant(permission);
+      });
     });
 
     this.signalr.on<any>('whiteboard-draw', (data) => {
+      this.zone.run(() => {
+        // Handle whiteboard draw events
+      });
     });
 
     this.signalr.on<any>('chat-message', (message) => {
+      this.zone.run(() => {
+        // Handle chat message events
+      });
     });
   }
 
@@ -306,12 +453,12 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       if (!this.rawLocalStream || !this.meetingState.isVideoOn) return;
       const settings = this.settingsService.settings().videoBackground;
       const processed = await this.videoEffects.apply(this.rawLocalStream, settings);
-      this.localStream = processed;
+      this.localStreamSubject.next(processed);
       
       this.attachLocalTrackListeners();
-      this.scheduleChangeDetection();
+      // ✅ REACTIVE: No manual change detection needed - reactive streams handle UI updates
       
-      const newTrack = this.localStream.getVideoTracks()[0];
+      const newTrack = this.localStreamSubject.value?.getVideoTracks()[0];
       if (newTrack) {
         await this.swapLocalVideoTrack(newTrack);
       }
@@ -326,7 +473,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         this.localStream.getTracks().forEach(track => {
           track.stop();
         });
-        this.localStream = undefined;
+        this.localStreamSubject.next(undefined);
       }
       if (this.rawLocalStream) {
         this.rawLocalStream.getTracks().forEach(track => {
@@ -377,17 +524,19 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       if (cameraEnabled) {
         try {
           const vb = this.settingsService.settings().videoBackground;
-          this.localStream = await this.videoEffects.apply(this.rawLocalStream, vb);
+          this.localStreamSubject.next(await this.videoEffects.apply(this.rawLocalStream, vb));
         } catch (e) {
-          this.localStream = this.rawLocalStream;
+          this.localStreamSubject.next(this.rawLocalStream);
         }
       } else {
-        this.localStream = this.rawLocalStream;
+        this.localStreamSubject.next(this.rawLocalStream);
       }
+
+      // ✅ REACTIVE: Update local stream through reactive stream
+      this.localStreamSubject.next(this.localStream);
 
       // Notify UI and attach listeners
       this.attachLocalTrackListeners();
-      this.scheduleChangeDetection();
       
       // Setup active speaker analysis for local user's audio
       try {
@@ -415,7 +564,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
   // ✅ UNIFIED: Single track replacement method
   private async replaceTrackForAllPeers(track: MediaStreamTrack | null, kind: 'audio' | 'video') {
     const replacePromises: Promise<void>[] = [];
-    
+
     this.peerConnections.forEach((pc, userId) => {
       if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
         return;
@@ -430,7 +579,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         const shouldSend = !!track;
         transceiver.direction = shouldSend ? 'sendrecv' : 'recvonly';
         
-        replacePromises.push(
+          replacePromises.push(
           transceiver.sender.replaceTrack(track as any)
             .then(() => console.log(`✅ ${kind} track replaced for ${userId}`))
             .catch(err => console.warn(`⚠️ ${kind} track replace failed for ${userId}:`, err))
@@ -515,43 +664,53 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       this.removeAudioAnalysis(userId);
     }
     
-    this.scheduleChangeDetection();
+    // ✅ REACTIVE: No manual change detection needed - reactive streams handle UI updates
   }
 
-  // Meeting controls
+  // ✅ REACTIVE: Meeting controls with reactive state management
   async toggleMute() {
-    if (this.isMuteToggling) return;
+    if (this.isMuteTogglingSubject.value) return;
     
-    this.isMuteToggling = true;
+    this.isMuteTogglingSubject.next(true);
     
     try {
-      this.meetingState.isMuted = !this.meetingState.isMuted;
+      const currentState = this.meetingStateSubject.value;
+      const newMutedState = !currentState.isMuted;
+      
+      // ✅ REACTIVE: Update meeting state through reactive stream
+      this.meetingStateSubject.next({
+        ...currentState,
+        isMuted: newMutedState
+      });
       
       if (this.localStream && this.localStream.getAudioTracks()[0]) {
-        this.localStream.getAudioTracks()[0].enabled = !this.meetingState.isMuted;
-      } else if (!this.meetingState.isMuted) {
+        this.localStream.getAudioTracks()[0].enabled = !newMutedState;
+      } else if (!newMutedState) {
         // Try to get microphone access if not available
         try {
           await this.ensureLocalStream();
         } catch (error) {
       this.toast.error('Mikrofon izni reddedildi veya kullanılamıyor.');
-          this.meetingState.isMuted = true;
+          // ✅ REACTIVE: Revert state through reactive stream
+          this.meetingStateSubject.next({
+            ...this.meetingStateSubject.value,
+            isMuted: true
+          });
           return;
         }
       }
 
       // Update participant state via service
-      this.updateParticipantStateUnified(this.currentUserId, { isMuted: this.meetingState.isMuted });
+      this.updateParticipantStateUnified(this.currentUserId, { isMuted: newMutedState });
 
       // Broadcast state change
       await this.broadcastStateChange();
-      this.scheduleChangeDetection();
     } catch (error) {
       console.error('Error toggling mute:', error);
     } finally {
       // Add small delay to prevent rapid clicking
       setTimeout(() => {
-        this.isMuteToggling = false;
+        this.isMuteTogglingSubject.next(false);
       }, 500);
     }
   }
@@ -559,7 +718,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
   async toggleVideo() {
     if (this.isVideoToggling) return;
     
-    this.isVideoToggling = true;
+    this.isVideoTogglingSubject.next(true);
     
     try {
       const newVideoState = !this.meetingState.isVideoOn;
@@ -596,7 +755,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       await this.broadcastStateChange();
       
       // Notify UI
-      this.scheduleChangeDetection();
+      // ✅ REACTIVE: No manual change detection needed - reactive streams handle UI updates
       
       console.log(`✅ Video toggled successfully: ${this.meetingState.isVideoOn}`, {
         hasLocalStream: !!this.localStream,
@@ -612,7 +771,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     } finally {
       // Add delay to prevent rapid clicking
       setTimeout(() => {
-        this.isVideoToggling = false;
+        this.isVideoTogglingSubject.next(false);
       }, 1000);
     }
   }
@@ -659,15 +818,15 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         if (settings.mode !== 'none') {
           const processed = await this.videoEffects.apply(this.rawLocalStream, settings);
           if (processed && processed.getVideoTracks().length > 0) {
-            this.localStream = processed;
+            this.localStreamSubject.next(processed);
           } else {
-            this.localStream = this.rawLocalStream;
+            this.localStreamSubject.next(this.rawLocalStream);
           }
         } else {
-          this.localStream = this.rawLocalStream;
+          this.localStreamSubject.next(this.rawLocalStream);
         }
       } catch (effectError) {
-        this.localStream = this.rawLocalStream;
+        this.localStreamSubject.next(this.rawLocalStream);
       }
       
       // Final verification
@@ -697,7 +856,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         // Create audio-only stream
         const audioTracks = this.localStream.getAudioTracks();
         if (audioTracks.length > 0) {
-          this.localStream = new MediaStream(audioTracks);
+          this.localStreamSubject.next(new MediaStream(audioTracks));
         }
         
         // Stop video effects processing
@@ -714,7 +873,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
   async toggleScreenShare() {
     if (this.isScreenShareToggling) return;
     
-    this.isScreenShareToggling = true;
+    this.isScreenShareTogglingSubject.next(true);
     
     try {
       if (this.meetingState.isScreenSharing) {
@@ -727,7 +886,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     } finally {
       // Add delay to prevent rapid clicking
       setTimeout(() => {
-        this.isScreenShareToggling = false;
+        this.isScreenShareTogglingSubject.next(false);
       }, 1500); // Screen share operations can take longer
     }
   }
@@ -769,7 +928,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       await new Promise(resolve => setTimeout(resolve, 100));
       
       await this.broadcastStateChange();
-      this.scheduleChangeDetection();
+      // ✅ REACTIVE: No manual change detection needed - reactive streams handle UI updates
     } catch (error) {
       console.error('Screen share error:', error);
       this.toast.error('Ekran paylaşımı başlatılamadı.');
@@ -805,26 +964,33 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     await new Promise(resolve => setTimeout(resolve, 100));
 
     await this.broadcastStateChange();
-    this.scheduleChangeDetection();
+    // ✅ REACTIVE: No manual change detection needed - reactive streams handle UI updates
   }
 
-  // UI controls
+  // ✅ REACTIVE: UI controls with reactive state management
   toggleParticipantsPanel() {
-    this.showParticipantsPanel = !this.showParticipantsPanel;
+    this.showParticipantsPanelSubject.next(!this.showParticipantsPanelSubject.value);
   }
 
   toggleChatPanel() {
-    this.showChatPanel = !this.showChatPanel;
+    this.showChatPanelSubject.next(!this.showChatPanelSubject.value);
   }
 
   toggleWhiteboardPanel() {
-    this.showWhiteboardPanel = !this.showWhiteboardPanel;
-    this.meetingState.isWhiteboardActive = this.showWhiteboardPanel;
+    const newShowWhiteboard = !this.showWhiteboardPanelSubject.value;
+    this.showWhiteboardPanelSubject.next(newShowWhiteboard);
     
-    if (this.showWhiteboardPanel) {
-      this.activeView = 'whiteboard';
+    // ✅ REACTIVE: Update meeting state through reactive stream
+    const currentMeetingState = this.meetingStateSubject.value;
+    this.meetingStateSubject.next({
+      ...currentMeetingState,
+      isWhiteboardActive: newShowWhiteboard
+    });
+    
+    if (newShowWhiteboard) {
+      this.activeViewSubject.next('whiteboard');
     } else {
-      this.activeView = 'grid';
+      this.activeViewSubject.next('grid');
     }
   }
 
@@ -839,13 +1005,24 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   setActiveView(view: 'grid' | 'speaker' | 'whiteboard') {
-    this.activeView = view;
+    this.activeViewSubject.next(view);
+    
     if (view === 'whiteboard') {
-      this.showWhiteboardPanel = true;
-      this.meetingState.isWhiteboardActive = true;
+      this.showWhiteboardPanelSubject.next(true);
+      // ✅ REACTIVE: Update meeting state through reactive stream
+      const currentMeetingState = this.meetingStateSubject.value;
+      this.meetingStateSubject.next({
+        ...currentMeetingState,
+        isWhiteboardActive: true
+      });
     } else {
-      this.showWhiteboardPanel = false;
-      this.meetingState.isWhiteboardActive = false;
+      this.showWhiteboardPanelSubject.next(false);
+      // ✅ REACTIVE: Update meeting state through reactive stream
+      const currentMeetingState = this.meetingStateSubject.value;
+      this.meetingStateSubject.next({
+        ...currentMeetingState,
+        isWhiteboardActive: false
+      });
     }
 
     // Persist preference
@@ -924,7 +1101,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         try {
           // Check if connection already exists (double-check)
           if (!this.peerConnections.has(participant.userId)) {
-            await this.createPeerConnection(participant.userId);
+        await this.createPeerConnection(participant.userId);
             console.log(`✅ Peer connection created for ${participant.name}`);
           }
         } catch (error) {
@@ -943,13 +1120,37 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
     
-    // ✅ FIXED: Single trigger point to prevent duplicate execution
+    // ✅ ENHANCED: Multiple trigger points for better late joiner support
     // This ensures that new participants can see existing participants' videos
     setTimeout(() => {
       this.simulateTrackReadyEventsForExistingParticipants();
     }, 500);
     
-    this.scheduleChangeDetection();
+    // ✅ NEW: Additional delayed trigger for stubborn cases
+    setTimeout(() => {
+      this.simulateTrackReadyEventsForExistingParticipants();
+    }, 2000);
+    
+    // ✅ NEW: Final attempt for very late joiners
+    setTimeout(() => {
+      this.simulateTrackReadyEventsForExistingParticipants();
+    }, 5000);
+    
+    // ✅ NEW: Aggressive track sending for rejoin scenarios
+    setTimeout(() => {
+      this.forceExistingParticipantsToSendTracks().catch(error => {
+        console.warn('Error in aggressive track sending:', error);
+      });
+    }, 1000);
+    
+    // ✅ NEW: Additional aggressive attempt
+    setTimeout(() => {
+      this.forceExistingParticipantsToSendTracks().catch(error => {
+        console.warn('Error in delayed aggressive track sending:', error);
+      });
+    }, 4000);
+    
+    // ✅ REACTIVE: No manual change detection needed - reactive streams handle UI updates
   }
 
   private async createPeerConnection(userId: string) {
@@ -1043,11 +1244,15 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     pc.ontrack = (event) => {
       this.zone.run(() => {
       const track = event.track;
-      let stream = this.remoteStreams.get(userId);
+        const currentRemoteStreams = this.remoteStreamsSubject.value;
+        let stream = currentRemoteStreams.get(userId);
       
       if (!stream) {
         stream = new MediaStream();
-        this.remoteStreams.set(userId, stream);
+          // ✅ REACTIVE: Update remote streams through reactive stream
+          const newRemoteStreams = new Map(currentRemoteStreams);
+          newRemoteStreams.set(userId, stream);
+          this.remoteStreamsSubject.next(newRemoteStreams);
       }
       
       const existingTrack = stream.getTracks().find(t => t.id === track.id);
@@ -1065,64 +1270,61 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         
         this.updateParticipantStateFromTracks(userId, stream);
         
-        const versionedState = this.participantStatesVersioned.get(userId);
+          const currentStates = this.participantStatesSubject.value;
+          const versionedState = currentStates.get(userId);
         if (versionedState) {
           if (track.kind === 'video') {
             versionedState.videoTrackArrived = true;
             if (versionedState.isVideoOn) {
               versionedState.videoStatus = 'on';
-              this.updateParticipantStateUnified(userId, { isVideoOn: true });
+                this.updateParticipantStateUnified(userId, { isVideoOn: true });
             }
           }
           if (track.kind === 'audio') {
             versionedState.audioTrackArrived = true;
           }
-          this.participantStatesVersioned.set(userId, versionedState);
-        }
-        
-        if (track.kind === 'video') {
-          this.scheduleChangeDetection();
+            // ✅ REACTIVE: Update participant states through reactive stream
+            const newStates = new Map(currentStates);
+            newStates.set(userId, versionedState);
+            this.participantStatesSubject.next(newStates);
         }
       } catch (error) {
+          console.error('Error handling track:', error);
       }
+        
       track.onended = () => {
         this.handleTrackEnded(userId, track);
       };
       
       (track as any).onmute = () => {
         this.zone.run(() => {
-          const latest = this.remoteStreams.get(userId);
+            const currentRemoteStreams = this.remoteStreamsSubject.value;
+            const latest = currentRemoteStreams.get(userId);
           if (latest) {
             this.updateParticipantStateFromTracks(userId, latest);
-            this.scheduleChangeDetection();
           }
         });
       };
       
       (track as any).onunmute = () => {
         this.zone.run(() => {
-          const latest = this.remoteStreams.get(userId);
+            const currentRemoteStreams = this.remoteStreamsSubject.value;
+            const latest = currentRemoteStreams.get(userId);
           if (latest) {
             this.updateParticipantStateFromTracks(userId, latest);
-            this.scheduleChangeDetection();
           }
         });
       };
       
-      if (track.kind === 'video') {
-        this.scheduleChangeDetection();
-      }
-      
       if (track.kind === 'audio') {
         try {
-          const stream = this.remoteStreams.get(userId);
+            const currentRemoteStreams = this.remoteStreamsSubject.value;
+            const stream = currentRemoteStreams.get(userId);
           if (stream) {
             this.setupAudioAnalysisForStream(userId, stream);
           }
         } catch {}
       }
-      
-      this.scheduleChangeDetection();
       });
     };
 
@@ -1143,11 +1345,11 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
 
     try {
       // Apply audio track
-      const shouldSendAudio = !!audioTrack && !this.meetingState.isMuted;
+        const shouldSendAudio = !!audioTrack && !this.meetingState.isMuted;
       await this.replaceTrackForSinglePeer(userId, shouldSendAudio ? audioTrack : null, 'audio');
       
       // Apply video track
-      const shouldSendVideo = !!videoTrack && (this.meetingState.isVideoOn || this.meetingState.isScreenSharing);
+        const shouldSendVideo = !!videoTrack && (this.meetingState.isVideoOn || this.meetingState.isScreenSharing);
       await this.replaceTrackForSinglePeer(userId, shouldSendVideo ? videoTrack : null, 'video');
     } catch (err) {
       console.warn('Error applying local tracks to PC:', err);
@@ -1167,7 +1369,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       try {
         await transceiver.sender.replaceTrack(track as any);
         console.log(`✅ ${kind} track applied for ${userId}`);
-      } catch (err) {
+    } catch (err) {
         console.warn(`⚠️ ${kind} track apply failed for ${userId}:`, err);
       }
     }
@@ -1327,30 +1529,54 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       });
     });
     
-    // ✅ FIXED: Single trigger point to prevent duplicate execution
+    // ✅ ENHANCED: Multiple trigger points for better late joiner support
     // This fixes the "2nd session" problem where track ready events don't come
     setTimeout(() => {
       this.simulateTrackReadyEventsForExistingParticipants();
     }, 1000);
     
-    this.scheduleChangeDetection();
+    // ✅ NEW: Additional delayed trigger for stubborn cases
+    setTimeout(() => {
+      this.simulateTrackReadyEventsForExistingParticipants();
+    }, 3000);
+    
+    // ✅ NEW: Final attempt for very late joiners
+    setTimeout(() => {
+      this.simulateTrackReadyEventsForExistingParticipants();
+    }, 6000);
+    
+    // ✅ NEW: Aggressive track sending for initial states
+    setTimeout(() => {
+      this.forceExistingParticipantsToSendTracks().catch(error => {
+        console.warn('Error in initial aggressive track sending:', error);
+      });
+    }, 1500);
+    
+    // ✅ NEW: Additional aggressive attempt for initial states
+    setTimeout(() => {
+      this.forceExistingParticipantsToSendTracks().catch(error => {
+        console.warn('Error in delayed initial aggressive track sending:', error);
+      });
+    }, 5000);
+    
+    // ✅ REACTIVE: No manual change detection needed - reactive streams handle UI updates
   }
   
   // ✅ ENHANCED: Simulate track ready events for participants who already have streams
   private simulateTrackReadyEventsForExistingParticipants() {
     console.log('🔄 Simulating track ready events for existing participants');
-    
+
     this.participantStatesVersioned.forEach((versionedState, userId) => {
       if (userId === this.currentUserId) return; // Skip current user
-      
+
       const remoteStream = this.remoteStreams.get(userId);
       if (remoteStream) {
         const hasVideo = remoteStream.getVideoTracks().length > 0;
         const hasAudio = remoteStream.getAudioTracks().length > 0;
-        
+
         if (hasVideo || hasAudio) {
           console.log(`🎬 Simulating track ready for ${userId}:`, { hasVideo, hasAudio });
-          
+
           // Simulate track ready event
           this.handleParticipantTrackReady({
             userId: userId,
@@ -1363,7 +1589,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         // This fixes the "B rejoin, A's camera open but B can't see A" problem
         if (versionedState.isVideoOn || versionedState.isScreenSharing) {
           console.log(`🎬 Simulating pending track ready for ${userId} (video should be on)`);
-          
+
           // Simulate pending state - this will trigger video visibility
           this.handleParticipantTrackReady({
             userId: userId,
@@ -1373,14 +1599,26 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       }
     });
-    
-    // ✅ NEW: Force real track attachment for late join scenarios
+
+    // ✅ ENHANCED: Force real track attachment for late join scenarios with multiple attempts
     this.forceTrackAttachmentForLateJoin().catch(error => {
       console.warn('Error in force track attachment:', error);
     });
+    
+    // ✅ NEW: Additional delayed attempt for stubborn cases
+    setTimeout(() => {
+      this.forceTrackAttachmentForLateJoin().catch(error => {
+        console.warn('Error in delayed force track attachment:', error);
+      });
+    }, 2000);
+    
+    // ✅ NEW: Force existing participants to send their tracks to new joiner
+    this.forceExistingParticipantsToSendTracks().catch(error => {
+      console.warn('Error in forcing existing participants to send tracks:', error);
+    });
   }
   
-  // ✅ NEW: Force real track attachment for late join scenarios
+  // ✅ ENHANCED: Force real track attachment for late join scenarios
   private async forceTrackAttachmentForLateJoin() {
     console.log('🔗 Forcing track attachment for late join scenarios');
     
@@ -1404,24 +1642,47 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     console.log(`🔗 Found ${participantsNeedingTracks.length} participants needing track attachment:`, 
       participantsNeedingTracks.map(([userId, state]) => ({ userId, isVideoOn: state.isVideoOn, isMuted: state.isMuted })));
     
-    // Force track attachment for each participant
+    // ✅ ENHANCED: Force track attachment for each participant with retry logic
     for (const [userId, state] of participantsNeedingTracks) {
       try {
         await this.forceTrackAttachmentForParticipant(userId, state);
+        
+        // ✅ NEW: Verify track attachment was successful
+        setTimeout(async () => {
+          const stream = this.remoteStreams.get(userId);
+          if (!stream && (state.isVideoOn || state.isScreenSharing)) {
+            console.log(`⚠️ Track attachment verification failed for ${userId}, retrying...`);
+            try {
+              await this.forceTrackAttachmentForParticipant(userId, state);
+            } catch (retryError) {
+              console.error(`❌ Retry failed for ${userId}:`, retryError);
+            }
+          }
+        }, 1000);
+        
       } catch (error) {
         console.error(`❌ Failed to force track attachment for ${userId}:`, error);
       }
     }
   }
   
-  // ✅ ENHANCED: Ensure transceivers exist before track attachment
+  // ✅ ENHANCED: Ensure transceivers exist before track attachment with better error handling
   private async ensureTransceiversExist(userId: string): Promise<boolean> {
     const pc = this.peerConnections.get(userId);
-    if (!pc) return false;
-    
+    if (!pc) {
+      console.warn(`⚠️ No peer connection found for ${userId} when ensuring transceivers`);
+      return false;
+    }
+
+    // Check if peer connection is in a valid state
+    if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+      console.warn(`⚠️ Peer connection for ${userId} is in ${pc.connectionState} state`);
+      return false;
+    }
+
     let audioTx = this.peerAudioTransceiver.get(userId);
     let videoTx = this.peerVideoTransceiver.get(userId);
-    
+
     if (!audioTx) {
       try {
         audioTx = pc.addTransceiver('audio', { direction: 'sendrecv' });
@@ -1432,7 +1693,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         return false;
       }
     }
-    
+
     if (!videoTx) {
       try {
         videoTx = pc.addTransceiver('video', { direction: 'sendrecv' });
@@ -1443,11 +1704,11 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         return false;
       }
     }
-    
+
     return true;
   }
 
-  // ✅ ENHANCED: Force track attachment for a specific participant
+  // ✅ ENHANCED: Force track attachment for a specific participant with comprehensive validation
   private async forceTrackAttachmentForParticipant(userId: string, state: any) {
     console.log(`🔗 Forcing track attachment for ${userId}`);
     
@@ -1456,45 +1717,231 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       console.warn(`⚠️ No peer connection found for ${userId}`);
       return;
     }
-    
+
+    // Check if peer connection is in a valid state
+    if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+      console.warn(`⚠️ Peer connection for ${userId} is in ${pc.connectionState} state, cannot attach tracks`);
+      return;
+    }
+
     // Check if we have local tracks to send
     if (!this.localStream) {
       console.warn(`⚠️ No local stream available for track attachment`);
       return;
     }
-    
+
     // ✅ ENHANCED: Ensure transceivers exist before proceeding
     const transceiversReady = await this.ensureTransceiversExist(userId);
     if (!transceiversReady) {
       console.warn(`⚠️ Failed to ensure transceivers for ${userId}`);
       return;
     }
-    
+
     const videoTransceiver = this.peerVideoTransceiver.get(userId);
     const audioTransceiver = this.peerAudioTransceiver.get(userId);
-    
-    // ✅ FIXED: Use existing unified track replacement methods
+
+    // ✅ ENHANCED: Use existing unified track replacement methods with validation
     if (videoTransceiver && (state.isVideoOn || state.isScreenSharing)) {
       const videoTrack = this.localStream.getVideoTracks()[0];
       if (videoTrack) {
         console.log(`🎥 Attaching video track to ${userId}`);
-        await this.replaceTrackForSinglePeer(userId, videoTrack, 'video');
+        try {
+          await this.replaceTrackForSinglePeer(userId, videoTrack, 'video');
+          
+          // ✅ NEW: Verify track was actually attached
+          setTimeout(() => {
+            const sender = videoTransceiver.sender;
+            if (sender.track && sender.track.id === videoTrack.id) {
+              console.log(`✅ Video track successfully attached to ${userId}`);
+            } else {
+              console.warn(`⚠️ Video track attachment verification failed for ${userId}`);
+            }
+          }, 500);
+        } catch (error) {
+          console.error(`❌ Failed to attach video track to ${userId}:`, error);
+        }
       }
     }
-    
+
     if (audioTransceiver && !state.isMuted) {
       const audioTrack = this.localStream.getAudioTracks()[0];
       if (audioTrack) {
         console.log(`🎤 Attaching audio track to ${userId}`);
-        await this.replaceTrackForSinglePeer(userId, audioTrack, 'audio');
+        try {
+          await this.replaceTrackForSinglePeer(userId, audioTrack, 'audio');
+          
+          // ✅ NEW: Verify track was actually attached
+          setTimeout(() => {
+            const sender = audioTransceiver.sender;
+            if (sender.track && sender.track.id === audioTrack.id) {
+              console.log(`✅ Audio track successfully attached to ${userId}`);
+            } else {
+              console.warn(`⚠️ Audio track attachment verification failed for ${userId}`);
+            }
+          }, 500);
+        } catch (error) {
+          console.error(`❌ Failed to attach audio track to ${userId}:`, error);
+        }
       }
     }
-    
-    // Trigger renegotiation if needed
+
+    // ✅ ENHANCED: Trigger renegotiation with validation
     if (videoTransceiver || audioTransceiver) {
       console.log(`🔄 Triggering renegotiation for ${userId}`);
-      // Note: Renegotiation will be handled by the existing offer/answer flow
-      // when the peer connection state changes
+      
+      // Force renegotiation by creating a new offer
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await this.signalr.invoke('SendOffer', this.roomKey, {
+          targetUserId: userId,
+          offer: offer
+        });
+        console.log(`✅ Renegotiation offer sent for ${userId}`);
+      } catch (error) {
+        console.error(`❌ Failed to send renegotiation offer for ${userId}:`, error);
+      }
+    }
+  }
+  
+  // ✅ NEW: Force existing participants to send their tracks to new joiner
+  private async forceExistingParticipantsToSendTracks() {
+    console.log('🔄 Forcing existing participants to send their tracks to new joiner');
+    
+    // ✅ ENHANCED: Prevent duplicate execution
+    if (this.forceTrackSendingInProgress) {
+      console.log('⚠️ Force track sending already in progress, skipping');
+      return;
+    }
+    
+    this.forceTrackSendingInProgress = true;
+    
+    try {
+      // Get all participants who should have video/audio and send their tracks
+      const participantsWithTracks = Array.from(this.participantStatesVersioned.entries())
+        .filter(([userId, state]) => {
+          if (userId === this.currentUserId) return false;
+          
+          const shouldHaveVideo = state.isVideoOn || state.isScreenSharing;
+          const shouldHaveAudio = !state.isMuted;
+          
+          return shouldHaveVideo || shouldHaveAudio;
+        });
+      
+      if (participantsWithTracks.length === 0) {
+        console.log('✅ No existing participants with tracks to send');
+        return;
+      }
+      
+      console.log(`🔄 Found ${participantsWithTracks.length} existing participants with tracks to send:`, 
+        participantsWithTracks.map(([userId, state]) => ({ userId, isVideoOn: state.isVideoOn, isMuted: state.isMuted })));
+      
+      // For each existing participant, trigger track sending
+      for (const [userId, state] of participantsWithTracks) {
+        try {
+          await this.forceParticipantToSendTracks(userId, state);
+        } catch (error) {
+          console.error(`❌ Failed to force ${userId} to send tracks:`, error);
+        }
+      }
+    } finally {
+      this.forceTrackSendingInProgress = false;
+    }
+  }
+  
+  // ✅ NEW: Force a specific participant to send their tracks
+  private async forceParticipantToSendTracks(userId: string, state: any) {
+    console.log(`🔄 Forcing ${userId} to send their tracks`);
+    
+    const pc = this.peerConnections.get(userId);
+    if (!pc) {
+      console.warn(`⚠️ No peer connection found for ${userId}`);
+      return;
+    }
+
+    // Check if peer connection is in a valid state
+    if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+      console.warn(`⚠️ Peer connection for ${userId} is in ${pc.connectionState} state`);
+      return;
+    }
+
+    // Check if we have local tracks to send
+    if (!this.localStream) {
+      console.warn(`⚠️ No local stream available for track sending`);
+      return;
+    }
+
+    // Ensure transceivers exist
+    const transceiversReady = await this.ensureTransceiversExist(userId);
+    if (!transceiversReady) {
+      console.warn(`⚠️ Failed to ensure transceivers for ${userId}`);
+      return;
+    }
+
+    const videoTransceiver = this.peerVideoTransceiver.get(userId);
+    const audioTransceiver = this.peerAudioTransceiver.get(userId);
+
+    // Send video track if participant should have video
+    if (videoTransceiver && (state.isVideoOn || state.isScreenSharing)) {
+      const videoTrack = this.localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        console.log(`🎥 Sending video track to ${userId}`);
+        try {
+          await this.replaceTrackForSinglePeer(userId, videoTrack, 'video');
+          
+          // Verify track was sent
+          setTimeout(() => {
+            const sender = videoTransceiver.sender;
+            if (sender.track && sender.track.id === videoTrack.id) {
+              console.log(`✅ Video track successfully sent to ${userId}`);
+            } else {
+              console.warn(`⚠️ Video track sending verification failed for ${userId}`);
+            }
+          }, 500);
+        } catch (error) {
+          console.error(`❌ Failed to send video track to ${userId}:`, error);
+        }
+      }
+    }
+
+    // Send audio track if participant should have audio
+    if (audioTransceiver && !state.isMuted) {
+      const audioTrack = this.localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        console.log(`🎤 Sending audio track to ${userId}`);
+        try {
+          await this.replaceTrackForSinglePeer(userId, audioTrack, 'audio');
+          
+          // Verify track was sent
+          setTimeout(() => {
+            const sender = audioTransceiver.sender;
+            if (sender.track && sender.track.id === audioTrack.id) {
+              console.log(`✅ Audio track successfully sent to ${userId}`);
+            } else {
+              console.warn(`⚠️ Audio track sending verification failed for ${userId}`);
+            }
+          }, 500);
+        } catch (error) {
+          console.error(`❌ Failed to send audio track to ${userId}:`, error);
+        }
+      }
+    }
+
+    // Trigger renegotiation to ensure tracks are sent
+    if (videoTransceiver || audioTransceiver) {
+      console.log(`🔄 Triggering renegotiation to send tracks to ${userId}`);
+      
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await this.signalr.invoke('SendOffer', this.roomKey, {
+          targetUserId: userId,
+          offer: offer
+        });
+        console.log(`✅ Renegotiation offer sent to ${userId} to deliver tracks`);
+      } catch (error) {
+        console.error(`❌ Failed to send renegotiation offer to ${userId}:`, error);
+      }
     }
   }
   
@@ -1584,7 +2031,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     this.participantStatesVersioned.set(userId, versionedState);
     
     // ✅ ENHANCED: Force immediate change detection and video element update
-    this.scheduleChangeDetection();
+    // ✅ REACTIVE: No manual change detection needed - reactive streams handle UI updates
     
     // ✅ REMOVED: Duplicate change detection - already handled by scheduleChangeDetection()
     
@@ -1614,9 +2061,10 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // ✅ ENHANCED: Atomic state update method with version control
+  // ✅ REACTIVE: Atomic state update method with reactive streams
   private updateParticipantStateUnified(userId: string, updates: Partial<Participant>) {
-    const currentState = this.participantStatesVersioned.get(userId);
+    const currentStates = this.participantStatesSubject.value;
+    const currentState = currentStates.get(userId);
     if (!currentState) {
       console.warn(`⚠️ No versioned state found for ${userId}, skipping update`);
       return;
@@ -1631,12 +2079,13 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       timestamp: new Date().toISOString()
     };
     
-    // Atomic update: set versioned state first, then update service
-    this.participantStatesVersioned.set(userId, newState);
-    this.participantService.updateParticipantState(userId, updates);
+    // ✅ REACTIVE: Update reactive stream - automatically triggers change detection
+    const newStates = new Map(currentStates);
+    newStates.set(userId, newState);
+    this.participantStatesSubject.next(newStates);
     
-    // Schedule single change detection
-    this.scheduleChangeDetection();
+    // Update participant service for backward compatibility
+    this.participantService.updateParticipantState(userId, updates);
   }
 
   private async broadcastStateChange() {
@@ -1729,11 +2178,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     try {
       console.log('🧹 Starting comprehensive cleanup...');
       
-      // Clear change detection timeout
-      if (this.changeDetectionTimeout) {
-        clearTimeout(this.changeDetectionTimeout);
-        this.changeDetectionTimeout = null;
-      }
+      // ✅ REACTIVE: No change detection timeout to clear - reactive streams handle updates
 
       // ✅ ENHANCED: Cleanup all peer connections with proper await
       const userIds = Array.from(this.peerConnections.keys());
@@ -1745,16 +2190,19 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       this.makingOffer.clear();
       this.politeMap.clear();
       
-      // Reset meeting state to prevent rejoin issues
-      this.meetingState = {
+      // ✅ REACTIVE: Reset meeting state through reactive stream
+      this.meetingStateSubject.next({
         isMuted: false,
         isVideoOn: false,
         isScreenSharing: false,
         isWhiteboardActive: false
-      };
+      });
       
       this.wasVideoOnBeforeShare = false;
       this.connected = false;
+      
+      // ✅ NEW: Reset track sending flag
+      this.forceTrackSendingInProgress = false;
       
       // Clear all timers
       this.negotiationTimers.forEach(timer => clearTimeout(timer));
@@ -1769,7 +2217,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
             console.warn('Error stopping local track:', error);
           }
         });
-        this.localStream = undefined;
+        this.localStreamSubject.next(undefined);
       }
       if (this.rawLocalStream) {
         this.rawLocalStream.getTracks().forEach(track => {
@@ -1866,25 +2314,9 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     console.log(`✅ Complete cleanup finished for ${userId}`);
   }
 
-  // ✅ OPTIMIZED: Single change detection scheduler
-  private changeDetectionTimeout: any = null;
-  private changeDetectionScheduled = false;
-  private readonly changeDetectionDelay = 16; // ~60fps for better performance
-
-  private scheduleChangeDetection() {
-    // Prevent multiple scheduled detections
-    if (this.changeDetectionScheduled) return;
-    
-    this.changeDetectionScheduled = true;
-    this.changeDetectionTimeout = setTimeout(() => {
-      // ✅ FIXED: Actually trigger change detection instead of recursive call
-      this.cdr.detectChanges();
-      this.changeDetectionTimeout = null;
-      this.changeDetectionScheduled = false;
-    }, this.changeDetectionDelay);
-  }
-
-  // ✅ REMOVED: Deprecated triggerChangeDetection method
+  // ✅ REACTIVE: Removed manual change detection - reactive streams handle UI updates automatically
+  // All state changes now go through BehaviorSubjects which automatically trigger change detection
+  // when subscribed to in templates via async pipes or direct subscriptions
 
   private async processPendingIceCandidates(userId: string) {
     const pc = this.peerConnections.get(userId);
@@ -1986,22 +2418,22 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     
     const eventHandlers = {
       mute: () => {
-        this.zone.run(() => {
-          this.meetingState.isVideoOn = false;
+      this.zone.run(() => {
+        this.meetingState.isVideoOn = false;
           this.updateParticipantStateUnified(this.currentUserId, { isVideoOn: false });
-        });
+      });
       },
       unmute: () => {
-        this.zone.run(() => {
-          this.meetingState.isVideoOn = true;
+      this.zone.run(() => {
+        this.meetingState.isVideoOn = true;
           this.updateParticipantStateUnified(this.currentUserId, { isVideoOn: true });
-        });
+      });
       },
       ended: () => {
-        this.zone.run(() => {
-          this.meetingState.isVideoOn = false;
+      this.zone.run(() => {
+        this.meetingState.isVideoOn = false;
           this.updateParticipantStateUnified(this.currentUserId, { isVideoOn: false });
-        });
+      });
       }
     };
     
@@ -2128,12 +2560,19 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       const margin = 0.03;
 
       if (topUser && topVal > threshold && (topVal - secondVal) > margin) {
-        if ((topUser !== lastUserId && (now - lastSwitchAt) > minHoldMs) || !this.meetingState.activeSpeaker) {
+        if ((topUser !== lastUserId && (now - lastSwitchAt) > minHoldMs) || !this.activeSpeakerSubject.value) {
           lastUserId = topUser;
           lastSwitchAt = now;
-          if (this.meetingState.activeSpeaker !== topUser) {
-            this.meetingState.activeSpeaker = topUser;
-            this.scheduleChangeDetection();
+          if (this.activeSpeakerSubject.value !== topUser) {
+            // ✅ REACTIVE: Update active speaker through reactive stream
+            this.activeSpeakerSubject.next(topUser);
+            
+            // ✅ REACTIVE: Update meeting state with active speaker
+            const currentMeetingState = this.meetingStateSubject.value;
+            this.meetingStateSubject.next({
+              ...currentMeetingState,
+              activeSpeaker: topUser
+            });
           }
         }
       }

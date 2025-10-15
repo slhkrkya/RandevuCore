@@ -11,9 +11,9 @@
               [class.opacity-50]="isMuteToggling"
               [disabled]="isMuteToggling"
               (click)="onToggleMute()"
-              [title]="isMuteToggling ? 'İşleniyor...' : (meetingState.isMuted ? 'Sesi Aç' : 'Sesi Kapat')">
+              [title]="isMuteToggling ? 'İşleniyor...' : (meetingState?.isMuted ? 'Sesi Aç' : 'Sesi Kapat')">
         <span class="material-symbols-outlined text-sm">
-          {{ isMuteToggling ? 'hourglass_empty' : (meetingState.isMuted ? 'mic_off' : 'mic') }}
+          {{ isMuteToggling ? 'hourglass_empty' : (meetingState?.isMuted ? 'mic_off' : 'mic') }}
         </span>
       </button>
       
@@ -23,9 +23,9 @@
               [class.opacity-50]="isVideoToggling"
               [disabled]="isVideoToggling"
               (click)="onToggleVideo()"
-              [title]="isVideoToggling ? 'İşleniyor...' : (meetingState.isVideoOn ? 'Kamerayı Kapat' : 'Kamerayı Aç')">
+              [title]="isVideoToggling ? 'İşleniyor...' : (meetingState?.isVideoOn ? 'Kamerayı Kapat' : 'Kamerayı Aç')">
         <span class="material-symbols-outlined text-sm">
-          {{ isVideoToggling ? 'hourglass_empty' : (meetingState.isVideoOn ? 'videocam' : 'videocam_off') }}
+          {{ isVideoToggling ? 'hourglass_empty' : (meetingState?.isVideoOn ? 'videocam' : 'videocam_off') }}
         </span>
       </button>
       
@@ -35,9 +35,9 @@
               [class.opacity-50]="isScreenShareToggling"
               [disabled]="isScreenShareToggling"
               (click)="onToggleScreenShare()"
-              [title]="isScreenShareToggling ? 'İşleniyor...' : (meetingState.isScreenSharing ? 'Paylaşımı Durdur' : 'Ekran Paylaş')">
+              [title]="isScreenShareToggling ? 'İşleniyor...' : (meetingState?.isScreenSharing ? 'Paylaşımı Durdur' : 'Ekran Paylaş')">
         <span class="material-symbols-outlined text-sm">
-          {{ isScreenShareToggling ? 'hourglass_empty' : (meetingState.isScreenSharing ? 'stop_screen_share' : 'present_to_all') }}
+          {{ isScreenShareToggling ? 'hourglass_empty' : (meetingState?.isScreenSharing ? 'stop_screen_share' : 'present_to_all') }}
         </span>
       </button>
       

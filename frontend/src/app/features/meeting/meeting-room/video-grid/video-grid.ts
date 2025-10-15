@@ -15,9 +15,9 @@ import { ParticipantUIService } from '../services/participant-ui.service';
 })
 export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterViewInit, AfterViewChecked {
   @Input() currentUserId = '';
-  @Input() localStream?: MediaStream;
-  @Input() remoteStreams: Map<string, MediaStream> = new Map();
-  @Input() meetingState: MeetingState = {
+  @Input() localStream?: MediaStream | null;
+  @Input() remoteStreams: Map<string, MediaStream> | null = new Map();
+  @Input() meetingState: MeetingState | null = {
     isMuted: false,
     isVideoOn: false,
     isScreenSharing: false,
@@ -115,7 +115,13 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
   }
 
   getParticipantVideo(participant: Participant): MediaStream | null {
-    const s = getStreamSel(participant, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams);
+    const defaultMeetingState: MeetingState = {
+      isMuted: false,
+      isVideoOn: false,
+      isScreenSharing: false,
+      isWhiteboardActive: false
+    };
+    const s = getStreamSel(participant, this.currentUserId, this.meetingState || defaultMeetingState, this.localStream || undefined, this.remoteStreams || new Map());
     return s || null;
   }
 
@@ -182,9 +188,9 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
     let stream: MediaStream | undefined;
     
     if (userId === this.currentUserId) {
-      stream = this.localStream;
+      stream = this.localStream || undefined;
     } else {
-      stream = this.remoteStreams.get(userId);
+      stream = this.remoteStreams?.get(userId);
     }
     
     if (stream && stream.getVideoTracks().length > 0) {
@@ -215,11 +221,17 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
   
   // ✅ UNIFIED: Use service methods instead of duplicates
   isParticipantVideoVisible(participant: Participant): boolean {
-    return isVisibleSel(participant, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams);
+    const defaultMeetingState: MeetingState = {
+      isMuted: false,
+      isVideoOn: false,
+      isScreenSharing: false,
+      isWhiteboardActive: false
+    };
+    return isVisibleSel(participant, this.currentUserId, this.meetingState || defaultMeetingState, this.localStream || undefined, this.remoteStreams || new Map());
   }
   
   isVideoLoading(participant: Participant): boolean {
-    return isVideoLoadingSel(participant, this.currentUserId, this.localStream, this.remoteStreams);
+    return isVideoLoadingSel(participant, this.currentUserId, this.localStream || undefined, this.remoteStreams || new Map());
   }
   
   getParticipantBackgroundColor(participant: Participant): string {

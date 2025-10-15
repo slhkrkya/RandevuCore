@@ -15,9 +15,9 @@ import { ParticipantUIService } from '../services/participant-ui.service';
 })
 export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges, AfterViewChecked {
   @Input() currentUserId = '';
-  @Input() localStream?: MediaStream;
-  @Input() remoteStreams: Map<string, MediaStream> = new Map();
-  @Input() meetingState: MeetingState = {
+  @Input() localStream?: MediaStream | null;
+  @Input() remoteStreams: Map<string, MediaStream> | null = new Map();
+  @Input() meetingState: MeetingState | null = {
     isMuted: false,
     isVideoOn: false,
     isScreenSharing: false,
@@ -124,7 +124,7 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
   }
 
   // ✅ CLEANED: Removed duplicate methods - using unified service
-  
+
   private shouldLogVideoState(userId: string, currentState: boolean): boolean {
     const lastState = this.lastVideoStates.get(userId);
     this.lastVideoStates.set(userId, currentState);
@@ -132,7 +132,13 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
   }
 
   getParticipantStream(participant: Participant): MediaStream | undefined {
-    return getStreamSel(participant, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams);
+    const defaultMeetingState: MeetingState = {
+      isMuted: false,
+      isVideoOn: false,
+      isScreenSharing: false,
+      isWhiteboardActive: false
+    };
+    return getStreamSel(participant, this.currentUserId, this.meetingState || defaultMeetingState, this.localStream || undefined, this.remoteStreams || new Map());
   }
 
   trackByUserId(index: number, item: Participant) {
@@ -207,8 +213,8 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
     if (!activeSpeaker) return;
     
     const stream = this.getStreamForParticipant(activeSpeaker);
-    const videoElement = this.mainVideo.nativeElement;
-    
+        const videoElement = this.mainVideo.nativeElement;
+        
     this.updateSingleVideoElement(videoElement, stream, activeSpeaker, 'main');
   }
   
@@ -232,48 +238,54 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
   
   // ✅ UNIFIED: Single video element update logic
   private updateSingleVideoElement(videoElement: HTMLVideoElement, stream: MediaStream | undefined, participant: Participant, type: 'main' | 'thumbnail') {
-    if (stream && stream.getVideoTracks().length > 0) {
-      const videoTrack = stream.getVideoTracks()[0];
+        if (stream && stream.getVideoTracks().length > 0) {
+          const videoTrack = stream.getVideoTracks()[0];
       const isTrackLive = isVideoTrackLive(stream);
-      
-      if (isTrackLive && videoElement.srcObject !== stream) {
+          
+          if (isTrackLive && videoElement.srcObject !== stream) {
         console.log(`🎬 Setting ${type} video srcObject for ${participant.name}:`, {
           userId: participant.userId,
-          streamId: stream.id,
-          videoTracks: stream.getVideoTracks().length,
-          trackReadyState: videoTrack.readyState,
-          trackEnabled: videoTrack.enabled,
-          trackMuted: videoTrack.muted
-        });
-        
-        videoElement.srcObject = stream;
-        videoElement.play().catch(error => {
+              streamId: stream.id,
+              videoTracks: stream.getVideoTracks().length,
+              trackReadyState: videoTrack.readyState,
+              trackEnabled: videoTrack.enabled,
+              trackMuted: videoTrack.muted
+            });
+            
+            videoElement.srcObject = stream;
+            videoElement.play().catch(error => {
           console.error(`Failed to play ${type} video for ${participant.name}:`, error);
-        });
-      } else if (videoElement.srcObject && !isTrackLive) {
-        videoElement.srcObject = null;
+            });
+          } else if (videoElement.srcObject && !isTrackLive) {
+            videoElement.srcObject = null;
+          }
+        } else if (videoElement.srcObject) {
+          videoElement.srcObject = null;
+        }
       }
-    } else if (videoElement.srcObject) {
-      videoElement.srcObject = null;
-    }
-  }
   
   // ✅ UNIFIED: Get stream for participant
   private getStreamForParticipant(participant: Participant): MediaStream | undefined {
     if (participant.userId === this.currentUserId) {
-      return this.localStream;
+      return this.localStream || undefined;
     } else {
-      return this.remoteStreams.get(participant.userId);
+      return this.remoteStreams?.get(participant.userId);
     }
   }
   
   // ✅ UNIFIED: Use service methods instead of duplicates
   isParticipantVideoVisible(participant: Participant): boolean {
-    return isVisibleSel(participant, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams);
+    const defaultMeetingState: MeetingState = {
+      isMuted: false,
+      isVideoOn: false,
+      isScreenSharing: false,
+      isWhiteboardActive: false
+    };
+    return isVisibleSel(participant, this.currentUserId, this.meetingState || defaultMeetingState, this.localStream || undefined, this.remoteStreams || new Map());
   }
   
   isVideoLoading(participant: Participant): boolean {
-    return isVideoLoadingSel(participant, this.currentUserId, this.localStream, this.remoteStreams);
+    return isVideoLoadingSel(participant, this.currentUserId, this.localStream || undefined, this.remoteStreams || new Map());
   }
   
   getActiveSpeaker(): Participant | null {
@@ -285,13 +297,26 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
       if (pinned) return pinned;
     }
     
-    return selectSpeakerSel(this.participants, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams);
+    const defaultMeetingState: MeetingState = {
+      isMuted: false,
+      isVideoOn: false,
+      isScreenSharing: false,
+      isWhiteboardActive: false
+    };
+    return selectSpeakerSel(this.participants, this.currentUserId, this.meetingState || defaultMeetingState, this.localStream || undefined, this.remoteStreams || new Map());
   }
   
   getActiveSpeakerStream(): MediaStream | null {
     const activeSpeaker = this.getActiveSpeaker();
     if (!activeSpeaker) return null;
-    return getStreamSel(activeSpeaker, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams) || null;
+    
+    const defaultMeetingState: MeetingState = {
+      isMuted: false,
+      isVideoOn: false,
+      isScreenSharing: false,
+      isWhiteboardActive: false
+    };
+    return getStreamSel(activeSpeaker, this.currentUserId, this.meetingState || defaultMeetingState, this.localStream || undefined, this.remoteStreams || new Map()) || null;
   }
   
   getOtherParticipants(): Participant[] {

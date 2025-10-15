@@ -1,7 +1,7 @@
 <div class="meeting-room-container flex h-screen w-full bg-gradient-to-br from-slate-100 via-slate-200 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 text-slate-900 dark:text-white overflow-hidden pt-20">
   
   <!-- Loading Overlay (during initialization and auto-refresh) -->
-  <div *ngIf="isInitializing" 
+  <div *ngIf="isInitializing$ | async" 
        class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/95 backdrop-blur-md">
     <div class="flex flex-col items-center space-y-6 p-8 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10">
       <!-- Animated Logo/Icon -->
@@ -19,7 +19,7 @@
       
       <!-- Loading Message -->
       <div class="text-center space-y-2">
-        <h3 class="text-xl font-semibold text-white">{{ initializingMessage }}</h3>
+        <h3 class="text-xl font-semibold text-white">{{ initializingMessage$ | async }}</h3>
         <p class="text-sm text-slate-300">Lütfen bekleyin...</p>
       </div>
       
@@ -34,35 +34,35 @@
   
   <!-- Main Content Area -->
   <div class="meeting-main-area flex-1 flex flex-col relative transition-all duration-300"
-       [class.mr-80]="showParticipantsPanel || showChatPanel">
+       [class.mr-80]="(showParticipantsPanel$ | async) || (showChatPanel$ | async)">
     
     <!-- Meeting Content -->
     <div class="flex-1 relative pb-32">
       
       <!-- Video Grid View -->
-      <div *ngIf="activeView === 'grid'" class="h-full w-full">
+      <div *ngIf="(activeView$ | async) === 'grid'" class="h-full w-full">
         <app-video-grid 
           [currentUserId]="currentUserId"
-          [localStream]="localStream"
-          [remoteStreams]="remoteStreams"
-          [meetingState]="meetingState">
+          [localStream]="localStream$ | async"
+          [remoteStreams]="remoteStreams$ | async"
+          [meetingState]="meetingState$ | async">
         </app-video-grid>
       </div>
 
       <!-- Speaker View -->
-      <div *ngIf="activeView === 'speaker'" class="h-full w-full">
+      <div *ngIf="(activeView$ | async) === 'speaker'" class="h-full w-full">
         <app-speaker-view 
           [currentUserId]="currentUserId"
-          [localStream]="localStream"
-          [remoteStreams]="remoteStreams"
-          [meetingState]="meetingState">
+          [localStream]="localStream$ | async"
+          [remoteStreams]="remoteStreams$ | async"
+          [meetingState]="meetingState$ | async">
         </app-speaker-view>
       </div>
 
       <!-- Whiteboard View -->
-      <div *ngIf="activeView === 'whiteboard'" class="h-full w-full pb-32">
+      <div *ngIf="(activeView$ | async) === 'whiteboard'" class="h-full w-full pb-32">
         <app-whiteboard 
-          [isActive]="meetingState.isWhiteboardActive"
+          [isActive]="(meetingState$ | async)?.isWhiteboardActive || false"
           [isHost]="isHost"
           [roomKey]="roomKey">
         </app-whiteboard>
@@ -72,17 +72,17 @@
 
     <!-- Meeting Controls -->
     <app-meeting-controls
-      [meetingState]="meetingState"
+      [meetingState]="meetingState$ | async"
       [isHost]="isHost"
-      [participantsCount]="participants.length"
-      [showParticipantsPanel]="showParticipantsPanel"
-      [showChatPanel]="showChatPanel"
-      [showWhiteboardPanel]="showWhiteboardPanel"
-      [activeView]="activeView"
-      [isMuteToggling]="isMuteToggling"
-      [isVideoToggling]="isVideoToggling"
-      [isScreenShareToggling]="isScreenShareToggling"
-      [meetingDuration]="meetingDuration"
+      [participantsCount]="(participants$ | async)?.length || 0"
+      [showParticipantsPanel]="showParticipantsPanel$ | async"
+      [showChatPanel]="showChatPanel$ | async"
+      [showWhiteboardPanel]="showWhiteboardPanel$ | async"
+      [activeView]="activeView$ | async"
+      [isMuteToggling]="isMuteToggling$ | async"
+      [isVideoToggling]="isVideoToggling$ | async"
+      [isScreenShareToggling]="isScreenShareToggling$ | async"
+      [meetingDuration]="meetingDuration$ | async"
       (toggleMute)="toggleMute()"
       (toggleVideo)="toggleVideo()"
       (toggleScreenShare)="toggleScreenShare()"
@@ -98,8 +98,8 @@
 
   <!-- Participants Panel -->
   <div class="fixed top-0 right-0 h-full w-80 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-2xl transform transition-transform duration-300 z-50 border-l border-slate-300 dark:border-slate-700"
-       [class.translate-x-full]="!showParticipantsPanel"
-       [class.translate-x-0]="showParticipantsPanel">
+       [class.translate-x-full]="!(showParticipantsPanel$ | async)"
+       [class.translate-x-0]="showParticipantsPanel$ | async">
     <app-participants-panel
       [currentUserId]="currentUserId"
       [isHost]="isHost"
@@ -111,8 +111,8 @@
 
   <!-- Chat Panel -->
   <div class="fixed top-0 right-0 h-full w-80 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-2xl transform transition-transform duration-300 z-50 border-l border-slate-300 dark:border-slate-700"
-       [class.translate-x-full]="!showChatPanel"
-       [class.translate-x-0]="showChatPanel">
+       [class.translate-x-full]="!(showChatPanel$ | async)"
+       [class.translate-x-0]="showChatPanel$ | async">
     <app-chat-panel
       [roomKey]="roomKey"
       [currentUserId]="currentUserId"
@@ -142,13 +142,13 @@
       <!-- Meeting Duration -->
       <div class="flex items-center space-x-1.5">
         <span class="material-symbols-outlined text-base text-blue-600 dark:text-blue-400">schedule</span>
-        {{ meetingDuration }}
+        {{ meetingDuration$ | async }}
       </div>
       
       <!-- Participants Count -->
       <div class="flex items-center space-x-1.5">
         <span class="material-symbols-outlined text-base text-purple-600 dark:text-purple-400">people</span>
-        <span>{{ participants.length }}</span>
+        <span>{{ (participants$ | async)?.length || 0 }}</span>
         <span>katılımcı</span>
       </div>
       
