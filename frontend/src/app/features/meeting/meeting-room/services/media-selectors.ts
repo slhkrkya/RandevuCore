@@ -77,3 +77,25 @@ export function selectActiveSpeaker(
   return participants[0];
 }
 
+// ✅ NEW: Video loading state check
+export function isParticipantVideoLoading(
+  participant: Participant,
+  currentUserId: string,
+  localStream?: MediaStream,
+  remoteStreams: Map<string, MediaStream> = new Map()
+): boolean {
+  // Check if participant has video on but track hasn't arrived yet
+  if (!participant.isVideoOn) return false;
+  
+  const stream = participant.userId === currentUserId 
+    ? localStream 
+    : remoteStreams.get(participant.userId);
+    
+  if (!stream) return true; // Video is on but no stream yet
+  
+  const videoTrack = stream.getVideoTracks()[0];
+  if (!videoTrack) return true; // Video is on but no track yet
+  
+  return !isVideoTrackLive(stream); // Track exists but not live yet
+}
+

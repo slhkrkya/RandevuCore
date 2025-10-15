@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { Participant } from '../meeting-room';
 import { ParticipantService } from '../services/participant.service';
+import { ParticipantUIService } from '../services/participant-ui.service';
 
 @Component({
   selector: 'app-participants-panel',
@@ -22,7 +23,10 @@ export class ParticipantsPanelComponent implements OnInit, OnDestroy {
   @Output() removeParticipant = new EventEmitter<string>();
   @Output() close = new EventEmitter<void>();
 
-  constructor(private participantService: ParticipantService) {}
+  constructor(
+    private participantService: ParticipantService,
+    private participantUI: ParticipantUIService
+  ) {}
 
   ngOnInit() {
     // Subscribe to participant service updates
@@ -35,56 +39,21 @@ export class ParticipantsPanelComponent implements OnInit, OnDestroy {
     this.participantsSubscription?.unsubscribe();
   }
 
+  // ✅ UNIFIED: Use service methods instead of duplicates
   getParticipantInitials(participant: Participant): string {
-    const name = participant.name || 'User';
-    const words = name.split(' ');
-    if (words.length >= 2) {
-      return (words[0][0] + words[1][0]).toUpperCase();
-    }
-    return name.substring(0, 2).toUpperCase();
+    return this.participantUI.getParticipantInitials(participant);
   }
 
   getParticipantBackgroundColor(participant: Participant): string {
-    const colors = [
-      'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-pink-500',
-      'bg-indigo-500', 'bg-yellow-500', 'bg-red-500', 'bg-teal-500'
-    ];
-    
-    const hash = participant.userId.split('').reduce((a, b) => {
-      a = ((a << 5) - a) + b.charCodeAt(0);
-      return a & a;
-    }, 0);
-    
-    return colors[Math.abs(hash) % colors.length];
+    return this.participantUI.getParticipantBackgroundColor(participant);
   }
 
   getParticipantDisplayName(participant: Participant): string {
-    if (participant.userId === this.currentUserId) {
-      return 'You';
-    }
-    return participant.name;
+    return this.participantUI.getParticipantDisplayName(participant, this.currentUserId);
   }
 
   getParticipantStatus(participant: Participant): string {
-    const statuses = [];
-    
-    if (participant.isMuted) {
-      statuses.push('Muted');
-    }
-    
-    if (!participant.isVideoOn) {
-      statuses.push('Camera Off');
-    }
-    
-    if (participant.isScreenSharing) {
-      statuses.push('Sharing Screen');
-    }
-    
-    if (participant.isHost) {
-      statuses.push('Host');
-    }
-    
-    return statuses.join(' • ');
+    return this.participantUI.getParticipantStatus(participant);
   }
 
   onGrantPermission(userId: string, permission: string) {

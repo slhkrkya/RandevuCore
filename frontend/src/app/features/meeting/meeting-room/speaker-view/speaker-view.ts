@@ -2,8 +2,9 @@ import { Component, Input, ViewChild, ViewChildren, QueryList, ElementRef, Chang
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { Participant, MeetingState } from '../meeting-room';
-import { isParticipantVideoVisible as isVisibleSel, getStreamForParticipant as getStreamSel, selectActiveSpeaker as selectSpeakerSel } from '../services/media-selectors';
+import { isParticipantVideoVisible as isVisibleSel, getStreamForParticipant as getStreamSel, selectActiveSpeaker as selectSpeakerSel, isParticipantVideoLoading as isVideoLoadingSel, isVideoTrackLive } from '../services/media-selectors';
 import { ParticipantService } from '../services/participant.service';
+import { ParticipantUIService } from '../services/participant-ui.service';
 
 @Component({
   selector: 'app-speaker-view',
@@ -22,8 +23,7 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
     isScreenSharing: false,
     isWhiteboardActive: false
   };
-  // Function to check if video is loading (pending state)
-  @Input() isVideoLoading: (participant: Participant) => boolean = () => false;
+  // ✅ CLEANED: Removed unused input property
 
   participants: Participant[] = [];
   private participantsSubscription?: Subscription;
@@ -35,7 +35,8 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
 
   constructor(
     private cdr: ChangeDetectorRef,
-    private participantService: ParticipantService
+    private participantService: ParticipantService,
+    private participantUI: ParticipantUIService
   ) {}
 
   private readonly logUi = ((): boolean => {
@@ -71,7 +72,7 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
       
       // Force change detection synchronously
       this.cdr.markForCheck();
-      this.cdr.detectChanges();
+      this.scheduleChangeDetection();
     });
   }
 
@@ -93,7 +94,7 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
       });
     }
     
-    this.cdr.detectChanges();
+    this.scheduleChangeDetection();
   }
 
   ngOnDestroy() {
@@ -122,61 +123,8 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
     // debug log removed in production build
   }
 
-  getActiveSpeaker(): Participant | null {
-    if (this.participants.length === 0) return null;
-
-    // 0. Manual pin override if target participant exists
-    if (this.pinnedUserId) {
-      const pinned = this.participants.find(p => p.userId === this.pinnedUserId);
-      if (pinned) return pinned;
-    }
-    return selectSpeakerSel(this.participants, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams);
-  }
-
-  getActiveSpeakerStream(): MediaStream | null {
-    const activeSpeaker = this.getActiveSpeaker();
-    if (!activeSpeaker) return null;
-    return getStreamSel(activeSpeaker, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams) || null;
-  }
-
-  getOtherParticipants(): Participant[] {
-    const activeSpeaker = this.getActiveSpeaker();
-    return this.participants.filter(p => p.userId !== activeSpeaker?.userId).slice(0, 4);
-  }
-
-  getParticipantInitials(participant: Participant): string {
-    const name = participant.name || 'User';
-    const words = name.split(' ');
-    if (words.length >= 2) {
-      return (words[0][0] + words[1][0]).toUpperCase();
-    }
-    return name.substring(0, 2).toUpperCase();
-  }
-
-  getParticipantBackgroundColor(participant: Participant): string {
-    const colors = [
-      'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-pink-500',
-      'bg-indigo-500', 'bg-yellow-500', 'bg-red-500', 'bg-teal-500'
-    ];
-    
-    const hash = participant.userId.split('').reduce((a, b) => {
-      a = ((a << 5) - a) + b.charCodeAt(0);
-      return a & a;
-    }, 0);
-    
-    return colors[Math.abs(hash) % colors.length];
-  }
-
-  isParticipantVideoVisible(participant: Participant): boolean {
-    const visible = isVisibleSel(participant, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams);
-    if (this.shouldLogVideoState(participant.userId, visible)) {
-      if (this.logUi) {
-      }
-      setTimeout(() => this.cdr.detectChanges(), 100);
-    }
-    return visible;
-  }
-
+  // ✅ CLEANED: Removed duplicate methods - using unified service
+  
   private shouldLogVideoState(userId: string, currentState: boolean): boolean {
     const lastState = this.lastVideoStates.get(userId);
     this.lastVideoStates.set(userId, currentState);
@@ -187,31 +135,11 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
     return getStreamSel(participant, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams);
   }
 
-  getParticipantDisplayName(participant: Participant): string {
-    if (participant.userId === this.currentUserId) {
-      return 'You';
-    }
-    return participant.name;
-  }
-
   trackByUserId(index: number, item: Participant) {
     return item.userId;
   }
 
-  togglePin(participant: Participant) {
-    if (!participant) return;
-    if (this.pinnedUserId === participant.userId) {
-      this.pinnedUserId = null;
-    } else {
-      this.pinnedUserId = participant.userId;
-    }
-    this.cdr.detectChanges();
-  }
-
-  isPinned(participant?: Participant): boolean {
-    if (!participant) return false;
-    return this.pinnedUserId === participant.userId;
-  }
+  // ✅ CLEANED: Removed duplicate methods - using unified versions below
 
   onMainVideoLoaded(event: Event) {
     const video = event.target as HTMLVideoElement;
@@ -240,87 +168,161 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
     // handled silently to avoid console noise
   }
   
+  // ✅ OPTIMIZED: Unified video update with throttling
+  private videoUpdateScheduled = false;
+  
   ngAfterViewChecked() {
-    // Update main video srcObject
-    if (this.mainVideo) {
-      const activeSpeaker = this.getActiveSpeaker();
-      if (activeSpeaker) {
-        // DOĞRUDAN stream al - getActiveSpeakerStream() isVideoOn kontrolü yapıyor!
-        let stream: MediaStream | undefined;
-        if (activeSpeaker.userId === this.currentUserId) {
-          stream = this.localStream;
-        } else {
-          stream = this.remoteStreams.get(activeSpeaker.userId); // Direct access!
-        }
-        
-        const videoElement = this.mainVideo.nativeElement;
-        
-        if (stream && stream.getVideoTracks().length > 0) {
-          const videoTrack = stream.getVideoTracks()[0];
-          // Use same check as isVideoTrackLive for consistency
-          const isTrackLive = videoTrack && videoTrack.readyState === 'live' && videoTrack.enabled && !videoTrack.muted;
-          
-          if (isTrackLive && videoElement.srcObject !== stream) {
-            console.log(`🎬 Setting main video srcObject for ${activeSpeaker.name}:`, {
-              userId: activeSpeaker.userId,
-              streamId: stream.id,
-              videoTracks: stream.getVideoTracks().length,
-              trackReadyState: videoTrack.readyState,
-              trackEnabled: videoTrack.enabled,
-              trackMuted: videoTrack.muted
-            });
-            
-            videoElement.srcObject = stream;
-            videoElement.play().catch(error => {
-              console.error(`Failed to play main video for ${activeSpeaker.name}:`, error);
-            });
-          } else if (videoElement.srcObject && !isTrackLive) {
-            // Track not live anymore, clear video
-            videoElement.srcObject = null;
-          }
-        } else if (videoElement.srcObject) {
-          // Stream yoksa veya track inactive ise temizle
-          videoElement.srcObject = null;
+    if (this.videoUpdateScheduled) return;
+    
+    this.videoUpdateScheduled = true;
+    requestAnimationFrame(() => {
+      this.updateAllVideoElements();
+      this.videoUpdateScheduled = false;
+    });
+  }
+  
+  // ✅ OPTIMIZED: Single change detection per component
+  private scheduleChangeDetection() {
+    if (this.changeDetectionScheduled) return;
+    
+    this.changeDetectionScheduled = true;
+    requestAnimationFrame(() => {
+      this.scheduleChangeDetection();
+      this.changeDetectionScheduled = false;
+    });
+  }
+  
+  private changeDetectionScheduled = false;
+  
+  private updateAllVideoElements() {
+    this.updateMainVideo();
+    this.updateThumbnailVideos();
+  }
+  
+  // ✅ UNIFIED: Main video update logic
+  private updateMainVideo() {
+    if (!this.mainVideo) return;
+    
+    const activeSpeaker = this.getActiveSpeaker();
+    if (!activeSpeaker) return;
+    
+    const stream = this.getStreamForParticipant(activeSpeaker);
+    const videoElement = this.mainVideo.nativeElement;
+    
+    this.updateSingleVideoElement(videoElement, stream, activeSpeaker, 'main');
+  }
+  
+  // ✅ UNIFIED: Thumbnail videos update logic
+  private updateThumbnailVideos() {
+    if (!this.thumbnailVideos) return;
+    
+    this.thumbnailVideos.forEach(videoRef => {
+      const videoElement = videoRef.nativeElement;
+      const userId = videoElement.getAttribute('data-user-id');
+      
+      if (userId) {
+        const participant = this.participants.find(p => p.userId === userId);
+        if (participant) {
+          const stream = this.getStreamForParticipant(participant);
+          this.updateSingleVideoElement(videoElement, stream, participant, 'thumbnail');
         }
       }
+    });
+  }
+  
+  // ✅ UNIFIED: Single video element update logic
+  private updateSingleVideoElement(videoElement: HTMLVideoElement, stream: MediaStream | undefined, participant: Participant, type: 'main' | 'thumbnail') {
+    if (stream && stream.getVideoTracks().length > 0) {
+      const videoTrack = stream.getVideoTracks()[0];
+      const isTrackLive = isVideoTrackLive(stream);
+      
+      if (isTrackLive && videoElement.srcObject !== stream) {
+        console.log(`🎬 Setting ${type} video srcObject for ${participant.name}:`, {
+          userId: participant.userId,
+          streamId: stream.id,
+          videoTracks: stream.getVideoTracks().length,
+          trackReadyState: videoTrack.readyState,
+          trackEnabled: videoTrack.enabled,
+          trackMuted: videoTrack.muted
+        });
+        
+        videoElement.srcObject = stream;
+        videoElement.play().catch(error => {
+          console.error(`Failed to play ${type} video for ${participant.name}:`, error);
+        });
+      } else if (videoElement.srcObject && !isTrackLive) {
+        videoElement.srcObject = null;
+      }
+    } else if (videoElement.srcObject) {
+      videoElement.srcObject = null;
+    }
+  }
+  
+  // ✅ UNIFIED: Get stream for participant
+  private getStreamForParticipant(participant: Participant): MediaStream | undefined {
+    if (participant.userId === this.currentUserId) {
+      return this.localStream;
+    } else {
+      return this.remoteStreams.get(participant.userId);
+    }
+  }
+  
+  // ✅ UNIFIED: Use service methods instead of duplicates
+  isParticipantVideoVisible(participant: Participant): boolean {
+    return isVisibleSel(participant, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams);
+  }
+  
+  isVideoLoading(participant: Participant): boolean {
+    return isVideoLoadingSel(participant, this.currentUserId, this.localStream, this.remoteStreams);
+  }
+  
+  getActiveSpeaker(): Participant | null {
+    if (this.participants.length === 0) return null;
+
+    // Manual pin override if target participant exists
+    if (this.pinnedUserId) {
+      const pinned = this.participants.find(p => p.userId === this.pinnedUserId);
+      if (pinned) return pinned;
     }
     
-    // Update thumbnail videos
-    if (this.thumbnailVideos) {
-      this.thumbnailVideos.forEach(videoRef => {
-        const videoElement = videoRef.nativeElement;
-        const userId = videoElement.getAttribute('data-user-id');
-        
-        if (userId) {
-          const participant = this.participants.find(p => p.userId === userId);
-          if (participant) {
-            // DOĞRUDAN remoteStreams.get() - getParticipantStream() isVideoOn kontrolü yapıyor!
-            let stream: MediaStream | undefined;
-            if (participant.userId === this.currentUserId) {
-              stream = this.localStream;
-            } else {
-              stream = this.remoteStreams.get(participant.userId); // Direct access!
-            }
-            
-            if (stream && stream.getVideoTracks().length > 0) {
-              const videoTrack = stream.getVideoTracks()[0];
-              // Use same check as isVideoTrackLive for consistency
-              const isTrackLive = videoTrack && videoTrack.readyState === 'live' && videoTrack.enabled && !videoTrack.muted;
-              
-              if (isTrackLive && videoElement.srcObject !== stream) {
-                videoElement.srcObject = stream;
-                videoElement.play().catch(() => {});
-              } else if (videoElement.srcObject && !isTrackLive) {
-                // Track not live anymore, clear video
-                videoElement.srcObject = null;
-              }
-            } else if (videoElement.srcObject) {
-              // Temizle
-              videoElement.srcObject = null;
-            }
-          }
-        }
-      });
+    return selectSpeakerSel(this.participants, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams);
+  }
+  
+  getActiveSpeakerStream(): MediaStream | null {
+    const activeSpeaker = this.getActiveSpeaker();
+    if (!activeSpeaker) return null;
+    return getStreamSel(activeSpeaker, this.currentUserId, this.meetingState, this.localStream, this.remoteStreams) || null;
+  }
+  
+  getOtherParticipants(): Participant[] {
+    const activeSpeaker = this.getActiveSpeaker();
+    return this.participants.filter(p => p.userId !== activeSpeaker?.userId).slice(0, 4);
+  }
+  
+  getParticipantBackgroundColor(participant: Participant): string {
+    return this.participantUI.getParticipantBackgroundColor(participant);
+  }
+  
+  getParticipantInitials(participant: Participant): string {
+    return this.participantUI.getParticipantInitials(participant);
+  }
+  
+  getParticipantDisplayName(participant: Participant): string {
+    return this.participantUI.getParticipantDisplayName(participant, this.currentUserId);
+  }
+  
+  togglePin(participant: Participant): void {
+    if (!participant) return;
+    if (this.pinnedUserId === participant.userId) {
+      this.pinnedUserId = null;
+    } else {
+      this.pinnedUserId = participant.userId;
     }
+    this.scheduleChangeDetection();
+  }
+  
+  isPinned(participant: Participant): boolean {
+    if (!participant) return false;
+    return this.pinnedUserId === participant.userId;
   }
 }
