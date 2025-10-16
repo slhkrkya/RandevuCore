@@ -238,7 +238,7 @@ namespace RandevuCore.API.Realtime
             await BroadcastMeetingDuration(roomId);
         }
 
-        // ✨ NEW: Authoritative state update - client sends state, server stores & broadcasts with version
+        // NEW: Authoritative state update - client sends state, server stores & broadcasts with version
         public async Task UpdateParticipantState(string roomId, ParticipantStateDto dto)
         {
             if (!roomId.StartsWith("meeting-")) return;
@@ -320,6 +320,74 @@ namespace RandevuCore.API.Realtime
             public Guid? ParticipantUserId { get; set; }
             public bool HasVideo { get; set; }
             public bool HasAudio { get; set; }
+        }
+        
+        // NEW: WebRTC Signaling DTOs
+        public class WebRtcOfferDto
+        {
+            public Guid TargetUserId { get; set; }
+            public object? Offer { get; set; } // RTCSessionDescriptionInit
+        }
+        
+        public class WebRtcAnswerDto
+        {
+            public Guid TargetUserId { get; set; }
+            public object? Answer { get; set; } // RTCSessionDescriptionInit
+        }
+        
+        public class WebRtcIceCandidateDto
+        {
+            public Guid TargetUserId { get; set; }
+            public object? Candidate { get; set; } // RTCIceCandidateInit
+        }
+
+        // NEW: WebRTC Signaling Methods for direct offer/answer/ICE communication
+        public async Task SendOffer(string roomId, WebRtcOfferDto dto)
+        {
+            if (!roomId.StartsWith("meeting-")) return;
+            
+            var (fromUserId, _) = GetUser();
+            
+            // Send offer to specific target user
+            await Clients.Group(roomId).SendAsync("webrtc-offer", new
+            {
+                fromUserId = fromUserId,
+                targetUserId = dto.TargetUserId,
+                offer = dto.Offer,
+                timestamp = DateTimeOffset.UtcNow
+            });
+        }
+        
+        public async Task SendAnswer(string roomId, WebRtcAnswerDto dto)
+        {
+            if (!roomId.StartsWith("meeting-")) return;
+            
+            var (fromUserId, _) = GetUser();
+            
+            // Send answer to specific target user
+            await Clients.Group(roomId).SendAsync("webrtc-answer", new
+            {
+                fromUserId = fromUserId,
+                targetUserId = dto.TargetUserId,
+                answer = dto.Answer,
+                timestamp = DateTimeOffset.UtcNow
+            });
+        }
+        
+        public async Task SendIceCandidate(string roomId, WebRtcIceCandidateDto dto)
+        {
+            if (!roomId.StartsWith("meeting-")) return;
+            
+            var (fromUserId, _) = GetUser();
+            
+            // Send ICE candidate to specific target user
+            await Clients.Group(roomId).SendAsync("webrtc-ice", new
+            {
+                fromUserId = fromUserId,
+                targetUserId = dto.TargetUserId,
+                candidate = dto.Candidate,
+                timestamp = DateTimeOffset.UtcNow
+            });
         }
 
         public async Task EndMeeting(string roomId)

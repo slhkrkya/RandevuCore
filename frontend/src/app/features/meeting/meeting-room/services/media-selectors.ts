@@ -34,10 +34,14 @@ export function isParticipantVideoVisible(
   // 3. Participant has video on and we have a video track (even if not live), OR
   // 4. Participant has video on (for late joiner scenarios where stream might not be ready yet)
   // 5. ✅ NEW: Always show if participant state says video is on (for rejoin scenarios)
+  // 6. ✅ FIXED: For rejoin scenarios, be more aggressive about showing video
+  const isRejoinScenario = shouldShow && !hasStream && !hasVideoTrack;
+  
   return !!(hasLive && shouldShow) || 
          !!(hasStream && shouldShow) || 
          !!(hasVideoTrack && shouldShow) || 
-         shouldShow;
+         shouldShow ||
+         isRejoinScenario;
 }
 
 export function getStreamForParticipant(

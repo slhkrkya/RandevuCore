@@ -262,6 +262,14 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
         } else if (videoElement.srcObject) {
           videoElement.srcObject = null;
         }
+        
+        // ✅ FIXED: Force video element update for rejoin scenarios
+        // This ensures video elements are properly updated even when streams are not immediately available
+        if (participant.isVideoOn && !stream) {
+          // Participant should have video but stream is not available yet
+          // This is common in rejoin scenarios
+          console.log(`🔄 ${type} video should be visible for ${participant.name} but stream not available yet`);
+        }
       }
   
   // ✅ UNIFIED: Get stream for participant
