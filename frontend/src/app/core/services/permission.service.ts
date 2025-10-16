@@ -73,7 +73,6 @@ export class PermissionService {
       });
 
     } catch (error) {
-      console.warn('Permission API not supported, falling back to getUserMedia test:', error);
       await this.checkPermissionsFallback();
     }
   }
@@ -98,7 +97,7 @@ export class PermissionService {
         this._permissions.update(current => ({ ...current, microphone: 'denied' }));
       }
     } catch (error) {
-      console.error('Error checking permissions:', error);
+      // Permission check failed
     }
   }
 

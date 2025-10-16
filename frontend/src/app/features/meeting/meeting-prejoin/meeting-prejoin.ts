@@ -80,7 +80,6 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
       this.isDeviceReady = true;
       this.deviceCheckMessage = 'Hazır!';
     } catch (error) {
-      console.error('Error initializing prejoin:', error);
       this.deviceCheckMessage = 'Cihaz erişimi gerekli. Lütfen izinleri kontrol edin.';
       this.isDeviceReady = false;
     }
@@ -104,8 +103,7 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
       // Immediately stop the stream to turn off camera LED
       stream.getTracks().forEach(track => track.stop());
     } catch (error) {
-      console.error('Permission request failed:', error);
-      // Don't throw error, just continue without device labels
+      // Permission request failed, continue without device labels
     }
   }
 
@@ -143,7 +141,7 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
         this.selectedMicrophone = this.availableMicrophones[0].deviceId;
       }
     } catch (error) {
-      console.error('Error loading devices:', error);
+      // Device loading error occurred
     }
   }
 
@@ -211,7 +209,6 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
       }
 
     } catch (error) {
-      console.error('Error starting preview:', error);
       this.cameraError = true;
       
       // Clear video on error

@@ -62,16 +62,7 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
           if (activeSpeaker) {
             const stream = this.getActiveSpeakerStream();
             const isVisible = this.isParticipantVideoVisible(activeSpeaker);
-            console.log(`🎯 Active Speaker Debug:`, {
-              userId: activeSpeaker.userId,
-              name: activeSpeaker.name,
-              isVideoOn: activeSpeaker.isVideoOn,
-              isScreenSharing: activeSpeaker.isScreenSharing,
-              isVisible,
-              hasStream: !!stream,
-              streamId: stream?.id,
-              videoTracks: stream?.getVideoTracks().length || 0
-            });
+            // Active speaker debug info (production-safe)
           }
         }, 100);
       }

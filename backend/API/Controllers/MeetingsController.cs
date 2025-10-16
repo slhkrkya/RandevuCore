@@ -17,7 +17,7 @@ namespace RandevuCore.API.Controllers
         private Guid GetUserId()
         {
             var id = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
-            if (string.IsNullOrWhiteSpace(id)) throw new UnauthorizedAccessException("Missing user id claim");
+            if (string.IsNullOrWhiteSpace(id)) throw new UnauthorizedAccessException("Invalid authentication");
             return Guid.Parse(id);
         }
 

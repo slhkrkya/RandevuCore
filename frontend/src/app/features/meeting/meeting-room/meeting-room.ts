@@ -324,7 +324,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       this.currentUserName = payload.name || payload.email || 'User';
       await this.checkHostStatus();
     } catch (error) {
-      console.error('Error parsing token:', error);
       this.router.navigate(['/login']);
       return;
     }
@@ -603,8 +602,9 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         
           replacePromises.push(
           transceiver.sender.replaceTrack(track as any)
-            .then(() => console.log(`✅ ${kind} track replaced for ${userId}`))
-            .catch(err => console.warn(`⚠️ ${kind} track replace failed for ${userId}:`, err))
+            .catch(err => {
+              // Track replacement failed
+            })
         );
       }
     });
@@ -613,18 +613,11 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     try {
       await Promise.allSettled(replacePromises);
     } catch (error) {
-      console.error(`Error during ${kind} track replacement:`, error);
+      // Track replacement error occurred
     }
   }
 
   private async updateAllPeerConnections() {
-    console.log(`🔄 Updating all peer connections:`, {
-      totalConnections: this.peerConnections.size,
-      hasLocalStream: !!this.localStream,
-      videoTracks: this.localStream?.getVideoTracks().length || 0,
-      audioTracks: this.localStream?.getAudioTracks().length || 0,
-      meetingState: this.meetingState
-    });
 
     // ✅ UNIFIED: Use single track replacement method
     const audioTrack = this.localStream?.getAudioTracks()[0] || null;
@@ -728,7 +721,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       // Broadcast state change
       await this.broadcastStateChange();
     } catch (error) {
-      console.error('Error toggling mute:', error);
+      // Mute toggle error occurred
     } finally {
       // Add small delay to prevent rapid clicking
       setTimeout(() => {
@@ -779,13 +772,8 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       // Notify UI
       // ✅ REACTIVE: No manual change detection needed - reactive streams handle UI updates
       
-      console.log(`✅ Video toggled successfully: ${this.meetingState.isVideoOn}`, {
-        hasLocalStream: !!this.localStream,
-        videoTracks: this.localStream?.getVideoTracks().length || 0,
-        peerConnectionsCount: this.peerConnections.size
-      });
+      // Video toggle completed successfully
     } catch (error) {
-      console.error('Failed to toggle video:', error);
       this.toast.error('Kamera değiştirilemedi. Lütfen tekrar deneyin.');
       // Revert state on error
       this.meetingState.isVideoOn = !this.meetingState.isVideoOn;
@@ -819,11 +807,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         throw new Error('Failed to get video stream');
       }
       
-      console.log('✅ Got video stream:', {
-        trackId: videoStream.getVideoTracks()[0]?.id,
-        trackEnabled: videoStream.getVideoTracks()[0]?.enabled,
-        trackReadyState: videoStream.getVideoTracks()[0]?.readyState
-      });
+      // Video stream obtained successfully
       
       // Merge with existing audio if available
       if (this.localStream && this.localStream.getAudioTracks().length > 0) {
@@ -857,14 +841,9 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         throw new Error('Video track lost during processing');
       }
       
-      console.log('✅ Camera enabled successfully', {
-        trackId: this.localStream.getVideoTracks()[0]?.id,
-        trackEnabled: this.localStream.getVideoTracks()[0]?.enabled,
-        trackReadyState: this.localStream.getVideoTracks()[0]?.readyState
-      });
+      // Camera enabled successfully
       
     } catch (error) {
-      console.error('Failed to enable camera:', error);
       throw error;
     }
   }
@@ -888,7 +867,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         } catch {}
       }
     } catch (error) {
-      console.error('Failed to disable camera:', error);
       throw error;
     }
   }
@@ -953,7 +931,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       await this.broadcastStateChange();
       // ✅ REACTIVE: No manual change detection needed - reactive streams handle UI updates
     } catch (error) {
-      console.error('Screen share error:', error);
       this.toast.error('Ekran paylaşımı başlatılamadı.');
     }
   }
@@ -1117,7 +1094,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     );
 
     if (newParticipants.length > 0) {
-      console.log(`🆕 New participants joined: ${newParticipants.map(p => p.name).join(', ')}`);
+      // New participants joined
       
       // ✅ ENHANCED: Serialize peer connection creation to prevent race conditions
       for (const participant of newParticipants) {
@@ -1125,10 +1102,10 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
           // Check if connection already exists (double-check)
           if (!this.peerConnections.has(participant.userId)) {
         await this.createPeerConnection(participant.userId);
-            console.log(`✅ Peer connection created for ${participant.name}`);
+            // Peer connection created successfully
           }
         } catch (error) {
-          console.error(`❌ Failed to create peer connection for ${participant.name}:`, error);
+          // Peer connection creation failed
         }
       }
       
@@ -1174,11 +1151,8 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
   private async createPeerConnection(userId: string) {
     // ✅ ENHANCED: Prevent duplicate peer connections
     if (this.peerConnections.has(userId)) {
-      console.log(`⚠️ Peer connection already exists for ${userId}, skipping creation`);
       return;
     }
-    
-    console.log(`🔗 Creating peer connection for ${userId}`);
     
     const configuration: RTCConfiguration = { 
       iceServers: [
@@ -1196,8 +1170,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     
     // Store connection immediately to prevent race conditions
     this.peerConnections.set(userId, pc);
-    
-    console.log(`✅ Peer connection stored for ${userId}`);
 
     // Determine polite role deterministically to avoid glare
     const polite = this.currentUserId < userId;
@@ -1221,7 +1193,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
             candidate: event.candidate
           });
         } catch (err) {
-          console.error('Failed to send ICE candidate:', err);
+          // ICE candidate send failed
         }
       }
     };
@@ -1244,11 +1216,8 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
           
           // Enhanced state validation - only proceed if we can make an offer
           if (pc.signalingState !== 'stable') {
-            console.log(`⏳ Skipping onnegotiationneeded for ${uid} - not stable (state: ${pc.signalingState})`);
             return;
           }
-          
-          console.log(`🔄 onnegotiationneeded triggered for ${uid}, creating offer`);
           this.makingOffer.set(uid, true);
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
@@ -1256,9 +1225,8 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
             targetUserId: uid,
             offer: pc.localDescription
           });
-          console.log(`✅ Offer sent to ${uid} via onnegotiationneeded`);
         } catch (err) {
-          console.error(`❌ onnegotiationneeded error for ${uid}:`, err);
+          // Negotiation error occurred
         } finally {
           this.makingOffer.set(uid, false);
         }
@@ -1323,7 +1291,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         }, 100);
         
       } catch (error) {
-          console.error('Error handling track:', error);
+          // Track handling error occurred
       }
         
       track.onended = () => {
@@ -1391,7 +1359,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         const shouldSendVideo = !!videoTrack && (this.meetingState.isVideoOn || this.meetingState.isScreenSharing);
       await this.replaceTrackForSinglePeer(userId, shouldSendVideo ? videoTrack : null, 'video');
     } catch (err) {
-      console.warn('Error applying local tracks to PC:', err);
+      // Error applying local tracks to peer connection
     }
   }
   
@@ -1407,9 +1375,8 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       
       try {
         await transceiver.sender.replaceTrack(track as any);
-        console.log(`✅ ${kind} track applied for ${userId}`);
     } catch (err) {
-        console.warn(`⚠️ ${kind} track apply failed for ${userId}:`, err);
+        // Track apply failed
       }
     }
   }
@@ -1425,7 +1392,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // ✅ ENHANCED: Ensure peer connection exists
     if (!pc) {
-      console.error(`❌ Failed to create peer connection for ${fromUserId}`);
       return;
     }
 
@@ -1435,21 +1401,17 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       
       if (offerCollision) {
         if (!polite) {
-          console.log(`🚫 Ignoring offer due to collision (impolite) - state: ${pc.signalingState}`);
           return;
         }
-        console.log(`🔄 Handling offer collision - rolling back from ${pc.signalingState} to stable`);
         try { 
           await pc.setLocalDescription({ type: 'rollback' } as any); 
         } catch (rollbackError) {
-          console.warn(`⚠️ Rollback failed, recreating connection:`, rollbackError);
           this.cleanupPeerConnection(fromUserId);
           pc = await this.createPeerConnection(fromUserId);
           if (!pc) return;
         }
       }
 
-      console.log(`📥 Processing offer from ${fromUserId}, current state: ${pc.signalingState}`);
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
       
       // Process pending ICE candidates
@@ -1458,26 +1420,22 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       
-      console.log(`📤 Sending answer to ${fromUserId}, new state: ${pc.signalingState}`);
       await this.signalr.invoke('SendAnswer', this.roomKey, {
         targetUserId: fromUserId,
         answer: pc.localDescription
       });
     } catch (error) {
-      console.error(`❌ Error handling offer from ${fromUserId}:`, error);
-      
       // Enhanced error handling for different WebRTC states
       const errorMessage = (error as any)?.message || '';
       const isStateError = errorMessage.includes('wrong state') || errorMessage.includes('stable');
       const isSdpError = errorMessage.includes('m-lines') || errorMessage.includes('order');
       
       if (isStateError || isSdpError) {
-        console.log(`🔧 Recreating peer connection for ${fromUserId} due to state/SDP error`);
         try {
           this.cleanupPeerConnection(fromUserId);
           await this.createPeerConnection(fromUserId);
         } catch (e) {
-          console.error(`❌ Failed to recreate connection for ${fromUserId}:`, e);
+          // Connection recreation failed
         }
       }
     }
@@ -1502,7 +1460,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       // Process pending ICE candidates
       await this.processPendingIceCandidates(fromUserId);
     } catch (error) {
-      console.error('Error handling answer:', error);
       // Self-heal on SDP/m-line issues
       const isSdpOrderError = (error as any)?.message?.includes('m-lines') || (error as any)?.message?.includes('order');
       if (isSdpOrderError) {
@@ -1510,7 +1467,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
           this.cleanupPeerConnection(fromUserId);
           await this.createPeerConnection(fromUserId);
         } catch (e) {
-          console.warn('Failed to self-heal by recreating PC (answer):', e);
+          // Self-heal failed
         }
       }
     }
@@ -1538,14 +1495,13 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
           this.pendingIceCandidates.get(fromUserId)!.push(candidate);
         }
       } catch (error) {
-        console.error('Error adding ICE candidate:', error);
+        // ICE candidate addition failed
       }
     }
   }
 
   // ✅ ENHANCED: Handle initial state snapshot with track ready simulation
   private handleInitialParticipantStates(states: any[]) {
-    console.log('📥 Received initial participant states:', states.length);
     
     states.forEach(state => {
       const versionedState: ParticipantStateVersioned = {
@@ -1575,11 +1531,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         isScreenSharing: state.isScreenSharing
       });
       
-      console.log(`📊 Initial state for ${state.userId}:`, {
-        isVideoOn: state.isVideoOn,
-        videoStatus: versionedState.videoStatus,
-        version: state.version
-      });
+      // Initial state processed
     });
     
     // ✅ FIXED: Check if we have remote streams for participants who should have video
@@ -1617,7 +1569,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
   
   // ✅ NEW: Validate and fix participant states based on actual streams
   private validateAndFixParticipantStates() {
-    console.log('🔍 Validating and fixing participant states based on actual streams');
     
     this.participantStatesVersioned.forEach((versionedState, userId) => {
       if (userId === this.currentUserId) return; // Skip current user
@@ -1628,8 +1579,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       
       // Check if participant should have video based on actual stream
       if (hasVideoTrack && !versionedState.isVideoOn) {
-        console.log(`🔧 FIXING: ${userId} has video track but state says video is off - correcting state`);
-        
         // Update versioned state
         versionedState.isVideoOn = true;
         versionedState.videoTrackArrived = true;
@@ -1640,13 +1589,10 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         // Update participant service
         this.updateParticipantStateUnified(userId, { isVideoOn: true });
         
-        console.log(`✅ Fixed participant state for ${userId} - video is now on`);
       }
       
       // Check if participant should have audio based on actual stream
       if (hasAudioTrack && versionedState.isMuted) {
-        console.log(`🔧 FIXING: ${userId} has audio track but state says muted - correcting state`);
-        
         // Update versioned state
         versionedState.isMuted = false;
         versionedState.audioTrackArrived = true;
@@ -1656,25 +1602,14 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         // Update participant service
         this.updateParticipantStateUnified(userId, { isMuted: false });
         
-        console.log(`✅ Fixed participant state for ${userId} - audio is now unmuted`);
       }
     });
     
-    // Log final state for debugging
-    console.log('🔍 Final participant states after validation:', 
-      Array.from(this.participantStatesVersioned.entries()).map(([userId, state]) => ({
-        userId,
-        isVideoOn: state.isVideoOn,
-        isMuted: state.isMuted,
-        videoStatus: state.videoStatus,
-        videoTrackArrived: state.videoTrackArrived
-      }))
-    );
+    // State validation completed
   }
   
   // ✅ ENHANCED: Simulate track ready events for participants who already have streams
   private simulateTrackReadyEventsForExistingParticipants() {
-    console.log('🔄 Simulating track ready events for existing participants');
 
     this.participantStatesVersioned.forEach((versionedState, userId) => {
       if (userId === this.currentUserId) return; // Skip current user
@@ -1685,8 +1620,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         const hasAudio = remoteStream.getAudioTracks().length > 0;
 
         if (hasVideo || hasAudio) {
-          console.log(`🎬 Simulating track ready for ${userId}:`, { hasVideo, hasAudio });
-
           // Simulate track ready event
           this.handleParticipantTrackReady({
             userId: userId,
@@ -1698,8 +1631,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         // ✅ ENHANCED: Even if no stream yet, simulate based on participant state
         // This fixes the "B rejoin, A's camera open but B can't see A" problem
         if (versionedState.isVideoOn || versionedState.isScreenSharing) {
-          console.log(`🎬 Simulating pending track ready for ${userId} (video should be on)`);
-
           // Simulate pending state - this will trigger video visibility
           this.handleParticipantTrackReady({
             userId: userId,

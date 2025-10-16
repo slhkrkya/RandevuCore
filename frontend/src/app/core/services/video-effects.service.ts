@@ -30,28 +30,23 @@ export class VideoEffectsService {
 
   // Helper method to draw video with optional mirror effect
   private drawVideoWithMirror(ctx: CanvasRenderingContext2D, videoEl: HTMLVideoElement, width: number, height: number, mirror: boolean = false) {
-    console.log('🎬 drawVideoWithMirror called:', { mirror, width, height, videoWidth: videoEl.videoWidth, videoHeight: videoEl.videoHeight });
     if (mirror) {
       ctx.save();
       ctx.scale(-1, 1);
       ctx.drawImage(videoEl, -width, 0, width, height);
       ctx.restore();
-      console.log('✅ Mirror applied');
     } else {
       ctx.drawImage(videoEl, 0, 0, width, height);
-      console.log('✅ Normal video drawn');
     }
   }
 
   async apply(input: MediaStream, settings: VideoBackgroundSettings): Promise<MediaStream> {
-    console.log('🎬 VideoEffectsService.apply called:', { mode: settings.mode, mirrorPreview: settings.mirrorPreview });
     
     // Stop any previous processing BEFORE creating a new pipeline
     this.stop();
 
     // If no effects needed (no background and no mirror), return original stream
     if (settings.mode === 'none' && !settings.mirrorPreview) {
-      console.log('✅ No effects needed, returning original stream');
       return input;
     }
 
@@ -246,7 +241,6 @@ export class VideoEffectsService {
         }
       } else if (settings.mode === 'none') {
         // Just mirror preview without any background effects
-        console.log('🎬 Drawing mirror preview for mode=none');
         this.drawVideoWithMirror(drawCtx, videoEl, width, height, settings.mirrorPreview);
       }
 

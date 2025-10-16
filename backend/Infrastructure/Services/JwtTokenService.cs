@@ -30,7 +30,7 @@ namespace RandevuCore.Infrastructure.Services
             var expMinutesString = _config["JwtSettings:ExpirationMinutes"];
 
             if (string.IsNullOrWhiteSpace(secret))
-                throw new ArgumentNullException(nameof(secret), "JWT Secret is not configured (JwtSettings:Secret)");
+                throw new ArgumentNullException(nameof(secret), "Authentication configuration error");
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
