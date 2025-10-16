@@ -28,11 +28,30 @@ export class VideoEffectsService {
     } catch {}
   }
 
+  // Helper method to draw video with optional mirror effect
+  private drawVideoWithMirror(ctx: CanvasRenderingContext2D, videoEl: HTMLVideoElement, width: number, height: number, mirror: boolean = false) {
+    console.log('🎬 drawVideoWithMirror called:', { mirror, width, height, videoWidth: videoEl.videoWidth, videoHeight: videoEl.videoHeight });
+    if (mirror) {
+      ctx.save();
+      ctx.scale(-1, 1);
+      ctx.drawImage(videoEl, -width, 0, width, height);
+      ctx.restore();
+      console.log('✅ Mirror applied');
+    } else {
+      ctx.drawImage(videoEl, 0, 0, width, height);
+      console.log('✅ Normal video drawn');
+    }
+  }
+
   async apply(input: MediaStream, settings: VideoBackgroundSettings): Promise<MediaStream> {
+    console.log('🎬 VideoEffectsService.apply called:', { mode: settings.mode, mirrorPreview: settings.mirrorPreview });
+    
     // Stop any previous processing BEFORE creating a new pipeline
     this.stop();
 
-    if (settings.mode === 'none') {
+    // If no effects needed (no background and no mirror), return original stream
+    if (settings.mode === 'none' && !settings.mirrorPreview) {
+      console.log('✅ No effects needed, returning original stream');
       return input;
     }
 
@@ -170,7 +189,7 @@ export class VideoEffectsService {
         if (tempCtx) {
           tempCtx.clearRect(0, 0, width, height);
           tempCtx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
-          tempCtx.drawImage(videoEl, 0, 0, width, height);
+          this.drawVideoWithMirror(tempCtx, videoEl, width, height, settings.mirrorPreview);
           tempCtx.filter = 'none';
         }
 
@@ -183,20 +202,20 @@ export class VideoEffectsService {
           drawCtx.save();
           drawCtx.drawImage(mask, 0, 0, width, height);
           drawCtx.globalCompositeOperation = 'source-in';
-          drawCtx.drawImage(videoEl, 0, 0, width, height);
+          this.drawVideoWithMirror(drawCtx, videoEl, width, height, settings.mirrorPreview);
           drawCtx.globalCompositeOperation = 'destination-over';
           if (tempCtx) {
             drawCtx.drawImage(tempCanvas, 0, 0, width, height);
           } else {
             drawCtx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
-            drawCtx.drawImage(videoEl, 0, 0, width, height);
+            this.drawVideoWithMirror(drawCtx, videoEl, width, height, settings.mirrorPreview);
             drawCtx.filter = 'none';
           }
           drawCtx.restore();
           } else {
           // No mask yet: show full-frame blur immediately
           drawCtx.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
-          drawCtx.drawImage(videoEl, 0, 0, width, height);
+          this.drawVideoWithMirror(drawCtx, videoEl, width, height, settings.mirrorPreview);
           drawCtx.filter = 'none';
           }
         }
@@ -210,7 +229,7 @@ export class VideoEffectsService {
           // Mask then draw person
           drawCtx.drawImage(mask, 0, 0, width, height);
           drawCtx.globalCompositeOperation = 'source-in';
-          drawCtx.drawImage(videoEl, 0, 0, width, height);
+          this.drawVideoWithMirror(drawCtx, videoEl, width, height, settings.mirrorPreview);
           // Draw background behind
           drawCtx.globalCompositeOperation = 'destination-over';
           if (this.backgroundImageElement) {
@@ -222,9 +241,13 @@ export class VideoEffectsService {
           drawCtx.restore();
           } else {
           // No mask yet: keep original video to avoid empty preview
-          drawCtx.drawImage(videoEl, 0, 0, width, height);
+          this.drawVideoWithMirror(drawCtx, videoEl, width, height, settings.mirrorPreview);
           }
         }
+      } else if (settings.mode === 'none') {
+        // Just mirror preview without any background effects
+        console.log('🎬 Drawing mirror preview for mode=none');
+        this.drawVideoWithMirror(drawCtx, videoEl, width, height, settings.mirrorPreview);
       }
 
       this.animationHandle = requestAnimationFrame(render);
@@ -233,7 +256,7 @@ export class VideoEffectsService {
     // Kick the first frame to ensure captureStream has content
     if (ctx) {
       ctx.clearRect(0, 0, width, height);
-      ctx.drawImage(videoEl, 0, 0, width, height);
+      this.drawVideoWithMirror(ctx, videoEl, width, height, settings.mirrorPreview);
     }
     this.animationHandle = requestAnimationFrame(render);
 

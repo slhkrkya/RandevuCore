@@ -1,9 +1,10 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, inject, effect, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { SettingsService } from '../../../core/services/settings.service';
 import { VideoEffectsService } from '../../../core/services/video-effects.service';
+import { PermissionService } from '../../../core/services/permission.service';
 
 interface MediaDeviceInfo {
   deviceId: string;
@@ -31,8 +32,6 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
   
   isDeviceReady = false;
   deviceCheckMessage = 'Cihazlar hazırlanıyor...';
-  cameraReady = false;
-  micReady = false;
 
   availableCameras: MediaDeviceInfo[] = [];
   availableMicrophones: MediaDeviceInfo[] = [];
@@ -45,10 +44,13 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
   private analyser?: AnalyserNode;
   private dataArray?: Uint8Array;
   private animationFrame?: number;
-  mirrorPreview = () => false;
 
   private settings = inject(SettingsService);
   private effects = inject(VideoEffectsService);
+  public permissionService = inject(PermissionService);
+
+  // Mirror preview from settings
+  mirrorPreview = computed(() => this.settings.settings().videoBackground.mirrorPreview ?? true);
 
   constructor(
     private route: ActivatedRoute,
@@ -57,37 +59,39 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
 
   async ngOnInit() {
     this.meetingId = this.route.snapshot.paramMap.get('id') || '';
-    const pref = this.settings.settings().videoBackground.mirrorPreview;
-    this.mirrorPreview = () => !!pref;
     
-    this.deviceCheckMessage = 'Cihazlar kontrol ediliyor...';
+    this.deviceCheckMessage = 'Cihazlarınız hazırlanıyor...';
     
     try {
       await this.effects.preload();
       
-      this.deviceCheckMessage = 'İzinler alınıyor...';
+      this.deviceCheckMessage = 'Cihaz erişimi isteniyor...';
       await this.requestInitialPermission();
       
-      this.deviceCheckMessage = 'Cihazlar yükleniyor...';
+      this.deviceCheckMessage = 'Cihazlarınız taranıyor...';
       await this.loadDevices();
       
-      this.deviceCheckMessage = 'Önizleme hazırlanıyor...';
+      this.deviceCheckMessage = 'Önizleme başlatılıyor...';
       await this.startPreview();
       
-      this.deviceCheckMessage = 'Bağlantı test ediliyor...';
+      this.deviceCheckMessage = 'Bağlantı hazırlanıyor...';
       await new Promise(r => setTimeout(r, 1500));
       
-      this.cameraReady = this.isCameraOn;
-      this.micReady = this.isMicOn;
       this.isDeviceReady = true;
       this.deviceCheckMessage = 'Hazır!';
     } catch (error) {
       console.error('Error initializing prejoin:', error);
-      this.deviceCheckMessage = 'Hata! Cihaz izinlerini kontrol edin.';
+      this.deviceCheckMessage = 'Cihaz erişimi gerekli. Lütfen izinleri kontrol edin.';
       this.isDeviceReady = false;
     }
     
     window.addEventListener('settingschange', this.onSettingsChange as any);
+
+    // Listen for permission changes
+    effect(() => {
+      this.permissionService.permissions();
+      this.onPermissionChange();
+    });
   }
 
   private async requestInitialPermission() {
@@ -182,7 +186,8 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
         // Show video
         if (this.isCameraOn && this.previewVideo) {
           this.previewVideo.nativeElement.srcObject = this.processedStream || this.localStream || null;
-          this.previewVideo.nativeElement.style.transform = this.settings.settings().videoBackground.mirrorPreview ? 'scaleX(-1)' : 'none';
+          // Remove CSS transform since mirror is now handled by video effects
+          this.previewVideo.nativeElement.style.transform = 'none';
           try { await this.previewVideo.nativeElement.play(); } catch {}
         } else if (this.previewVideo) {
           this.previewVideo.nativeElement.srcObject = null;
@@ -225,6 +230,8 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
       this.effects.apply(this.localStream, vb).then(processed => {
         this.processedStream = processed;
         this.previewVideo!.nativeElement.srcObject = processed;
+        // Remove CSS transform since mirror is now handled by video effects
+        this.previewVideo!.nativeElement.style.transform = 'none';
       }).catch(() => {});
     }
   };
@@ -233,8 +240,16 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
     const input = event.target as HTMLInputElement;
     const checked = !!input?.checked;
     this.settings.setVideoBackgroundMirrorPreview(checked);
-    if (this.previewVideo?.nativeElement) {
-      this.previewVideo.nativeElement.style.transform = checked ? 'scaleX(-1)' : 'none';
+    
+    // Reapply effects to raw stream for live preview when mirror setting changes
+    if (this.isCameraOn && this.localStream && this.previewVideo) {
+      const vb = this.settings.settings().videoBackground;
+      this.effects.apply(this.localStream, vb).then(processed => {
+        this.processedStream = processed;
+        this.previewVideo!.nativeElement.srcObject = processed;
+        // Remove CSS transform since mirror is now handled by video effects
+        this.previewVideo!.nativeElement.style.transform = 'none';
+      }).catch(() => {});
     }
   }
 
@@ -341,14 +356,6 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
   async toggleCamera() {
     this.isCameraOn = !this.isCameraOn;
     await this.startPreview();
-    
-    if (this.isCameraOn && this.isDeviceReady) {
-      setTimeout(() => {
-        this.cameraReady = true;
-      }, 500);
-    } else {
-      this.cameraReady = false;
-    }
   }
 
   async toggleMicrophone() {
@@ -357,15 +364,9 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
     
     if (this.isMicOn) {
       this.startAudioLevelMonitoring();
-      if (this.isDeviceReady) {
-        setTimeout(() => {
-          this.micReady = true;
-        }, 500);
-      }
     } else {
       this.stopAudioLevelMonitoring();
       this.audioLevel = 0;
-      this.micReady = false;
     }
   }
 
@@ -398,22 +399,22 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
       localStorage.setItem('cameraEnabled', this.isCameraOn.toString());
       localStorage.setItem('microphoneEnabled', this.isMicOn.toString());
       
-      this.deviceCheckMessage = 'Cihazlar kapatılıyor...';
+      this.deviceCheckMessage = 'Cihazlarınız kapatılıyor...';
       this.stopPreview();
       
       const hasEffects = this.processedStream !== undefined;
       const initialWaitTime = hasEffects ? 800 : 400;
       
-      this.deviceCheckMessage = hasEffects ? 'Efektler temizleniyor...' : 'Hazırlanıyor...';
+      this.deviceCheckMessage = hasEffects ? 'Görüntü efektleri temizleniyor...' : 'Toplantıya hazırlanıyor...';
       await new Promise(resolve => setTimeout(resolve, initialWaitTime));
       
-      this.deviceCheckMessage = 'Kamera kontrol ediliyor...';
+      this.deviceCheckMessage = 'Cihaz durumu kontrol ediliyor...';
       const cameraReleased = await this.waitForCameraRelease();
       
       if (cameraReleased) {
         this.deviceCheckMessage = 'Toplantıya yönlendiriliyor...';
       } else {
-        this.deviceCheckMessage = 'Katılıyor...';
+        this.deviceCheckMessage = 'Toplantıya katılıyor...';
       }
       
       this.router.navigate(['/meetings', this.meetingId]);
@@ -440,6 +441,119 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
     }
     
     return false;
+  }
+
+  async requestCameraPermission() {
+    try {
+      this.loading = true;
+      this.deviceCheckMessage = 'Kamera izni isteniyor...';
+      
+      const success = await this.permissionService.requestCameraPermission();
+      
+      if (success) {
+        this.deviceCheckMessage = 'Kamera izni verildi! Cihazlar yükleniyor...';
+        await this.loadDevices();
+        await this.startPreview();
+        this.deviceCheckMessage = 'Hazır!';
+      } else {
+        this.deviceCheckMessage = 'Kamera izni reddedildi. Tarayıcı ayarlarından manuel olarak etkinleştirin.';
+      }
+    } catch (error) {
+      console.error('Error requesting camera permission:', error);
+      this.deviceCheckMessage = 'Kamera izin isteği başarısız. Tarayıcı ayarlarından manuel olarak etkinleştirin.';
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  async requestMicrophonePermission() {
+    try {
+      this.loading = true;
+      this.deviceCheckMessage = 'Mikrofon izni isteniyor...';
+      
+      const success = await this.permissionService.requestMicrophonePermission();
+      
+      if (success) {
+        this.deviceCheckMessage = 'Mikrofon izni verildi! Cihazlar yükleniyor...';
+        await this.loadDevices();
+        await this.startPreview();
+        this.deviceCheckMessage = 'Hazır!';
+      } else {
+        this.deviceCheckMessage = 'Mikrofon izni reddedildi. Tarayıcı ayarlarından manuel olarak etkinleştirin.';
+      }
+    } catch (error) {
+      console.error('Error requesting microphone permission:', error);
+      this.deviceCheckMessage = 'Mikrofon izin isteği başarısız. Tarayıcı ayarlarından manuel olarak etkinleştirin.';
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  async requestPermissions() {
+    try {
+      this.loading = true;
+      this.deviceCheckMessage = 'İzinler isteniyor...';
+      
+      const success = await this.permissionService.requestAllPermissions();
+      
+      if (success) {
+        this.deviceCheckMessage = 'İzinler verildi! Cihazlar yükleniyor...';
+        await this.loadDevices();
+        await this.startPreview();
+        this.deviceCheckMessage = 'Hazır!';
+      } else {
+        this.deviceCheckMessage = 'İzinler reddedildi. Tarayıcı ayarlarından manuel olarak etkinleştirin.';
+      }
+    } catch (error) {
+      console.error('Error requesting permissions:', error);
+      this.deviceCheckMessage = 'İzin isteği başarısız. Tarayıcı ayarlarından manuel olarak etkinleştirin.';
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  getDeviceName(device: MediaDeviceInfo): string {
+    if (device.label) {
+      return device.label;
+    }
+    
+    // Return generic names based on device kind
+    switch (device.kind) {
+      case 'videoinput':
+        return 'Kamera';
+      case 'audioinput':
+        return 'Mikrofon';
+      case 'audiooutput':
+        return 'Hoparlör';
+      default:
+        return `${device.kind} ${device.deviceId.slice(0, 8)}`;
+    }
+  }
+
+  private async onPermissionChange() {
+    console.log('Permission changed:', this.permissionService.permissions());
+    
+    // Reset device states when permissions are revoked
+    if (!this.permissionService.hasCameraPermission()) {
+      this.isCameraOn = false;
+      console.log('Camera permission revoked - turning off camera');
+    }
+    
+    if (!this.permissionService.hasMicrophonePermission()) {
+      this.isMicOn = false;
+      console.log('Microphone permission revoked - turning off microphone');
+    }
+    
+    // If permissions are now available, reload devices and restart preview
+    if (this.permissionService.hasCameraPermission() || this.permissionService.hasMicrophonePermission()) {
+      try {
+        await this.loadDevices();
+        await this.startPreview();
+        console.log('Devices reloaded after permission change');
+      } catch (error) {
+        console.error('Error reloading devices after permission change:', error);
+      }
+    }
   }
 
   goBack() {

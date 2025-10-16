@@ -1,10 +1,11 @@
-import { Component, Input, ViewChild, ViewChildren, QueryList, ElementRef, ChangeDetectorRef, OnInit, OnDestroy, OnChanges, AfterViewInit, AfterViewChecked } from '@angular/core';
+import { Component, Input, ViewChild, ViewChildren, QueryList, ElementRef, ChangeDetectorRef, OnInit, OnDestroy, OnChanges, AfterViewInit, AfterViewChecked, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { Participant, MeetingState } from '../meeting-room';
 import { isParticipantVideoVisible as isVisibleSel, getStreamForParticipant as getStreamSel, selectActiveSpeaker as selectSpeakerSel, isParticipantVideoLoading as isVideoLoadingSel, isVideoTrackLive } from '../services/media-selectors';
 import { ParticipantService } from '../services/participant.service';
 import { ParticipantUIService } from '../services/participant-ui.service';
+import { SettingsService } from '../../../../core/services/settings.service';
 
 @Component({
   selector: 'app-speaker-view',
@@ -32,6 +33,11 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
 
   @ViewChild('mainVideo') mainVideo?: ElementRef<HTMLVideoElement>;
   @ViewChildren('thumbnailVideo') thumbnailVideos!: QueryList<ElementRef<HTMLVideoElement>>;
+
+  private settings = inject(SettingsService);
+
+  // Mirror preview from settings
+  mirrorPreview = computed(() => this.settings.settings().videoBackground.mirrorPreview ?? true);
 
   constructor(
     private cdr: ChangeDetectorRef,
@@ -253,6 +259,10 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
             });
             
             videoElement.srcObject = stream;
+            
+            // Remove CSS transform since mirror is now handled by video effects service
+            videoElement.style.transform = 'none';
+            
             videoElement.play().catch(error => {
           console.error(`Failed to play ${type} video for ${participant.name}:`, error);
             });
@@ -348,8 +358,10 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
     if (!participant) return;
     if (this.pinnedUserId === participant.userId) {
       this.pinnedUserId = null;
+      console.log(`📌 Pin removed for: ${participant.name}`);
     } else {
       this.pinnedUserId = participant.userId;
+      console.log(`📌 Pin added for: ${participant.name}`);
     }
     this.scheduleChangeDetection();
   }

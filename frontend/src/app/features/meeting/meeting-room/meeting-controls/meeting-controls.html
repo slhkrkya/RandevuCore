@@ -8,10 +8,11 @@
       <!-- Mute/Unmute Button -->
       <button class="w-10 h-10 rounded-full text-white transition-all duration-200 hover:scale-105 shadow-md backdrop-blur-sm border border-slate-300/50 dark:border-slate-700/30"
               [class]="getMuteButtonClass()"
-              [class.opacity-50]="isMuteToggling"
-              [disabled]="isMuteToggling"
+              [class.opacity-50]="isMuteToggling || !permissionService.hasMicrophonePermission()"
+              [class.cursor-not-allowed]="!permissionService.hasMicrophonePermission()"
+              [disabled]="isMuteToggling || !permissionService.hasMicrophonePermission()"
               (click)="onToggleMute()"
-              [title]="isMuteToggling ? 'İşleniyor...' : (meetingState?.isMuted ? 'Sesi Aç' : 'Sesi Kapat')">
+              [title]="!permissionService.hasMicrophonePermission() ? 'Mikrofon izni gerekli' : (isMuteToggling ? 'İşleniyor...' : (meetingState?.isMuted ? 'Sesi Aç' : 'Sesi Kapat'))">
         <span class="material-symbols-outlined text-sm">
           {{ isMuteToggling ? 'hourglass_empty' : (meetingState?.isMuted ? 'mic_off' : 'mic') }}
         </span>
@@ -20,10 +21,11 @@
       <!-- Video On/Off Button -->
       <button class="w-10 h-10 rounded-full text-white transition-all duration-200 hover:scale-105 shadow-md backdrop-blur-sm border border-slate-300/50 dark:border-slate-700/30"
               [class]="getVideoButtonClass()"
-              [class.opacity-50]="isVideoToggling"
-              [disabled]="isVideoToggling"
+              [class.opacity-50]="isVideoToggling || !permissionService.hasCameraPermission()"
+              [class.cursor-not-allowed]="!permissionService.hasCameraPermission()"
+              [disabled]="isVideoToggling || !permissionService.hasCameraPermission()"
               (click)="onToggleVideo()"
-              [title]="isVideoToggling ? 'İşleniyor...' : (meetingState?.isVideoOn ? 'Kamerayı Kapat' : 'Kamerayı Aç')">
+              [title]="!permissionService.hasCameraPermission() ? 'Kamera izni gerekli' : (isVideoToggling ? 'İşleniyor...' : (meetingState?.isVideoOn ? 'Kamerayı Kapat' : 'Kamerayı Aç'))">
         <span class="material-symbols-outlined text-sm">
           {{ isVideoToggling ? 'hourglass_empty' : (meetingState?.isVideoOn ? 'videocam' : 'videocam_off') }}
         </span>

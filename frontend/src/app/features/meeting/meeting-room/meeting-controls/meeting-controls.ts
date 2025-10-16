@@ -1,6 +1,7 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MeetingState } from '../meeting-room';
+import { PermissionService } from '../../../../core/services/permission.service';
 
 @Component({
   selector: 'app-meeting-controls',
@@ -10,6 +11,8 @@ import { MeetingState } from '../meeting-room';
   styleUrls: ['./meeting-controls.css']
 })
 export class MeetingControlsComponent {
+  public permissionService = inject(PermissionService);
+
   @Input() meetingState: MeetingState | null = {
     isMuted: false,
     isVideoOn: false,

@@ -15,6 +15,7 @@ import { VideoEffectsService } from '../../../core/services/video-effects.servic
 import { ToastService } from '../../../core/services/toast.service';
 import { SettingsService } from '../../../core/services/settings.service';
 import { AppConfigService } from '../../../core/services/app-config.service';
+import { PermissionService } from '../../../core/services/permission.service';
 
 export interface Participant {
   connectionId: string;
@@ -223,7 +224,8 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     private settingsService: SettingsService,
     private zone: NgZone,
     private toast: ToastService,
-    private cfg: AppConfigService
+    private cfg: AppConfigService,
+    private permissionService: PermissionService
   ) {
     // ✅ REACTIVE: Initialize participants observable after service is available
     this.participants$ = this.participantService.participants$;
@@ -461,6 +463,10 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private handleSettingsChange = async () => {
     try {
+      // ✅ FIXED: Handle audio device and volume changes
+      await this.handleAudioSettingsChange();
+      
+      // Handle video background changes
       if (!this.rawLocalStream || !this.meetingState.isVideoOn) return;
       const settings = this.settingsService.settings().videoBackground;
       const processed = await this.videoEffects.apply(this.rawLocalStream, settings);
@@ -505,15 +511,14 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         audio: finalAudioEnabled
       };
 
-      // Add device preferences with error handling
-      const preferredCamera = localStorage.getItem('preferredCamera');
-      const preferredMicrophone = localStorage.getItem('preferredMicrophone');
+      // ✅ FIXED: Use SettingsService device preferences
+      const deviceSettings = this.settingsService.deviceSettings();
       
-      if (preferredCamera && cameraEnabled) {
-        (constraints.video as any) = { deviceId: { exact: preferredCamera } };
+      if (deviceSettings.cameraDeviceId && cameraEnabled) {
+        (constraints.video as any) = { deviceId: { exact: deviceSettings.cameraDeviceId } };
       }
-      if (preferredMicrophone && finalAudioEnabled) {
-        (constraints.audio as any) = { deviceId: { exact: preferredMicrophone } };
+      if (deviceSettings.microphoneDeviceId && finalAudioEnabled) {
+        (constraints.audio as any) = { deviceId: { exact: deviceSettings.microphoneDeviceId } };
       }
 
       const rawStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -527,6 +532,8 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       if (audioTrack) {
         audioTrack.enabled = microphoneEnabled;
+        // ✅ FIXED: Apply microphone volume from settings
+        this.applyMicrophoneVolume(audioTrack);
       }
 
       // Cache raw
@@ -800,10 +807,10 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
       
-      // Get fresh camera stream with video enabled
-      const preferredCamera = localStorage.getItem('preferredCamera');
+      // ✅ FIXED: Get fresh camera stream with SettingsService device preferences
+      const deviceSettings = this.settingsService.deviceSettings();
       const constraints: MediaStreamConstraints = {
-        video: preferredCamera ? { deviceId: { exact: preferredCamera } } : true,
+        video: deviceSettings.cameraDeviceId ? { deviceId: { exact: deviceSettings.cameraDeviceId } } : true,
         audio: false // We'll handle audio separately
       };
       const videoStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -827,10 +834,11 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         this.rawLocalStream = videoStream;
       }
       
-      // Apply video effects if needed
+      // Apply video effects if needed (including mirror preview)
       try {
         const settings = this.settingsService.settings().videoBackground;
-        if (settings.mode !== 'none') {
+        // Apply effects if there are any background effects OR mirror preview
+        if (settings.mode !== 'none' || settings.mirrorPreview) {
           const processed = await this.videoEffects.apply(this.rawLocalStream, settings);
           if (processed && processed.getVideoTracks().length > 0) {
             this.localStreamSubject.next(processed);
@@ -2703,6 +2711,42 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     this.addEventListener('local-video-track', track, eventHandlers);
   }
 
+  // ===== Audio settings change handler =====
+  private async handleAudioSettingsChange(): Promise<void> {
+    try {
+      if (!this.localStream) return;
+      
+      const deviceSettings = this.settingsService.deviceSettings();
+      const audioTrack = this.localStream.getAudioTracks()[0];
+      
+      if (audioTrack) {
+        // Apply microphone volume changes
+        this.applyMicrophoneVolume(audioTrack);
+      }
+      
+      // Re-setup audio analysis with new volume settings
+      this.setupAudioAnalysisForStream(this.currentUserId, this.localStream);
+      
+      console.log('✅ Audio settings applied to meeting room');
+    } catch (error) {
+      console.warn('Failed to apply audio settings:', error);
+    }
+  }
+
+  // ===== Audio volume control =====
+  private applyMicrophoneVolume(audioTrack: MediaStreamTrack): void {
+    try {
+      const deviceSettings = this.settingsService.deviceSettings();
+      const volume = deviceSettings.microphoneVolume;
+      
+      // Volume is now applied in setupAudioAnalysisForStream via gain node
+      console.log(`✅ Microphone volume setting: ${volume}%`);
+    } catch (error) {
+      console.warn('Failed to apply microphone volume:', error);
+    }
+  }
+  
+
   // ===== Active speaker detection =====
   private ensureAudioContext() {
     if (!this.audioContext) {
@@ -2729,7 +2773,32 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       const analyser = this.audioContext.createAnalyser();
       analyser.fftSize = 256;
       analyser.smoothingTimeConstant = 0.8;
-      src.connect(analyser);
+      
+      // ✅ FIXED: Add gain node for volume control
+      const gainNode = this.audioContext.createGain();
+      
+      // Apply volume from settings if this is local user
+      if (userId === this.currentUserId) {
+        const deviceSettings = this.settingsService.deviceSettings();
+        const volume = deviceSettings.microphoneVolume;
+        // Map 0-100 to 0.0-1.0 (normal), 50-100 to 1.0-1.5 (boost)
+        let gainValue: number;
+        if (volume <= 50) {
+          gainValue = (volume / 50); // 0..1
+        } else {
+          const over = (volume - 50) / 50; // 0..1
+          gainValue = 1 + over * 0.5; // 1..1.5
+        }
+        gainValue = Math.min(gainValue, 1.5); // safety cap
+        gainNode.gain.value = gainValue;
+        console.log(`✅ Applied microphone gain: ${gainValue} (volume: ${volume}%)`);
+      } else {
+        gainNode.gain.value = 1.0; // Default for remote users
+      }
+      
+      // Connect: src -> gain -> analyser
+      src.connect(gainNode);
+      gainNode.connect(analyser);
 
       this.audioSources.set(userId, src);
       this.analyserNodes.set(userId, analyser);

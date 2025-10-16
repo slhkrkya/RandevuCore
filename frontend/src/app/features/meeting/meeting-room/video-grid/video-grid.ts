@@ -1,10 +1,11 @@
-import { Component, Input, ViewChild, ViewChildren, QueryList, ElementRef, ChangeDetectorRef, OnInit, OnDestroy, OnChanges, AfterViewInit, AfterViewChecked } from '@angular/core';
+import { Component, Input, ViewChild, ViewChildren, QueryList, ElementRef, ChangeDetectorRef, OnInit, OnDestroy, OnChanges, AfterViewInit, AfterViewChecked, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { Participant, MeetingState } from '../meeting-room';
 import { isParticipantVideoVisible as isVisibleSel, getStreamForParticipant as getStreamSel, isParticipantVideoLoading as isVideoLoadingSel, isVideoTrackLive } from '../services/media-selectors';
 import { ParticipantService } from '../services/participant.service';
 import { ParticipantUIService } from '../services/participant-ui.service';
+import { SettingsService } from '../../../../core/services/settings.service';
 
 @Component({
   selector: 'app-video-grid',
@@ -33,6 +34,11 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
   private readonly logUi = ((): boolean => {
     try { return localStorage.getItem('log.ui') === 'true'; } catch { return false; }
   })();
+
+  private settings = inject(SettingsService);
+
+  // Mirror preview from settings
+  mirrorPreview = computed(() => this.settings.settings().videoBackground.mirrorPreview ?? true);
 
   constructor(
     private cdr: ChangeDetectorRef,
@@ -208,6 +214,10 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
         });
         
         videoElement.srcObject = stream;
+        
+        // Remove CSS transform since mirror is now handled by video effects service
+        videoElement.style.transform = 'none';
+        
         videoElement.play().catch(error => {
           console.error(`Failed to play video for ${participant.name}:`, error);
         });

@@ -37,15 +37,17 @@
       </div>
     </div>
     
-    <!-- Main Speaker Name + Pin toggle -->
+    <!-- Main Speaker Name with Pin Button -->
     <div class="main-speaker-name" *ngIf="getActiveSpeaker() as main">
       {{ getParticipantDisplayName(main) }}
       <span *ngIf="main.isHost" class="host-indicator">👑</span>
-      <button class="pin-btn"
+      <button class="inline-pin-btn"
               (click)="togglePin(main)"
               [attr.aria-pressed]="isPinned(main)"
-              title="Konuşmacıyı sabitle/kaldır">
-        <span class="material-symbols-outlined">{{ isPinned(main) ? 'star' : 'star_border' }}</span>
+              [title]="isPinned(main) ? 'Bu kişiyi ana ekrandan kaldır' : 'Bu kişiyi ana ekranda sabitle'">
+        <span class="material-symbols-outlined pin-icon" [class.pinned]="isPinned(main)">
+          {{ isPinned(main) ? 'push_pin' : 'push_pin' }}
+        </span>
       </button>
     </div>
     
@@ -85,12 +87,14 @@
         </div>
       </div>
 
-      <!-- Pin toggle on thumbnail -->
-      <button class="pin-thumb-btn"
+      <!-- Pin toggle on thumbnail - Top Left Corner -->
+      <button class="thumbnail-pin-btn"
               (click)="togglePin(participant)"
               [attr.aria-pressed]="isPinned(participant)"
-              title="Sabitle/Kaldır">
-        <span class="material-symbols-outlined text-sm">{{ isPinned(participant) ? 'star' : 'star_border' }}</span>
+              [title]="isPinned(participant) ? 'Bu kişiyi ana ekrandan kaldır' : 'Bu kişiyi ana ekranda sabitle'">
+        <span class="material-symbols-outlined pin-icon" [class.pinned]="isPinned(participant)">
+          {{ isPinned(participant) ? 'push_pin' : 'push_pin' }}
+        </span>
       </button>
       
     </div>
