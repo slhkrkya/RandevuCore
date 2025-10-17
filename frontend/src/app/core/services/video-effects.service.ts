@@ -195,7 +195,17 @@ export class VideoEffectsService {
           if (maskW > 0 && maskH > 0) {
           // MediaPipe recommended order: mask -> source-in (person) -> destination-over (background)
           drawCtx.save();
-          drawCtx.drawImage(mask, 0, 0, width, height);
+          
+          // ✅ FIXED: Mirror the mask if mirror preview is enabled
+          if (settings.mirrorPreview) {
+            drawCtx.save();
+            drawCtx.scale(-1, 1);
+            drawCtx.drawImage(mask, -width, 0, width, height);
+            drawCtx.restore();
+          } else {
+            drawCtx.drawImage(mask, 0, 0, width, height);
+          }
+          
           drawCtx.globalCompositeOperation = 'source-in';
           this.drawVideoWithMirror(drawCtx, videoEl, width, height, settings.mirrorPreview);
           drawCtx.globalCompositeOperation = 'destination-over';
@@ -221,8 +231,17 @@ export class VideoEffectsService {
           const maskH = (mask && (mask.height || mask.videoHeight)) || 0;
           if (maskW > 0 && maskH > 0) {
           drawCtx.save();
-          // Mask then draw person
-          drawCtx.drawImage(mask, 0, 0, width, height);
+          
+          // ✅ FIXED: Mirror the mask if mirror preview is enabled
+          if (settings.mirrorPreview) {
+            drawCtx.save();
+            drawCtx.scale(-1, 1);
+            drawCtx.drawImage(mask, -width, 0, width, height);
+            drawCtx.restore();
+          } else {
+            drawCtx.drawImage(mask, 0, 0, width, height);
+          }
+          
           drawCtx.globalCompositeOperation = 'source-in';
           this.drawVideoWithMirror(drawCtx, videoEl, width, height, settings.mirrorPreview);
           // Draw background behind

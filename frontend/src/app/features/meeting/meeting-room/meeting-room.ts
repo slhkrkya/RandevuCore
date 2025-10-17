@@ -439,11 +439,15 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       this.meetingState.isVideoOn = cameraEnabled;
       this.meetingState.isMuted = !microphoneEnabled;
 
-      // Only try to get media if at least one is enabled
+      // ✅ NEW: Always initialize peer connections first for better stability
+      await this.initializeAllPeerConnections();
+      
+      // Then try to get media if at least one is enabled
       if (cameraEnabled || microphoneEnabled) {
         await this.ensureLocalStream();
       } else {
-        // Both camera and mic are disabled, user can join without media
+        // Both camera and mic are disabled, but P2P connections are ready
+        console.log('✅ P2P connections established without media - ready for instant media toggle');
       }
       
       // Broadcast initial state immediately after media is initialized
@@ -582,7 +586,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // ✅ UNIFIED: Single track replacement method
+  // ✅ ENHANCED: Single track replacement method with optimized direction updates
   private async replaceTrackForAllPeers(track: MediaStreamTrack | null, kind: 'audio' | 'video') {
     const replacePromises: Promise<void>[] = [];
 
@@ -596,14 +600,27 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         : this.peerVideoTransceiver.get(userId);
         
       if (transceiver) {
-        // Determine direction based on track availability
+        // ✅ ENHANCED: Determine direction based on track availability
         const shouldSend = !!track;
-        transceiver.direction = shouldSend ? 'sendrecv' : 'recvonly';
+        const newDirection = shouldSend ? 'sendrecv' : 'recvonly';
         
-          replacePromises.push(
+        // Only update direction if it changed (performance optimization)
+        if (transceiver.direction !== newDirection) {
+          transceiver.direction = newDirection;
+          console.log(`🔄 Updated ${kind} transceiver direction to ${newDirection} for ${userId}`);
+        }
+        
+        replacePromises.push(
           transceiver.sender.replaceTrack(track as any)
+            .then(() => {
+              if (track) {
+                console.log(`✅ ${kind} track successfully replaced for ${userId}`);
+              } else {
+                console.log(`✅ ${kind} track removed for ${userId}`);
+              }
+            })
             .catch(err => {
-              // Track replacement failed
+              console.warn(`❌ ${kind} track replacement failed for ${userId}:`, err);
             })
         );
       }
@@ -612,8 +629,12 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     // Execute all replacements in parallel
     try {
       await Promise.allSettled(replacePromises);
+      console.log(`✅ Completed ${kind} track replacement for ${replacePromises.length} peers`);
+      
+      // ✅ FIXED: Force change detection after track replacement
+      this.cdr.markForCheck();
     } catch (error) {
-      // Track replacement error occurred
+      console.warn(`❌ Track replacement error occurred:`, error);
     }
   }
 
@@ -630,6 +651,10 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     // Handle video track replacement
     const shouldSendVideo = !!videoTrack && (this.meetingState.isVideoOn || this.meetingState.isScreenSharing);
     await this.replaceTrackForAllPeers(shouldSendVideo ? videoTrack : null, 'video');
+    
+    // ✅ FIXED: Force change detection after peer connections updated
+    this.cdr.markForCheck();
+    console.log('✅ Peer connections updated - UI refreshed');
   }
 
   // Removed explicit renegotiation; using onnegotiationneeded
@@ -679,7 +704,9 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       this.removeAudioAnalysis(userId);
     }
     
-    // ✅ REACTIVE: No manual change detection needed - reactive streams handle UI updates
+    // ✅ FIXED: Force change detection when remote track ends
+    this.cdr.markForCheck();
+    console.log(`✅ Remote track ended for ${userId} - UI updated for avatar cards`);
   }
 
   // ✅ REACTIVE: Meeting controls with reactive state management
@@ -691,6 +718,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     try {
       const currentState = this.meetingStateSubject.value;
       const newMutedState = !currentState.isMuted;
+      console.log(`🎤 Toggling mute: ${newMutedState ? 'MUTED' : 'UNMUTED'}`);
       
       // ✅ REACTIVE: Update meeting state through reactive stream
       this.meetingStateSubject.next({
@@ -699,13 +727,17 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       });
       
       if (this.localStream && this.localStream.getAudioTracks()[0]) {
+        // ✅ ENHANCED: Instant audio track enable/disable (P2P connections already exist)
         this.localStream.getAudioTracks()[0].enabled = !newMutedState;
+        console.log(`✅ Audio track ${newMutedState ? 'disabled' : 'enabled'} instantly`);
       } else if (!newMutedState) {
         // Try to get microphone access if not available
         try {
           await this.ensureLocalStream();
+          console.log('✅ Microphone access obtained, audio track ready');
         } catch (error) {
-      this.toast.error('Mikrofon izni reddedildi veya kullanılamıyor.');
+          console.error('❌ Microphone access failed:', error);
+          this.toast.error('Mikrofon izni reddedildi veya kullanılamıyor.');
           // ✅ REACTIVE: Revert state through reactive stream
           this.meetingStateSubject.next({
             ...this.meetingStateSubject.value,
@@ -760,14 +792,17 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       // Attach listeners before updating peers
       this.attachLocalTrackListeners();
       
-      // Update all peer connections with new stream
+      // ✅ ENHANCED: Optimized peer connection updates (P2P connections already exist)
       await this.updateAllPeerConnections();
       
-      // Small delay to ensure peer updates complete before broadcasting
-      await new Promise(resolve => setTimeout(resolve, 50));
+      // ✅ ENHANCED: Reduced delay since P2P connections are already established
+      await new Promise(resolve => setTimeout(resolve, 25));
       
       // Broadcast state change AFTER peer connections updated
       await this.broadcastStateChange();
+      
+      // ✅ FIXED: Force change detection for avatar cards after video toggle
+      this.cdr.markForCheck();
       
       // Notify UI
       // ✅ REACTIVE: No manual change detection needed - reactive streams handle UI updates
@@ -841,6 +876,10 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         throw new Error('Video track lost during processing');
       }
       
+      // ✅ FIXED: Force change detection after camera is enabled
+      this.cdr.markForCheck();
+      console.log('✅ Camera enabled - UI updated');
+      
       // Camera enabled successfully
       
     } catch (error) {
@@ -865,6 +904,10 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         try { 
           this.videoEffects.stop(); 
         } catch {}
+        
+        // ✅ FIXED: Force change detection after camera is disabled
+        this.cdr.markForCheck();
+        console.log('✅ Camera disabled - UI updated for avatar cards');
       }
     } catch (error) {
       throw error;
@@ -1148,6 +1191,26 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     // ✅ REACTIVE: No manual change detection needed - reactive streams handle UI updates
   }
 
+  // ✅ NEW: Initialize all peer connections for better stability
+  private async initializeAllPeerConnections() {
+    // Get participants from the local array
+    const participants = this.participants;
+    const connectionPromises = participants
+      .filter((p: any) => p.userId !== this.currentUserId)
+      .map((p: any) => this.createPeerConnection(p.userId));
+    
+    await Promise.allSettled(connectionPromises);
+    console.log(`✅ Initialized ${connectionPromises.length} P2P connections for instant media toggle`);
+  }
+
+  // ✅ NEW: Helper method to check if local media stream exists
+  private hasLocalMediaStream(): boolean {
+    return !!(this.localStream && (
+      this.localStream.getAudioTracks().length > 0 || 
+      this.localStream.getVideoTracks().length > 0
+    ));
+  }
+
   private async createPeerConnection(userId: string) {
     // ✅ ENHANCED: Prevent duplicate peer connections
     if (this.peerConnections.has(userId)) {
@@ -1175,12 +1238,19 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     const polite = this.currentUserId < userId;
     this.politeMap.set(userId, polite);
 
-    // Pre-create transceivers to stabilize m-line order and cache them
+    // ✅ ENHANCED: Create transceivers with smart direction based on media availability
     try {
-      const audioTx = pc.addTransceiver('audio', { direction: 'sendrecv' });
-      const videoTx = pc.addTransceiver('video', { direction: 'sendrecv' });
+      const hasLocalMedia = this.hasLocalMediaStream();
+      const audioTx = pc.addTransceiver('audio', { 
+        direction: hasLocalMedia ? 'sendrecv' : 'recvonly' 
+      });
+      const videoTx = pc.addTransceiver('video', { 
+        direction: hasLocalMedia ? 'sendrecv' : 'recvonly' 
+      });
       this.peerAudioTransceiver.set(userId, audioTx);
       this.peerVideoTransceiver.set(userId, videoTx);
+      
+      console.log(`✅ Created P2P connection for ${userId} with ${hasLocalMedia ? 'sendrecv' : 'recvonly'} transceivers`);
     } catch {}
 
     // Enable ICE candidate signaling for better connectivity
@@ -1305,6 +1375,10 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
           if (latest) {
             this.updateParticipantStateFromTracks(userId, latest);
           }
+          
+          // ✅ FIXED: Force change detection when remote track is muted
+          this.cdr.markForCheck();
+          console.log(`✅ Remote track muted for ${userId} - UI updated for avatar cards`);
         });
       };
       
@@ -1315,6 +1389,10 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
           if (latest) {
             this.updateParticipantStateFromTracks(userId, latest);
           }
+          
+          // ✅ FIXED: Force change detection when remote track is unmuted
+          this.cdr.markForCheck();
+          console.log(`✅ Remote track unmuted for ${userId} - UI updated for avatar cards`);
         });
       };
       
@@ -2187,6 +2265,10 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       isMuted: state.isMuted,
       isScreenSharing: state.isScreenSharing
     });
+    
+    // ✅ FIXED: Force change detection for remote participant state changes
+    this.cdr.markForCheck();
+    console.log(`✅ Remote participant ${userId} state updated - UI refreshed for avatar cards`);
   }
   
   // ✅ ENHANCED: Handle track-ready event with better logging and state management
@@ -2233,6 +2315,8 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     this.participantStatesVersioned.set(userId, versionedState);
     
     // ✅ ENHANCED: Force immediate change detection and video element update
+    this.cdr.markForCheck();
+    console.log(`✅ Track ready for ${userId} - UI updated`);
     // ✅ REACTIVE: No manual change detection needed - reactive streams handle UI updates
     
     // ✅ REMOVED: Duplicate change detection - already handled by scheduleChangeDetection()
@@ -2288,6 +2372,10 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     
     // Update participant service for backward compatibility
     this.participantService.updateParticipantState(userId, updates);
+    
+    // ✅ FIXED: Force change detection after participant state update
+    this.cdr.markForCheck();
+    console.log(`✅ Participant state updated for ${userId} - UI refreshed`);
   }
 
   private async broadcastStateChange() {
@@ -2299,6 +2387,10 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         isScreenSharing: this.meetingState.isScreenSharing,
         wasVideoOnBeforeShare: this.wasVideoOnBeforeShare || null
       });
+      
+      // ✅ FIXED: Force change detection after state broadcast
+      this.cdr.markForCheck();
+      console.log('✅ State broadcast completed - UI refreshed');
     } catch (error) {
       console.error('❌ Failed to update participant state:', error);
     }

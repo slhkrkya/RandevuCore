@@ -1,4 +1,4 @@
-import { Component, Input, ViewChild, ElementRef, OnInit, OnDestroy } from '@angular/core';
+import { Component, Input, ViewChild, ElementRef, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SignalRService } from '../../../../core/services/signalr';
 
@@ -62,7 +62,10 @@ export class WhiteboardComponent implements OnInit, OnDestroy {
 
   currentTool = 'pen';
 
-  constructor(private signalr: SignalRService) {}
+  constructor(
+    private signalr: SignalRService,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit() {
     this.initializeCanvas();
@@ -109,6 +112,8 @@ export class WhiteboardComponent implements OnInit, OnDestroy {
     // Listen for permission changes
     this.signalr.on<any>('whiteboard-permission', (permission) => {
       this.whiteboardState.canDraw = permission.canDraw;
+      // ✅ FIXED: Force change detection when permission changes
+      this.cdr.markForCheck();
     });
   }
 

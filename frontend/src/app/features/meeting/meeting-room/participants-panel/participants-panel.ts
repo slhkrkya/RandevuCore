@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { Participant } from '../meeting-room';
@@ -25,13 +25,16 @@ export class ParticipantsPanelComponent implements OnInit, OnDestroy {
 
   constructor(
     private participantService: ParticipantService,
-    private participantUI: ParticipantUIService
+    private participantUI: ParticipantUIService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
     // Subscribe to participant service updates
     this.participantsSubscription = this.participantService.participants$.subscribe(participants => {
       this.participants = participants;
+      // ✅ FIXED: Force change detection when participants list updates
+      this.cdr.markForCheck();
     });
   }
 

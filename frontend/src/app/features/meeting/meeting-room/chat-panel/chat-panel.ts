@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, ViewChild, ElementRef, OnInit, OnDestroy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ViewChild, ElementRef, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SignalRService } from '../../../../core/services/signalr';
@@ -33,7 +33,10 @@ export class ChatPanelComponent implements OnInit, OnDestroy {
   newMessage = '';
   isConnected = false;
 
-  constructor(private signalr: SignalRService) {}
+  constructor(
+    private signalr: SignalRService,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit() {
     this.setupSignalRListeners();
@@ -52,6 +55,8 @@ export class ChatPanelComponent implements OnInit, OnDestroy {
     // Listen for connection status
     this.signalr.on<any>('connection-status', (status) => {
       this.isConnected = status.connected;
+      // ✅ FIXED: Force change detection when connection status changes
+      this.cdr.markForCheck();
     });
   }
 
@@ -66,6 +71,8 @@ export class ChatPanelComponent implements OnInit, OnDestroy {
     };
 
     this.messages.push(chatMessage);
+    // ✅ FIXED: Force change detection when new message arrives
+    this.cdr.markForCheck();
     this.scrollToBottom();
   }
 

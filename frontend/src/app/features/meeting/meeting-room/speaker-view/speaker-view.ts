@@ -181,6 +181,9 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
     requestAnimationFrame(() => {
       this.updateAllVideoElements();
       this.videoUpdateScheduled = false;
+      
+      // ✅ FIXED: Force change detection for avatar cards after video toggle
+      this.cdr.markForCheck();
     });
   }
   
@@ -290,7 +293,9 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
       isScreenSharing: false,
       isWhiteboardActive: false
     };
-    return isVisibleSel(participant, this.currentUserId, this.meetingState || defaultMeetingState, this.localStream || undefined, this.remoteStreams || new Map());
+    const result = isVisibleSel(participant, this.currentUserId, this.meetingState || defaultMeetingState, this.localStream || undefined, this.remoteStreams || new Map());
+    
+    return result;
   }
   
   isVideoLoading(participant: Participant): boolean {

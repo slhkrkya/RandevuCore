@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, ViewChild, ElementRef, OnInit, OnDestroy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ViewChild, ElementRef, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -65,7 +65,7 @@ export class CameraControlComponent implements OnInit, OnDestroy {
   isPreviewVisible = false;
   isSettingsOpen = false;
 
-  constructor() {}
+  constructor(private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
     this.loadCameraDevices();
@@ -91,6 +91,9 @@ export class CameraControlComponent implements OnInit, OnDestroy {
         this.selectedCamera = this.availableCameras[0].deviceId;
         this.cameraSettings.deviceId = this.selectedCamera;
       }
+      
+      // ✅ FIXED: Force change detection after loading camera devices
+      this.cdr.markForCheck();
     } catch (error) {
       console.error('Error loading camera devices:', error);
     }

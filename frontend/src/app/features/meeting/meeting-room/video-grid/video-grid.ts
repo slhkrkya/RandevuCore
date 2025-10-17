@@ -159,6 +159,9 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
     requestAnimationFrame(() => {
       this.updateVideoElements();
       this.videoUpdateScheduled = false;
+      
+      // ✅ FIXED: Force change detection for avatar cards after video toggle
+      this.cdr.markForCheck();
     });
   }
   
@@ -245,7 +248,9 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
       isScreenSharing: false,
       isWhiteboardActive: false
     };
-    return isVisibleSel(participant, this.currentUserId, this.meetingState || defaultMeetingState, this.localStream || undefined, this.remoteStreams || new Map());
+    const result = isVisibleSel(participant, this.currentUserId, this.meetingState || defaultMeetingState, this.localStream || undefined, this.remoteStreams || new Map());
+    
+    return result;
   }
   
   isVideoLoading(participant: Participant): boolean {

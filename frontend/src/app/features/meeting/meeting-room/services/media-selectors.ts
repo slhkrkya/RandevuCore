@@ -22,9 +22,27 @@ export function isParticipantVideoVisible(
   const remoteStream = remoteStreams.get(participant.userId);
   const hasLive = isVideoTrackLive(remoteStream);
   
-  // ✅ ENHANCED: More lenient video visibility check for late joiner scenarios
-  // If participant says video is on, show it even if track is not fully live yet
+  // ✅ FIXED: Proper video visibility check for camera toggle scenarios
+  // Only show video if participant actually has video on AND we have a live track
   const shouldShow = participant.isVideoOn || participant.isScreenSharing;
+  
+  // ✅ ENHANCED: Debug logging for remote participant video visibility
+  console.log(`🎬 Remote participant ${participant.name} video visibility check:`, {
+    userId: participant.userId,
+    isVideoOn: participant.isVideoOn,
+    isScreenSharing: participant.isScreenSharing,
+    shouldShow: shouldShow,
+    hasLive: hasLive,
+    hasRemoteStream: !!remoteStream,
+    videoTracks: remoteStream?.getVideoTracks().length || 0
+  });
+  
+  // ✅ CRITICAL FIX: If participant has video off, never show video (show avatar instead)
+  if (!shouldShow) {
+    console.log(`🎭 Avatar card should be visible for ${participant.name} (video off)`);
+    return false;
+  }
+  
   const hasStream = !!remoteStream && remoteStream.getVideoTracks().length > 0;
   const hasVideoTrack = hasStream && remoteStream!.getVideoTracks()[0];
   
@@ -37,11 +55,15 @@ export function isParticipantVideoVisible(
   // 6. ✅ FIXED: For rejoin scenarios, be more aggressive about showing video
   const isRejoinScenario = shouldShow && !hasStream && !hasVideoTrack;
   
-  return !!(hasLive && shouldShow) || 
+  const result = !!(hasLive && shouldShow) || 
          !!(hasStream && shouldShow) || 
          !!(hasVideoTrack && shouldShow) || 
          shouldShow ||
          isRejoinScenario;
+  
+  console.log(`🎬 Final video visibility result for ${participant.name}: ${result}`);
+  
+  return result;
 }
 
 export function getStreamForParticipant(

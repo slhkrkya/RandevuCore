@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, inject } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MeetingState } from '../meeting-room';
 import { PermissionService } from '../../../../core/services/permission.service';
@@ -12,6 +12,8 @@ import { PermissionService } from '../../../../core/services/permission.service'
 })
 export class MeetingControlsComponent {
   public permissionService = inject(PermissionService);
+  
+  constructor(private cdr: ChangeDetectorRef) {}
 
   @Input() meetingState: MeetingState | null = {
     isMuted: false,
