@@ -447,7 +447,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         await this.ensureLocalStream();
       } else {
         // Both camera and mic are disabled, but P2P connections are ready
-        console.log('✅ P2P connections established without media - ready for instant media toggle');
       }
       
       // Broadcast initial state immediately after media is initialized
@@ -607,20 +606,16 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         // Only update direction if it changed (performance optimization)
         if (transceiver.direction !== newDirection) {
           transceiver.direction = newDirection;
-          console.log(`🔄 Updated ${kind} transceiver direction to ${newDirection} for ${userId}`);
         }
         
         replacePromises.push(
           transceiver.sender.replaceTrack(track as any)
             .then(() => {
               if (track) {
-                console.log(`✅ ${kind} track successfully replaced for ${userId}`);
               } else {
-                console.log(`✅ ${kind} track removed for ${userId}`);
               }
             })
             .catch(err => {
-              console.warn(`❌ ${kind} track replacement failed for ${userId}:`, err);
             })
         );
       }
@@ -629,12 +624,10 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     // Execute all replacements in parallel
     try {
       await Promise.allSettled(replacePromises);
-      console.log(`✅ Completed ${kind} track replacement for ${replacePromises.length} peers`);
       
       // ✅ FIXED: Force change detection after track replacement
       this.cdr.markForCheck();
     } catch (error) {
-      console.warn(`❌ Track replacement error occurred:`, error);
     }
   }
 
@@ -654,7 +647,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     
     // ✅ FIXED: Force change detection after peer connections updated
     this.cdr.markForCheck();
-    console.log('✅ Peer connections updated - UI refreshed');
   }
 
   // Removed explicit renegotiation; using onnegotiationneeded
@@ -706,7 +698,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     
     // ✅ FIXED: Force change detection when remote track ends
     this.cdr.markForCheck();
-    console.log(`✅ Remote track ended for ${userId} - UI updated for avatar cards`);
   }
 
   // ✅ REACTIVE: Meeting controls with reactive state management
@@ -718,7 +709,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     try {
       const currentState = this.meetingStateSubject.value;
       const newMutedState = !currentState.isMuted;
-      console.log(`🎤 Toggling mute: ${newMutedState ? 'MUTED' : 'UNMUTED'}`);
       
       // ✅ REACTIVE: Update meeting state through reactive stream
       this.meetingStateSubject.next({
@@ -729,14 +719,11 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       if (this.localStream && this.localStream.getAudioTracks()[0]) {
         // ✅ ENHANCED: Instant audio track enable/disable (P2P connections already exist)
         this.localStream.getAudioTracks()[0].enabled = !newMutedState;
-        console.log(`✅ Audio track ${newMutedState ? 'disabled' : 'enabled'} instantly`);
       } else if (!newMutedState) {
         // Try to get microphone access if not available
         try {
           await this.ensureLocalStream();
-          console.log('✅ Microphone access obtained, audio track ready');
         } catch (error) {
-          console.error('❌ Microphone access failed:', error);
           this.toast.error('Mikrofon izni reddedildi veya kullanılamıyor.');
           // ✅ REACTIVE: Revert state through reactive stream
           this.meetingStateSubject.next({
@@ -878,7 +865,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       
       // ✅ FIXED: Force change detection after camera is enabled
       this.cdr.markForCheck();
-      console.log('✅ Camera enabled - UI updated');
       
       // Camera enabled successfully
       
@@ -907,7 +893,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         
         // ✅ FIXED: Force change detection after camera is disabled
         this.cdr.markForCheck();
-        console.log('✅ Camera disabled - UI updated for avatar cards');
       }
     } catch (error) {
       throw error;
@@ -1200,7 +1185,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       .map((p: any) => this.createPeerConnection(p.userId));
     
     await Promise.allSettled(connectionPromises);
-    console.log(`✅ Initialized ${connectionPromises.length} P2P connections for instant media toggle`);
   }
 
   // ✅ NEW: Helper method to check if local media stream exists
@@ -1250,7 +1234,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       this.peerAudioTransceiver.set(userId, audioTx);
       this.peerVideoTransceiver.set(userId, videoTx);
       
-      console.log(`✅ Created P2P connection for ${userId} with ${hasLocalMedia ? 'sendrecv' : 'recvonly'} transceivers`);
     } catch {}
 
     // Enable ICE candidate signaling for better connectivity
@@ -1378,7 +1361,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
           
           // ✅ FIXED: Force change detection when remote track is muted
           this.cdr.markForCheck();
-          console.log(`✅ Remote track muted for ${userId} - UI updated for avatar cards`);
         });
       };
       
@@ -1392,7 +1374,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
           
           // ✅ FIXED: Force change detection when remote track is unmuted
           this.cdr.markForCheck();
-          console.log(`✅ Remote track unmuted for ${userId} - UI updated for avatar cards`);
         });
       };
       
@@ -1721,13 +1702,11 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // ✅ ENHANCED: Force real track attachment for late join scenarios with multiple attempts
     this.forceTrackAttachmentForLateJoin().catch(error => {
-      console.warn('Error in force track attachment:', error);
     });
     
     // ✅ NEW: Additional delayed attempt for stubborn cases
     setTimeout(() => {
       this.forceTrackAttachmentForLateJoin().catch(error => {
-        console.warn('Error in delayed force track attachment:', error);
       });
     }, 2000);
     
@@ -1737,7 +1716,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
   
   // ✅ ENHANCED: Force real track attachment for late join scenarios
   private async forceTrackAttachmentForLateJoin() {
-    console.log('🔗 Forcing track attachment for late join scenarios');
     
     // Get all participants who should have video/audio but don't have streams
     const participantsNeedingTracks = Array.from(this.participantStatesVersioned.entries())
@@ -1752,12 +1730,9 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       });
     
     if (participantsNeedingTracks.length === 0) {
-      console.log('✅ All participants already have their tracks');
       return;
     }
     
-    console.log(`🔗 Found ${participantsNeedingTracks.length} participants needing track attachment:`, 
-      participantsNeedingTracks.map(([userId, state]) => ({ userId, isVideoOn: state.isVideoOn, isMuted: state.isMuted })));
     
     // ✅ ENHANCED: Force track attachment for each participant with retry logic
     for (const [userId, state] of participantsNeedingTracks) {
@@ -1768,17 +1743,14 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         setTimeout(async () => {
           const stream = this.remoteStreams.get(userId);
           if (!stream && (state.isVideoOn || state.isScreenSharing)) {
-            console.log(`⚠️ Track attachment verification failed for ${userId}, retrying...`);
             try {
               await this.forceTrackAttachmentForParticipant(userId, state);
             } catch (retryError) {
-              console.error(`❌ Retry failed for ${userId}:`, retryError);
             }
           }
         }, 1000);
         
       } catch (error) {
-        console.error(`❌ Failed to force track attachment for ${userId}:`, error);
       }
     }
   }
@@ -1787,13 +1759,11 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
   private async ensureTransceiversExist(userId: string): Promise<boolean> {
     const pc = this.peerConnections.get(userId);
     if (!pc) {
-      console.warn(`⚠️ No peer connection found for ${userId} when ensuring transceivers`);
       return false;
     }
 
     // Check if peer connection is in a valid state
     if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
-      console.warn(`⚠️ Peer connection for ${userId} is in ${pc.connectionState} state`);
       return false;
     }
 
@@ -1804,9 +1774,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       try {
         audioTx = pc.addTransceiver('audio', { direction: 'sendrecv' });
         this.peerAudioTransceiver.set(userId, audioTx);
-        console.log(`✅ Audio transceiver created for ${userId}`);
       } catch (error) {
-        console.error(`❌ Failed to create audio transceiver for ${userId}:`, error);
         return false;
       }
     }
@@ -1815,9 +1783,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       try {
         videoTx = pc.addTransceiver('video', { direction: 'sendrecv' });
         this.peerVideoTransceiver.set(userId, videoTx);
-        console.log(`✅ Video transceiver created for ${userId}`);
       } catch (error) {
-        console.error(`❌ Failed to create video transceiver for ${userId}:`, error);
         return false;
       }
     }
@@ -1827,30 +1793,25 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ✅ ENHANCED: Force track attachment for a specific participant with comprehensive validation
   private async forceTrackAttachmentForParticipant(userId: string, state: any) {
-    console.log(`🔗 Forcing track attachment for ${userId}`);
     
     const pc = this.peerConnections.get(userId);
     if (!pc) {
-      console.warn(`⚠️ No peer connection found for ${userId}`);
       return;
     }
 
     // Check if peer connection is in a valid state
     if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
-      console.warn(`⚠️ Peer connection for ${userId} is in ${pc.connectionState} state, cannot attach tracks`);
       return;
     }
 
     // Check if we have local tracks to send
     if (!this.localStream) {
-      console.warn(`⚠️ No local stream available for track attachment`);
       return;
     }
 
     // ✅ ENHANCED: Ensure transceivers exist before proceeding
     const transceiversReady = await this.ensureTransceiversExist(userId);
     if (!transceiversReady) {
-      console.warn(`⚠️ Failed to ensure transceivers for ${userId}`);
       return;
     }
 
@@ -1861,7 +1822,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     if (videoTransceiver && (state.isVideoOn || state.isScreenSharing)) {
       const videoTrack = this.localStream.getVideoTracks()[0];
       if (videoTrack) {
-        console.log(`🎥 Attaching video track to ${userId}`);
         try {
           await this.replaceTrackForSinglePeer(userId, videoTrack, 'video');
           
@@ -1869,13 +1829,10 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
           setTimeout(() => {
             const sender = videoTransceiver.sender;
             if (sender.track && sender.track.id === videoTrack.id) {
-              console.log(`✅ Video track successfully attached to ${userId}`);
             } else {
-              console.warn(`⚠️ Video track attachment verification failed for ${userId}`);
             }
           }, 500);
         } catch (error) {
-          console.error(`❌ Failed to attach video track to ${userId}:`, error);
         }
       }
     }
@@ -1883,7 +1840,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     if (audioTransceiver && !state.isMuted) {
       const audioTrack = this.localStream.getAudioTracks()[0];
       if (audioTrack) {
-        console.log(`🎤 Attaching audio track to ${userId}`);
         try {
           await this.replaceTrackForSinglePeer(userId, audioTrack, 'audio');
           
@@ -1891,20 +1847,16 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
           setTimeout(() => {
             const sender = audioTransceiver.sender;
             if (sender.track && sender.track.id === audioTrack.id) {
-              console.log(`✅ Audio track successfully attached to ${userId}`);
             } else {
-              console.warn(`⚠️ Audio track attachment verification failed for ${userId}`);
             }
           }, 500);
         } catch (error) {
-          console.error(`❌ Failed to attach audio track to ${userId}:`, error);
         }
       }
     }
 
     // ✅ ENHANCED: Trigger renegotiation with validation
     if (videoTransceiver || audioTransceiver) {
-      console.log(`🔄 Triggering renegotiation for ${userId}`);
       
       // Force renegotiation by creating a new offer
       try {
@@ -1914,9 +1866,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
           targetUserId: userId,
           offer: offer
         });
-        console.log(`✅ Renegotiation offer sent for ${userId}`);
       } catch (error) {
-        console.error(`❌ Failed to send renegotiation offer for ${userId}:`, error);
       }
     }
   }
@@ -1961,11 +1911,9 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
   
   // ✅ NEW: Force existing participants to send their tracks to new joiner
   private async forceExistingParticipantsToSendTracks() {
-    console.log('🔄 Forcing existing participants to send their tracks to new joiner');
     
     // ✅ ENHANCED: Prevent duplicate execution
     if (this.forceTrackSendingInProgress) {
-      console.log('⚠️ Force track sending already in progress, skipping');
       return;
     }
     
@@ -1984,19 +1932,15 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         });
       
       if (participantsWithTracks.length === 0) {
-        console.log('✅ No existing participants with tracks to send');
         return;
       }
       
-      console.log(`🔄 Found ${participantsWithTracks.length} existing participants with tracks to send:`, 
-        participantsWithTracks.map(([userId, state]) => ({ userId, isVideoOn: state.isVideoOn, isMuted: state.isMuted })));
       
       // For each existing participant, trigger track sending
       for (const [userId, state] of participantsWithTracks) {
         try {
           await this.forceParticipantToSendTracks(userId, state);
         } catch (error) {
-          console.error(`❌ Failed to force ${userId} to send tracks:`, error);
         }
       }
     } finally {
@@ -2006,30 +1950,25 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
   
   // ✅ NEW: Force a specific participant to send their tracks
   private async forceParticipantToSendTracks(userId: string, state: any) {
-    console.log(`🔄 Forcing ${userId} to send their tracks`);
     
     const pc = this.peerConnections.get(userId);
     if (!pc) {
-      console.warn(`⚠️ No peer connection found for ${userId}`);
       return;
     }
 
     // Check if peer connection is in a valid state
     if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
-      console.warn(`⚠️ Peer connection for ${userId} is in ${pc.connectionState} state`);
       return;
     }
 
     // Check if we're already in the middle of a renegotiation
     if (pc.signalingState !== 'stable') {
-      console.log(`⏳ Skipping renegotiation for ${userId} - already in progress (state: ${pc.signalingState})`);
       return;
     }
 
     // Debounce renegotiation attempts
     const existingTimer = this.negotiationTimers.get(userId);
     if (existingTimer) {
-      console.log(`⏳ Debouncing renegotiation for ${userId} - timer already active`);
       return;
     }
 
@@ -2040,24 +1979,20 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     }, this.negotiationDebounceMs);
     
     this.negotiationTimers.set(userId, timer);
-    console.log(`⏳ Debounced renegotiation for ${userId} (${this.negotiationDebounceMs}ms)`);
   }
 
   // ✅ NEW: Perform actual renegotiation
   private async performRenegotiation(userId: string) {
     const pc = this.peerConnections.get(userId);
     if (!pc) {
-      console.warn(`⚠️ No peer connection found for ${userId} during renegotiation`);
       return;
     }
 
     // Double-check state before proceeding
     if (pc.signalingState !== 'stable') {
-      console.log(`⏳ Skipping renegotiation for ${userId} - not stable (state: ${pc.signalingState})`);
       return;
     }
 
-    console.log(`🔄 Performing renegotiation for ${userId} to ensure track sending`);
     
     try {
       // Create and send an offer to trigger renegotiation
@@ -2069,15 +2004,12 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         offer: offer
       });
       
-      console.log(`✅ Successfully triggered renegotiation for ${userId}`);
     } catch (error) {
-      console.error(`❌ Failed to trigger renegotiation for ${userId}:`, error);
     }
   }
   
   // ✅ NEW: Force existing participants to send their tracks to a specific new joiner
   private async forceExistingParticipantsToSendTracksToSpecificUser(targetUserId: string) {
-    console.log(`🔄 Forcing existing participants to send tracks to specific user: ${targetUserId}`);
     
     // Get all participants who should have video/audio and send their tracks to the target user
     const participantsWithTracks = Array.from(this.participantStatesVersioned.entries())
@@ -2092,26 +2024,21 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       });
     
     if (participantsWithTracks.length === 0) {
-      console.log(`✅ No existing participants with tracks to send to ${targetUserId}`);
       return;
     }
     
-    console.log(`🔄 Found ${participantsWithTracks.length} existing participants with tracks to send to ${targetUserId}:`, 
-      participantsWithTracks.map(([userId, state]) => ({ userId, isVideoOn: state.isVideoOn, isMuted: state.isMuted })));
     
     // For each existing participant, trigger track sending to the target user
     for (const [userId, state] of participantsWithTracks) {
       try {
         await this.forceParticipantToSendTracksToSpecificUser(userId, state, targetUserId);
       } catch (error) {
-        console.error(`❌ Failed to force ${userId} to send tracks to ${targetUserId}:`, error);
       }
     }
   }
   
   // ✅ NEW: Force track sending for rejoin scenarios - key fix for video visibility
   private async forceTrackSendingForRejoinScenarios() {
-    console.log('🔄 Force track sending for rejoin scenarios');
     
     // Get all participants who should have video/audio
     const participantsWithTracks = Array.from(this.participantStatesVersioned.entries())
@@ -2125,12 +2052,9 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       });
     
     if (participantsWithTracks.length === 0) {
-      console.log('✅ No participants with tracks to send in rejoin scenario');
       return;
     }
     
-    console.log(`🔄 Found ${participantsWithTracks.length} participants with tracks in rejoin scenario:`, 
-      participantsWithTracks.map(([userId, state]) => ({ userId, isVideoOn: state.isVideoOn, isMuted: state.isMuted })));
     
     // Force track sending for each participant
     for (const [userId, state] of participantsWithTracks) {
@@ -2140,7 +2064,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         // Additional renegotiation to ensure tracks are sent
         const pc = this.peerConnections.get(userId);
         if (pc && pc.connectionState === 'connected') {
-          console.log(`🔄 Additional renegotiation for ${userId} in rejoin scenario`);
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
           await this.signalr.invoke('SendOffer', this.roomKey, {
@@ -2149,34 +2072,18 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
           });
         }
       } catch (error) {
-        console.error(`❌ Failed to force track sending for ${userId} in rejoin scenario:`, error);
       }
     }
     
     // ✅ DEBUG: Log current state for troubleshooting
-    console.log('🔍 Current state after force track sending:', {
-      participantStates: Array.from(this.participantStatesVersioned.entries()).map(([userId, state]) => ({
-        userId,
-        isVideoOn: state.isVideoOn,
-        videoStatus: state.videoStatus,
-        videoTrackArrived: state.videoTrackArrived
-      })),
-      remoteStreams: Array.from(this.remoteStreams.entries()).map(([userId, stream]) => ({
-        userId,
-        hasVideoTracks: stream.getVideoTracks().length > 0,
-        hasAudioTracks: stream.getAudioTracks().length > 0
-      }))
-    });
   }
   
   // ✅ NEW: Force a specific participant to send their tracks to a specific target user
   private async forceParticipantToSendTracksToSpecificUser(senderUserId: string, senderState: any, targetUserId: string) {
-    console.log(`🔄 Forcing ${senderUserId} to send their tracks to ${targetUserId}`);
     
     // ✅ ENHANCED: Prevent concurrent renegotiations for same peer connection
     const renegotiationKey = `renegotiation-${targetUserId}`;
     if (this.trackSendingInProgress.has(renegotiationKey)) {
-      console.log(`⚠️ Renegotiation already in progress for ${targetUserId}, skipping`);
       return;
     }
     
@@ -2185,19 +2092,16 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     try {
       const pc = this.peerConnections.get(targetUserId);
       if (!pc) {
-        console.warn(`⚠️ No peer connection found for target user ${targetUserId}`);
         return;
       }
 
       // Check if peer connection is in a valid state
       if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
-        console.warn(`⚠️ Peer connection for ${targetUserId} is in ${pc.connectionState} state`);
         return;
       }
 
       // ✅ ENHANCED: Single renegotiation attempt to prevent conflicts
       try {
-        console.log(`🔄 Single renegotiation to send tracks from ${senderUserId} to ${targetUserId}`);
         
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -2206,9 +2110,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
           offer: offer
         });
         
-        console.log(`✅ Renegotiation offer sent to ${targetUserId} to receive tracks from ${senderUserId}`);
       } catch (error) {
-        console.error(`❌ Failed to send renegotiation offer to ${targetUserId}:`, error);
       }
     } finally {
       // Remove from in-progress set after a delay
@@ -2268,7 +2170,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     
     // ✅ FIXED: Force change detection for remote participant state changes
     this.cdr.markForCheck();
-    console.log(`✅ Remote participant ${userId} state updated - UI refreshed for avatar cards`);
   }
   
   // ✅ ENHANCED: Handle track-ready event with better logging and state management
@@ -2276,16 +2177,9 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     const userId = data.userId;
     const versionedState = this.participantStatesVersioned.get(userId);
     if (!versionedState) {
-      console.warn(`⚠️ No versioned state found for track ready event: ${userId}`);
       return;
     }
     
-    console.log(`🎬 Track ready event for ${userId}:`, {
-      hasVideo: data.hasVideo,
-      hasAudio: data.hasAudio,
-      currentVideoStatus: versionedState.videoStatus,
-      isVideoOn: versionedState.isVideoOn
-    });
     
     // Update track arrival flags
     if (data.hasVideo) {
@@ -2293,7 +2187,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       // If state says video is on and track is now ready, update status
       if (versionedState.isVideoOn) {
         versionedState.videoStatus = 'on';
-        console.log(`✅ Video status updated to 'on' for ${userId}`);
         
         // Update participant service to show video
         this.updateParticipantStateUnified(userId, { isVideoOn: true });
@@ -2302,13 +2195,11 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     
     if (data.hasAudio) {
       versionedState.audioTrackArrived = true;
-      console.log(`✅ Audio track arrived for ${userId}`);
     }
     
     // ✅ FIXED: Always update participant state when track arrives, regardless of current state
     // This fixes the rejoin scenario where participant should have video but state is not properly set
     if (data.hasVideo && versionedState.isVideoOn) {
-      console.log(`🔄 Force updating participant state for ${userId} - track arrived and video should be on`);
       this.updateParticipantStateUnified(userId, { isVideoOn: true });
     }
     
@@ -2316,7 +2207,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     
     // ✅ ENHANCED: Force immediate change detection and video element update
     this.cdr.markForCheck();
-    console.log(`✅ Track ready for ${userId} - UI updated`);
     // ✅ REACTIVE: No manual change detection needed - reactive streams handle UI updates
     
     // ✅ REMOVED: Duplicate change detection - already handled by scheduleChangeDetection()
@@ -2352,7 +2242,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     const currentStates = this.participantStatesSubject.value;
     const currentState = currentStates.get(userId);
     if (!currentState) {
-      console.warn(`⚠️ No versioned state found for ${userId}, skipping update`);
       return;
     }
     
@@ -2375,7 +2264,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     
     // ✅ FIXED: Force change detection after participant state update
     this.cdr.markForCheck();
-    console.log(`✅ Participant state updated for ${userId} - UI refreshed`);
   }
 
   private async broadcastStateChange() {
@@ -2390,9 +2278,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       
       // ✅ FIXED: Force change detection after state broadcast
       this.cdr.markForCheck();
-      console.log('✅ State broadcast completed - UI refreshed');
     } catch (error) {
-      console.error('❌ Failed to update participant state:', error);
     }
   }
 
@@ -2453,7 +2339,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       await this.cleanup();
       this.router.navigate(['/meetings']);
     } catch (error) {
-      console.error('Error ending meeting:', error);
       this.router.navigate(['/meetings']);
     }
   }
@@ -2470,7 +2355,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private async cleanup() {
     try {
-      console.log('🧹 Starting comprehensive cleanup...');
       
       // ✅ REACTIVE: No change detection timeout to clear - reactive streams handle updates
 
