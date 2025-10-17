@@ -425,7 +425,8 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.signalr.on<any>('chat-message', (message) => {
       this.zone.run(() => {
-        // Handle chat message events
+        // Chat messages are handled by the chat panel component
+        // No need to handle here as chat panel has its own listeners
       });
     });
   }
@@ -997,11 +998,23 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ✅ REACTIVE: UI controls with reactive state management
   toggleParticipantsPanel() {
-    this.showParticipantsPanelSubject.next(!this.showParticipantsPanelSubject.value);
+    const newShowParticipants = !this.showParticipantsPanelSubject.value;
+    this.showParticipantsPanelSubject.next(newShowParticipants);
+    
+    // If opening participants panel, close chat panel
+    if (newShowParticipants) {
+      this.showChatPanelSubject.next(false);
+    }
   }
 
   toggleChatPanel() {
-    this.showChatPanelSubject.next(!this.showChatPanelSubject.value);
+    const newShowChat = !this.showChatPanelSubject.value;
+    this.showChatPanelSubject.next(newShowChat);
+    
+    // If opening chat panel, close participants panel
+    if (newShowChat) {
+      this.showParticipantsPanelSubject.next(false);
+    }
   }
 
   toggleWhiteboardPanel() {
@@ -2392,7 +2405,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
           try {
             track.stop(); // This will turn off camera LED
           } catch (error) {
-            console.warn('Error stopping local track:', error);
           }
         });
         this.localStreamSubject.next(undefined);
@@ -2425,15 +2437,12 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       });
       this.eventListeners.clear();
       
-      console.log('✅ Cleanup completed successfully');
     } catch (error) {
-      console.error('Error during cleanup:', error);
     }
   }
 
   // ✅ ENHANCED: Comprehensive cleanup method for peer connection
   private async cleanupPeerConnection(userId: string) {
-    console.log(`🧹 Cleaning up peer connection for ${userId}`);
     
     // 1. Close peer connection gracefully
     const pc = this.peerConnections.get(userId);
@@ -2444,15 +2453,12 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
           try {
             transceiver.stop();
           } catch (error) {
-            console.warn('Error stopping transceiver:', error);
           }
         });
         
         // Close peer connection
         pc.close();
-        console.log(`✅ Peer connection closed for ${userId}`);
       } catch (error) {
-        console.warn('Error closing peer connection:', error);
       }
     }
     
@@ -2462,9 +2468,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       remoteStream.getTracks().forEach(track => {
         try {
           track.stop();
-          console.log(`✅ Remote track stopped for ${userId}:`, track.kind);
         } catch (error) {
-          console.warn('Error stopping remote track:', error);
         }
       });
     }
@@ -2489,7 +2493,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     // 5. Remove audio analysis
     this.removeAudioAnalysis(userId);
     
-    console.log(`✅ Complete cleanup finished for ${userId}`);
   }
 
   // ✅ REACTIVE: Removed manual change detection - reactive streams handle UI updates automatically
@@ -2506,7 +2509,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         try {
           await pc.addIceCandidate(candidate);
         } catch (error) {
-          console.error('Error adding pending ICE candidate:', error);
         }
       }
       
@@ -2634,9 +2636,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       // Re-setup audio analysis with new volume settings
       this.setupAudioAnalysisForStream(this.currentUserId, this.localStream);
       
-      console.log('✅ Audio settings applied to meeting room');
     } catch (error) {
-      console.warn('Failed to apply audio settings:', error);
     }
   }
 
@@ -2647,9 +2647,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       const volume = deviceSettings.microphoneVolume;
       
       // Volume is now applied in setupAudioAnalysisForStream via gain node
-      console.log(`✅ Microphone volume setting: ${volume}%`);
     } catch (error) {
-      console.warn('Failed to apply microphone volume:', error);
     }
   }
   
@@ -2698,7 +2696,6 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         gainValue = Math.min(gainValue, 1.5); // safety cap
         gainNode.gain.value = gainValue;
-        console.log(`✅ Applied microphone gain: ${gainValue} (volume: ${volume}%)`);
       } else {
         gainNode.gain.value = 1.0; // Default for remote users
       }
@@ -2723,22 +2720,17 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       if (analyser) {
         try { 
           analyser.disconnect();
-          console.log(`✅ Audio analyser disconnected for ${userId}`);
         } catch (error) {
-          console.warn('Error disconnecting analyser:', error);
         }
       }
       
       if (src) {
         try { 
           src.disconnect();
-          console.log(`✅ Audio source disconnected for ${userId}`);
         } catch (error) {
-          console.warn('Error disconnecting audio source:', error);
         }
       }
     } catch (error) {
-      console.warn('Error in removeAudioAnalysis:', error);
     }
     
     // Clear all related data

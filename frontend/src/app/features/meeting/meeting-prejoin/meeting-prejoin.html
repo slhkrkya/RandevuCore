@@ -6,6 +6,32 @@
   </div>
   
   <div class="w-full max-w-6xl relative z-10">
+    <!-- Floating Action Buttons -->
+    <div class="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 flex space-x-4 pointer-events-none">
+      <!-- Geri Button -->
+      <button 
+        class="pointer-events-auto bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 text-slate-700 dark:text-slate-300 font-semibold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg flex items-center space-x-3 shadow-lg"
+        (click)="goBack()">
+        <span class="material-symbols-outlined text-xl">arrow_back</span>
+        <span>Geri</span>
+      </button>
+
+      <!-- Toplantıya Katıl Button -->
+      <button 
+        class="pointer-events-auto bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg flex items-center space-x-3 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+        (click)="joinMeeting()"
+        [disabled]="!isDeviceReady || loading">
+        
+        <span class="material-symbols-outlined text-xl" *ngIf="!isDeviceReady && !loading">hourglass_empty</span>
+        <span class="material-symbols-outlined text-xl" *ngIf="isDeviceReady && !loading">check_circle</span>
+        <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" *ngIf="loading"></div>
+        
+        <span class="text-lg" *ngIf="!isDeviceReady && !loading">{{ deviceCheckMessage }}</span>
+        <span class="text-lg" *ngIf="isDeviceReady && !loading">Toplantıya Katıl</span>
+        <span class="text-lg" *ngIf="loading">{{ deviceCheckMessage }}</span>
+      </button>
+    </div>
+
     <!-- Header -->
     <div class="text-center mb-12 animate-fade-in">
       <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mb-6 shadow-lg">
@@ -15,22 +41,25 @@
       <p class="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">Mikrofon ve kameranızı test edin, ardından toplantıya katılın</p>
     </div>
 
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 lg:gap-12">
-      <!-- Video Preview -->
-      <div class="xl:col-span-2 space-y-8">
-        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-          <div class="p-6 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-800 border-b border-slate-200 dark:border-slate-600">
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 lg:gap-12 items-stretch mb-24">
+      <!-- Combined Preview Card -->
+      <div class="xl:col-span-2 h-full">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden h-full flex flex-col">
+          <!-- Header -->
+          <div class="p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-800 border-b border-slate-200 dark:border-slate-600">
             <div class="flex items-center space-x-3">
-              <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                <span class="material-symbols-outlined text-white text-lg">videocam</span>
+              <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                <span class="material-symbols-outlined text-white text-sm">videocam</span>
               </div>
               <div>
-                <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Kamera Önizleme</h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400">Gerçek zamanlı görüntü testi</p>
+                <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Kamera Önizleme</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Gerçek zamanlı görüntü testi</p>
               </div>
             </div>
           </div>
-          <div class="aspect-video bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center relative overflow-hidden">
+
+          <!-- Video Preview -->
+          <div class="aspect-video bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center relative overflow-hidden flex-1">
             <video #previewVideo 
                    autoplay 
                    playsinline 
@@ -39,57 +68,47 @@
                    [class.hidden]="!isCameraOn">
             </video>
             <div *ngIf="!isCameraOn" class="flex flex-col items-center justify-center text-slate-600 dark:text-white p-8">
-              <div class="w-20 h-20 bg-slate-300 dark:bg-slate-700 rounded-full flex items-center justify-center mb-6">
-                <span class="material-symbols-outlined text-4xl text-slate-500 dark:text-slate-300">videocam_off</span>
+              <div class="w-16 h-16 bg-slate-300 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4">
+                <span class="material-symbols-outlined text-3xl text-slate-500 dark:text-slate-300">videocam_off</span>
               </div>
-              <p class="text-xl font-medium mb-2">Kamera Kapalı</p>
+              <p class="text-lg font-medium mb-2">Kamera Kapalı</p>
               <p class="text-sm text-slate-500 dark:text-slate-400 text-center">Kamerayı açmak için sağdaki ayarları kullanın</p>
             </div>
             <div *ngIf="cameraError" class="absolute inset-0 bg-red-900/90 backdrop-blur-sm flex items-center justify-center text-white">
               <div class="text-center p-8">
-                <div class="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center mb-4 mx-auto">
-                  <span class="material-symbols-outlined text-2xl">error</span>
+                <div class="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center mb-3 mx-auto">
+                  <span class="material-symbols-outlined text-xl">error</span>
                 </div>
-                <p class="text-lg font-medium mb-2">Kamera Erişimi Gerekli</p>
+                <p class="text-base font-medium mb-2">Kamera Erişimi Gerekli</p>
                 <p class="text-sm opacity-75">Tarayıcı ayarlarından kamera erişimi izni verin</p>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Audio Level Indicator -->
-        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-6 hover:shadow-2xl transition-all duration-300">
-          <div class="flex items-center justify-between mb-6">
-            <div class="flex items-center space-x-3">
-              <div class="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
-                <span class="material-symbols-outlined text-white text-lg">mic</span>
-              </div>
-              <div>
-                <h3 class="text-xl font-semibold text-slate-900 dark:text-white">Mikrofon Seviyesi</h3>
-                <p class="text-sm text-slate-500 dark:text-slate-400">Ses kalitesini test edin</p>
-              </div>
+          <!-- Audio Level Indicator -->
+          <div class="p-4 border-t border-slate-200 dark:border-slate-600">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Mikrofon Seviyesi</span>
+              <span class="text-xs text-slate-500 dark:text-slate-400">{{ audioLevel > 0 ? 'Ses algılanıyor' : 'Konuşun' }}</span>
             </div>
             <div class="flex items-center space-x-3">
-              <div class="w-8 h-8 rounded-full flex items-center justify-center" [class.bg-green-100]="isMicOn" [class.bg-red-100]="!isMicOn">
-                <span class="material-symbols-outlined text-green-600" *ngIf="isMicOn">mic</span>
-                <span class="material-symbols-outlined text-red-600" *ngIf="!isMicOn">mic_off</span>
+              <div class="flex-1 bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+                <div class="bg-gradient-to-r from-green-400 via-yellow-400 to-red-500 h-2 rounded-full transition-all duration-150 shadow-sm"
+                     [style.width.%]="audioLevel"></div>
+              </div>
+              <div class="w-6 h-6 rounded-full flex items-center justify-center" [class.bg-green-100]="isMicOn" [class.bg-red-100]="!isMicOn">
+                <span class="material-symbols-outlined text-green-600 text-sm flex items-center justify-center" *ngIf="isMicOn">mic</span>
+                <span class="material-symbols-outlined text-red-600 text-sm flex items-center justify-center" *ngIf="!isMicOn">mic_off</span>
               </div>
             </div>
           </div>
-          <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
-            <div class="bg-gradient-to-r from-green-400 via-yellow-400 to-red-500 h-3 rounded-full transition-all duration-150 shadow-sm"
-                 [style.width.%]="audioLevel"></div>
-          </div>
-          <p class="text-sm text-slate-600 dark:text-slate-400 mt-3">
-            <span class="font-medium">{{ audioLevel > 0 ? 'Ses algılanıyor' : 'Mikrofonunuzu test etmek için konuşun' }}</span>
-          </p>
         </div>
       </div>
 
       <!-- Controls Panel -->
-      <div class="space-y-8">
+      <div class="h-full">
         <!-- Device Controls -->
-        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-6 hover:shadow-2xl transition-all duration-300">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-6 hover:shadow-2xl transition-all duration-300 h-full">
           <div class="flex items-center space-x-3 mb-6">
             <div class="w-11 h-11 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
               <span class="material-symbols-outlined text-white text-lg">settings</span>
@@ -224,42 +243,6 @@
                 <span class="text-sm text-slate-700 dark:text-slate-300">Önizlemeyi Aynala (Selfie)</span>
               </label>
             </div>
-          </div>
-        </div>
-
-        <!-- Join Meeting -->
-        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-6 hover:shadow-2xl transition-all duration-300">
-          <div class="text-center mb-6">
-            <div class="w-12 h-12 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span class="material-symbols-outlined text-white text-xl">group</span>
-            </div>
-            <h2 class="text-xl font-semibold text-slate-900 dark:text-white mb-2">Toplantıya Katıl</h2>
-            <p class="text-sm text-slate-600 dark:text-slate-400">
-              Cihazlarınızı test ettikten sonra toplantıya katılabilirsiniz.
-            </p>
-          </div>
-          
-          <div class="space-y-4">
-            <button 
-              class="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg flex items-center justify-center space-x-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-              (click)="joinMeeting()"
-              [disabled]="!isDeviceReady || loading">
-              
-              <span class="material-symbols-outlined text-xl" *ngIf="!isDeviceReady && !loading">hourglass_empty</span>
-              <span class="material-symbols-outlined text-xl" *ngIf="isDeviceReady && !loading">check_circle</span>
-              <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" *ngIf="loading"></div>
-              
-              <span class="text-lg" *ngIf="!isDeviceReady && !loading">{{ deviceCheckMessage }}</span>
-              <span class="text-lg" *ngIf="isDeviceReady && !loading">Toplantıya Katıl</span>
-              <span class="text-lg" *ngIf="loading">{{ deviceCheckMessage }}</span>
-            </button>
-
-            <button 
-              class="w-full bg-white dark:bg-slate-700 border-2 border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 text-slate-700 dark:text-slate-300 font-semibold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg flex items-center justify-center space-x-3"
-              (click)="goBack()">
-              <span class="material-symbols-outlined text-xl">arrow_back</span>
-              <span>Geri Dön</span>
-            </button>
           </div>
         </div>
       </div>

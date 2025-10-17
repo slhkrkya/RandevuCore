@@ -26,20 +26,8 @@ export function isParticipantVideoVisible(
   // Only show video if participant actually has video on AND we have a live track
   const shouldShow = participant.isVideoOn || participant.isScreenSharing;
   
-  // ✅ ENHANCED: Debug logging for remote participant video visibility
-  console.log(`🎬 Remote participant ${participant.name} video visibility check:`, {
-    userId: participant.userId,
-    isVideoOn: participant.isVideoOn,
-    isScreenSharing: participant.isScreenSharing,
-    shouldShow: shouldShow,
-    hasLive: hasLive,
-    hasRemoteStream: !!remoteStream,
-    videoTracks: remoteStream?.getVideoTracks().length || 0
-  });
-  
   // ✅ CRITICAL FIX: If participant has video off, never show video (show avatar instead)
   if (!shouldShow) {
-    console.log(`🎭 Avatar card should be visible for ${participant.name} (video off)`);
     return false;
   }
   
@@ -61,7 +49,6 @@ export function isParticipantVideoVisible(
          shouldShow ||
          isRejoinScenario;
   
-  console.log(`🎬 Final video visibility result for ${participant.name}: ${result}`);
   
   return result;
 }

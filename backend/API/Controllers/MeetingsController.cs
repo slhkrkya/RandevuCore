@@ -22,10 +22,18 @@ namespace RandevuCore.API.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> List()
+        public async Task<IActionResult> List([FromQuery] string? filterByUserId = null)
         {
             var userId = GetUserId();
-            var list = await _service.GetUserMeetingsAsync(userId);
+            Guid? filterGuid = null;
+            
+            // String'i Guid'e çevir, geçersizse null bırak
+            if (!string.IsNullOrEmpty(filterByUserId) && Guid.TryParse(filterByUserId, out var parsedGuid))
+            {
+                filterGuid = parsedGuid;
+            }
+            
+            var list = await _service.GetUserMeetingsAsync(userId, filterGuid);
             return Ok(list);
         }
 
@@ -64,6 +72,13 @@ namespace RandevuCore.API.Controllers
             var (ok, error) = await _service.DeleteAsync(id, userId);
             if (!ok) return BadRequest(new { error });
             return NoContent();
+        }
+
+        [HttpPost("cleanup-expired")]
+        public async Task<IActionResult> CleanupExpiredMeetings()
+        {
+            var deletedCount = await _service.DeleteExpiredMeetingsAsync();
+            return Ok(new { message = $"{deletedCount} expired meeting(s) deleted successfully", deletedCount });
         }
     }
 }

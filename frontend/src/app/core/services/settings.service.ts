@@ -83,7 +83,6 @@ export class SettingsService {
         this._settings.set({ ...this.getDefaultSettings(), ...parsed });
       }
     } catch (error) {
-      console.warn('Failed to load settings:', error);
     }
   }
 
@@ -92,7 +91,6 @@ export class SettingsService {
       localStorage.setItem(this.SETTINGS_KEY, JSON.stringify(this._settings()));
       this.dispatchSettingsChange();
     } catch (error) {
-      console.warn('Failed to save settings:', error);
     }
   }
 
@@ -158,7 +156,6 @@ export class SettingsService {
     const event = new Event('themechange');
     window.dispatchEvent(event);
     
-    console.log(`Theme switched to: ${this._settings().theme} (dark: ${isDark})`);
   }
 
   setCameraDevice(deviceId: string | null): void {

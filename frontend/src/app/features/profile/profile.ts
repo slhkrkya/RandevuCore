@@ -92,7 +92,6 @@ export class ProfileComponent implements OnInit {
       error: (err) => {
         this.profileError = 'Profil yüklenirken bir hata oluştu';
         this.profileLoading = false;
-        console.error('Error loading profile:', err);
       }
     });
   }
@@ -129,7 +128,6 @@ export class ProfileComponent implements OnInit {
       error: (err) => {
         this.profileError = err?.error?.error || err?.error?.message || 'Profil güncellenirken bir hata oluştu';
         this.profileLoading = false;
-        console.error('Error updating profile:', err);
       }
     });
   }
@@ -173,7 +171,6 @@ export class ProfileComponent implements OnInit {
       error: (err) => {
         this.passwordError = err?.error?.error || err?.error?.message || 'Şifre değiştirilirken bir hata oluştu';
         this.passwordLoading = false;
-        console.error('Error changing password:', err);
       }
     });
   }

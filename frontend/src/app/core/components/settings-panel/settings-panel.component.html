@@ -187,12 +187,38 @@
   <div class="mt-4" *ngIf="showVideoBackground">
     <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Video Arkaplanı</h3>
 
-    <!-- Live Preview -->
+    <!-- Preview Toggle -->
     <div class="mb-3">
-      <div class="relative w-full bg-slate-200 dark:bg-slate-800 rounded-md overflow-hidden" style="aspect-ratio: 16/9;">
+      <div class="flex items-center justify-between mb-2">
+        <label class="text-[14px] text-slate-600 dark:text-slate-400">Kamera Önizlemesi</label>
+        <button 
+          class="px-3 py-1 text-[14px] rounded-md transition-colors"
+          [class.bg-green-500]="isPreviewEnabled()"
+          [class.hover:bg-green-600]="isPreviewEnabled()"
+          [class.bg-slate-200]="!isPreviewEnabled()"
+          [class.hover:bg-slate-300]="!isPreviewEnabled()"
+          [class.dark:bg-slate-700]="!isPreviewEnabled()"
+          [class.dark:hover:bg-slate-600]="!isPreviewEnabled()"
+          [class.text-white]="isPreviewEnabled()"
+          [class.text-slate-700]="!isPreviewEnabled()"
+          [class.dark:text-slate-300]="!isPreviewEnabled()"
+          (click)="toggleVideoPreview()"
+          [disabled]="!hasCameraPermission()">
+          <span class="material-symbols-outlined text-sm mr-1">
+            {{ isPreviewEnabled() ? 'visibility' : 'visibility_off' }}
+          </span>
+          {{ isPreviewEnabled() ? 'Kapat' : 'Aç' }}
+        </button>
+      </div>
+      
+      <!-- Live Preview -->
+      <div *ngIf="isPreviewEnabled()" class="relative w-full bg-slate-200 dark:bg-slate-800 rounded-md overflow-hidden" style="aspect-ratio: 16/9;">
         <video #videoPreview autoplay muted playsinline class="w-full h-full object-cover"></video>
       </div>
-      <div class="text-[12px] text-slate-500 dark:text-slate-400 mt-1">Önizleme sadece bu sayfada yerel olarak çalışır.</div>
+      
+      <div class="text-[12px] text-slate-500 dark:text-slate-400 mt-1">
+        {{ isPreviewEnabled() ? 'Önizleme sadece bu sayfada yerel olarak çalışır.' : 'Kamera önizlemesini açmak için yukarıdaki butona tıklayın.' }}
+      </div>
     </div>
 
     <!-- Mode selection -->

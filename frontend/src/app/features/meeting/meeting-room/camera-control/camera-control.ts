@@ -95,7 +95,6 @@ export class CameraControlComponent implements OnInit, OnDestroy {
       // ✅ FIXED: Force change detection after loading camera devices
       this.cdr.markForCheck();
     } catch (error) {
-      console.error('Error loading camera devices:', error);
     }
   }
 

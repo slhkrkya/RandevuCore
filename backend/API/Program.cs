@@ -6,10 +6,12 @@ using RandevuCore.Domain.Interfaces; // IRepository interface’leri
 using RandevuCore.Application.Services; // UserService
 using RandevuCore.Infrastructure.Repositories; // AppointmentRepository, UserRepository
 using RandevuCore.Infrastructure.Services; // JwtTokenService, MeetingService
+using RandevuCore.API.Services; // MeetingCleanupService
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Http.Features;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +31,9 @@ builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<AppointmentService>();
 builder.Services.AddScoped<MeetingService>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+
+// Background Services
+builder.Services.AddHostedService<MeetingCleanupService>();
 
 // JWT Authentication
 var jwtSection = builder.Configuration.GetSection("JwtSettings");
@@ -74,13 +79,30 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Configure form options for file uploads
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 10 * 1024 * 1024; // 10MB
+    options.ValueLengthLimit = 10 * 1024 * 1024; // 10MB
+    options.MultipartHeadersLengthLimit = 10 * 1024 * 1024; // 10MB
+});
+
+// Configure static file serving for uploads (for production)
+if (builder.Environment.IsProduction())
+{
+    builder.Services.Configure<IISServerOptions>(options =>
+    {
+        options.MaxRequestBodySize = 10 * 1024 * 1024; // 10MB
+    });
+}
 builder.Services.AddSignalR(options =>
 {
     options.EnableDetailedErrors = true;
     options.KeepAliveInterval = TimeSpan.FromSeconds(15);
     options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
     options.HandshakeTimeout = TimeSpan.FromSeconds(15);
-    options.MaximumReceiveMessageSize = 1024 * 1024; // 1MB
+    options.MaximumReceiveMessageSize = 10 * 1024 * 1024; // 10MB for file uploads
 });
 
 // CORS (configurable via configuration/env: Cors:Origins as comma-separated list)

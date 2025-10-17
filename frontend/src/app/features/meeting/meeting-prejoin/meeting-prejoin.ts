@@ -55,7 +55,13 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
   constructor(
     private route: ActivatedRoute,
     private router: Router
-  ) {}
+  ) {
+    // Listen for permission changes - must be in constructor for injection context
+    effect(() => {
+      this.permissionService.permissions();
+      this.onPermissionChange();
+    });
+  }
 
   async ngOnInit() {
     this.meetingId = this.route.snapshot.paramMap.get('id') || '';
@@ -85,12 +91,6 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
     }
     
     window.addEventListener('settingschange', this.onSettingsChange as any);
-
-    // Listen for permission changes
-    effect(() => {
-      this.permissionService.permissions();
-      this.onPermissionChange();
-    });
   }
 
   private async requestInitialPermission() {
@@ -538,7 +538,6 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
     
     if (!this.permissionService.hasMicrophonePermission()) {
       this.isMicOn = false;
-      console.log('Microphone permission revoked - turning off microphone');
     }
     
     // If permissions are now available, reload devices and restart preview
@@ -546,9 +545,7 @@ export class MeetingPrejoinComponent implements OnInit, OnDestroy {
       try {
         await this.loadDevices();
         await this.startPreview();
-        console.log('Devices reloaded after permission change');
       } catch (error) {
-        console.error('Error reloading devices after permission change:', error);
       }
     }
   }

@@ -141,12 +141,10 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
     const video = event.target as HTMLVideoElement;
     // Force play the video
     video.play().catch(error => {
-      console.error(`Failed to play video for ${participant.name}:`, error);
     });
   }
 
   onVideoError(event: Event, participant: Participant) {
-    console.error(`Video error for ${participant.name}:`, event);
   }
   
   // ✅ OPTIMIZED: Unified video update with throttling
@@ -207,14 +205,6 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
       const isTrackLive = isVideoTrackLive(stream);
       
       if (isTrackLive && videoElement.srcObject !== stream) {
-        console.log(`🎬 Setting srcObject for ${participant.name}:`, {
-          userId,
-          streamId: stream.id,
-          videoTracks: stream.getVideoTracks().length,
-          trackReadyState: videoTrack.readyState,
-          trackEnabled: videoTrack.enabled,
-          trackMuted: videoTrack.muted
-        });
         
         videoElement.srcObject = stream;
         
@@ -222,7 +212,6 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
         videoElement.style.transform = 'none';
         
         videoElement.play().catch(error => {
-          console.error(`Failed to play video for ${participant.name}:`, error);
         });
       } else if (videoElement.srcObject && !isTrackLive) {
         videoElement.srcObject = null;
@@ -236,7 +225,6 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
     if (participant.isVideoOn && !stream) {
       // Participant should have video but stream is not available yet
       // This is common in rejoin scenarios
-      console.log(`🔄 Video should be visible for ${participant.name} but stream not available yet`);
     }
   }
   
@@ -271,11 +259,9 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
   
   toggleParticipantMute(participant: Participant): void {
     // TODO: Implement host mute/unmute functionality
-    console.log('Toggle mute for participant:', participant.name);
   }
   
   toggleParticipantVideo(participant: Participant): void {
     // TODO: Implement host video on/off functionality
-    console.log('Toggle video for participant:', participant.name);
   }
 }

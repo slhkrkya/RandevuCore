@@ -120,7 +120,6 @@ export class ScreenShareComponent implements OnInit, OnDestroy {
       }
       
     } catch (error) {
-      console.error('Error starting screen share:', error);
       this.handleScreenShareError(error);
     } finally {
       this.isSelectingSource = false;
@@ -133,7 +132,6 @@ export class ScreenShareComponent implements OnInit, OnDestroy {
       this.screenShareStop.emit();
       this.stopPreview();
     } catch (error) {
-      console.error('Error stopping screen share:', error);
     }
   }
 
@@ -159,7 +157,6 @@ export class ScreenShareComponent implements OnInit, OnDestroy {
         }
       ];
     } catch (error) {
-      console.error('Error getting available sources:', error);
       this.availableSources = [];
     }
   }
@@ -186,7 +183,6 @@ export class ScreenShareComponent implements OnInit, OnDestroy {
 
       return stream;
     } catch (error) {
-      console.error('Error capturing screen:', error);
       throw error;
     }
   }
@@ -203,7 +199,6 @@ export class ScreenShareComponent implements OnInit, OnDestroy {
     }
     
     // Emit error event or show notification
-    console.error(errorMessage, error);
   }
 
   // Settings methods
@@ -281,7 +276,6 @@ export class ScreenShareComponent implements OnInit, OnDestroy {
       
       return true;
     } catch (error) {
-      console.error('Screen share permission denied:', error);
       return false;
     }
   }

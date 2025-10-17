@@ -43,6 +43,7 @@ export class SettingsPanelComponent implements OnInit, OnDestroy {
   // Video preview
   private previewRawStream?: MediaStream;
   private previewProcessedStream?: MediaStream;
+  isPreviewEnabled = signal<boolean>(false);
 
   constructor() {
     this.loadAvailableDevices();
@@ -57,11 +58,9 @@ export class SettingsPanelComponent implements OnInit, OnDestroy {
     }
   }
 
-  async ngOnInit() {
-    // Preload effects engine to reduce first apply latency
-    try { await this.videoEffects.preload(); } catch {}
+  ngOnInit() {
     window.addEventListener('settingschange', this.onSettingsChange);
-    await this.startVideoPreviewSafe();
+    // Don't auto-start preview - let user control it
   }
 
   // Stop monitoring on global pointer up (in case user releases outside the button)
@@ -86,6 +85,7 @@ export class SettingsPanelComponent implements OnInit, OnDestroy {
     }
     window.removeEventListener('settingschange', this.onSettingsChange);
     this.stopVideoPreview();
+    this.isPreviewEnabled.set(false);
     if (navigator && (navigator as any).mediaDevices && typeof (navigator.mediaDevices as any).removeEventListener === 'function') {
       (navigator.mediaDevices as any).removeEventListener('devicechange', this.handleDeviceChange);
     } else if (navigator && (navigator as any).mediaDevices) {
@@ -105,7 +105,6 @@ export class SettingsPanelComponent implements OnInit, OnDestroy {
       // Restart preview to reflect camera change/hotplug
       await this.startVideoPreviewSafe();
     } catch (err) {
-      console.warn('Device change handling failed:', err);
     }
   };
 
@@ -158,7 +157,6 @@ export class SettingsPanelComponent implements OnInit, OnDestroy {
       this.validateSelectedDevices();
       
     } catch (error) {
-      console.warn('Failed to load devices:', error);
       this.hasMicrophonePermission.set(false);
       this.hasCameraPermission.set(false);
       this.availableCameras.set([]);
@@ -282,7 +280,6 @@ export class SettingsPanelComponent implements OnInit, OnDestroy {
       this.hasMicrophonePermission.set(true);
       await this.loadAvailableDevices();
     } catch (error) {
-      console.warn('Microphone permission denied');
       this.hasMicrophonePermission.set(false);
     }
   }
@@ -293,7 +290,6 @@ export class SettingsPanelComponent implements OnInit, OnDestroy {
       this.hasCameraPermission.set(true);
       await this.loadAvailableDevices();
     } catch (error) {
-      console.warn('Camera permission denied');
       this.hasCameraPermission.set(false);
     }
   }
@@ -331,12 +327,27 @@ export class SettingsPanelComponent implements OnInit, OnDestroy {
     this.audioService.toggleMute();
   }
 
+  // Video preview toggle methods
+  async toggleVideoPreview() {
+    if (this.isPreviewEnabled()) {
+      this.stopVideoPreview();
+      this.isPreviewEnabled.set(false);
+    } else {
+      // Set preview enabled first, then preload and start
+      this.isPreviewEnabled.set(true);
+      // Preload effects engine before starting preview
+      try { await this.videoEffects.preload(); } catch {}
+      await this.startVideoPreviewSafe();
+    }
+  }
+
   // ===== Video Preview Helpers =====
   private async startVideoPreviewSafe() {
     try {
-      // Only start if video background section is shown and camera permission exists
+      // Only start if video background section is shown, camera permission exists, and preview is enabled
       if (!this.showVideoBackground) return;
       if (this.hasCameraPermission() === false) return;
+      if (!this.isPreviewEnabled()) return;
       await this.startVideoPreview();
     } catch (e) {
       // ignore preview errors

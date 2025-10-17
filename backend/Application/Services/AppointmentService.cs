@@ -31,11 +31,14 @@ namespace RandevuCore.Application.Services
 
         public async Task<(bool Ok, string? Error, Guid? Id)> CreateAsync(Guid creatorId, AppointmentCreateDto dto)
         {
+            var now = DateTimeOffset.UtcNow;
+            if (dto.StartsAt < now)
+                return (false, "Randevu başlangıç zamanı geçmiş bir tarih olamaz", null);
             if (dto.StartsAt >= dto.EndsAt)
-                return (false, "StartsAt must be before EndsAt", null);
+                return (false, "Başlangıç zamanı bitiş zamanından önce olmalıdır", null);
 
             var overlap = await _repo.CheckOverlapAsync(creatorId, dto.StartsAt, dto.EndsAt);
-            if (overlap) return (false, "Overlap exists", null);
+            if (overlap) return (false, "Bu zaman diliminde başka bir randevunuz bulunmaktadır", null);
 
             var appointment = new Appointment
             {
@@ -57,14 +60,17 @@ namespace RandevuCore.Application.Services
         public async Task<(bool Ok, string? Error)> UpdateAsync(Guid id, Guid userId, AppointmentUpdateDto dto)
         {
             var existing = await _repo.GetByIdAsync(id);
-            if (existing == null) return (false, "Not found");
-            if (existing.CreatorId != userId) return (false, "Forbidden");
-            if (dto.StartsAt >= dto.EndsAt) return (false, "StartsAt must be before EndsAt");
+            if (existing == null) return (false, "Randevu bulunamadı");
+            if (existing.CreatorId != userId) return (false, "Bu randevuyu düzenleme yetkiniz bulunmamaktadır");
+            
+            var now = DateTimeOffset.UtcNow;
+            if (dto.StartsAt < now) return (false, "Randevu başlangıç zamanı geçmiş bir tarih olamaz");
+            if (dto.StartsAt >= dto.EndsAt) return (false, "Başlangıç zamanı bitiş zamanından önce olmalıdır");
 
             // Check overlap excluding self
             var hasOverlap = (await _repo.GetUserAppointmentsAsync(userId))
                 .Any(a => a.Id != id && dto.StartsAt < a.EndsAt && dto.EndsAt > a.StartsAt);
-            if (hasOverlap) return (false, "Overlap exists");
+            if (hasOverlap) return (false, "Bu zaman diliminde başka bir randevunuz bulunmaktadır");
 
             existing.Title = dto.Title;
             existing.StartsAt = dto.StartsAt;
@@ -79,8 +85,8 @@ namespace RandevuCore.Application.Services
         public async Task<(bool Ok, string? Error)> DeleteAsync(Guid id, Guid userId)
         {
             var existing = await _repo.GetByIdAsync(id);
-            if (existing == null) return (false, "Not found");
-            if (existing.CreatorId != userId) return (false, "Forbidden");
+            if (existing == null) return (false, "Randevu bulunamadı");
+            if (existing.CreatorId != userId) return (false, "Bu randevuyu düzenleme yetkiniz bulunmamaktadır");
             await _repo.DeleteAsync(id);
             return (true, null);
         }

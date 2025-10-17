@@ -243,14 +243,6 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
       const isTrackLive = isVideoTrackLive(stream);
           
           if (isTrackLive && videoElement.srcObject !== stream) {
-        console.log(`🎬 Setting ${type} video srcObject for ${participant.name}:`, {
-          userId: participant.userId,
-              streamId: stream.id,
-              videoTracks: stream.getVideoTracks().length,
-              trackReadyState: videoTrack.readyState,
-              trackEnabled: videoTrack.enabled,
-              trackMuted: videoTrack.muted
-            });
             
             videoElement.srcObject = stream;
             
@@ -258,7 +250,6 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
             videoElement.style.transform = 'none';
             
             videoElement.play().catch(error => {
-          console.error(`Failed to play ${type} video for ${participant.name}:`, error);
             });
           } else if (videoElement.srcObject && !isTrackLive) {
             videoElement.srcObject = null;
@@ -272,7 +263,6 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
         if (participant.isVideoOn && !stream) {
           // Participant should have video but stream is not available yet
           // This is common in rejoin scenarios
-          console.log(`🔄 ${type} video should be visible for ${participant.name} but stream not available yet`);
         }
       }
   
@@ -354,10 +344,8 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
     if (!participant) return;
     if (this.pinnedUserId === participant.userId) {
       this.pinnedUserId = null;
-      console.log(`📌 Pin removed for: ${participant.name}`);
     } else {
       this.pinnedUserId = participant.userId;
-      console.log(`📌 Pin added for: ${participant.name}`);
     }
     this.scheduleChangeDetection();
   }

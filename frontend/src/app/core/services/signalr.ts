@@ -41,16 +41,22 @@ export class SignalRService {
       if (document.visibilityState === 'visible' && 
           this.connection && 
           this.connection.state !== signalR.HubConnectionState.Connected) {
-        console.log('🔄 Tab became visible, reconnecting SignalR...');
         this.connection.start().catch(error => {
-          console.warn('Failed to reconnect SignalR on visibility change:', error);
         });
       }
     });
   }
 
   on<T>(eventName: string, handler: (payload: T) => void) {
-    this.connection?.on(eventName, handler);
+    if (!this.connection) return;
+    
+    // Remove existing listener first to prevent duplicates
+    this.connection.off(eventName);
+    this.connection.on(eventName, handler);
+  }
+
+  off(eventName: string) {
+    this.connection?.off(eventName);
   }
 
   joinRoom(roomId: string) {
@@ -81,5 +87,9 @@ export class SignalRService {
 
   stop() {
     return this.connection?.stop();
+  }
+
+  isConnected(): boolean {
+    return this.connection?.state === signalR.HubConnectionState.Connected;
   }
 }

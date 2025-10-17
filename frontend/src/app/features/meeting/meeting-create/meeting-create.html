@@ -65,6 +65,7 @@
                   <input 
                     formControlName="startsAt" 
                     type="datetime-local"
+                    [min]="minDateTime"
                     class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                     [class.border-red-500]="form.get('startsAt')?.invalid && form.get('startsAt')?.touched"
                   />
@@ -82,6 +83,7 @@
                   <input 
                     formControlName="endsAt" 
                     type="datetime-local"
+                    [min]="minEndDateTime"
                     class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                     [class.border-red-500]="form.get('endsAt')?.invalid && form.get('endsAt')?.touched"
                   />

@@ -9,16 +9,10 @@
       
       <!-- Desktop Navigation - Only show when authenticated -->
       <div class="hidden lg:flex items-center space-x-2 ml-4" *ngIf="isAuthenticated()">
-        <a routerLink="/appointments" 
+        <a routerLink="/meetings" 
            routerLinkActive="active-nav-link" 
            [routerLinkActiveOptions]="{exact: true}"
            class="nav-link animate-fade-in animate-delay-1">
-          <span class="material-symbols-outlined text-sm mr-1 align-middle">event_note</span>
-          <span class="hidden xl:inline">Randevular</span>
-        </a>
-        <a routerLink="/meetings" 
-           routerLinkActive="active-nav-link" 
-           class="nav-link animate-fade-in animate-delay-2">
           <span class="material-symbols-outlined text-sm mr-1 align-middle">video_call</span>
           <span class="hidden xl:inline">Toplantılar</span>
         </a>
@@ -139,16 +133,9 @@
         
         <!-- Mobile Navigation Links - Only show when authenticated -->
         <div class="space-y-2 mb-4" *ngIf="isAuthenticated()">
-          <a routerLink="/appointments" 
-             routerLinkActive="active-nav-link mobile"
-             [routerLinkActiveOptions]="{exact: true}"
-             class="mobile-nav-link block"
-             (click)="closeMobileMenu()">
-            <span class="material-symbols-outlined text-sm mr-2">event_note</span>
-            Randevular
-          </a>
           <a routerLink="/meetings" 
              routerLinkActive="active-nav-link mobile"
+             [routerLinkActiveOptions]="{exact: true}"
              class="mobile-nav-link block"
              (click)="closeMobileMenu()">
             <span class="material-symbols-outlined text-sm mr-2">video_call</span>

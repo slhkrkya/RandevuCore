@@ -1,71 +1,153 @@
-<div class="h-full flex flex-col bg-white dark:bg-slate-800">
+<div class="h-full flex flex-col bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/50 dark:border-slate-700/50 shadow-xl">
   
   <!-- Chat Header -->
-  <div class="p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-800 border-b border-slate-200 dark:border-slate-600">
+  <div class="p-3 sm:p-4 bg-gradient-to-r from-slate-50/80 to-slate-100/80 dark:from-slate-800/80 dark:to-slate-900/80 border-b border-slate-200/50 dark:border-slate-700/50 backdrop-blur-sm">
     <div class="flex items-center justify-between">
-      <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Sohbet</h2>
-      <div class="flex items-center space-x-2">
-        <button class="p-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors" (click)="clearChat()" title="Sohbeti Temizle">
-          <span class="material-symbols-outlined text-sm text-slate-600 dark:text-slate-300">clear_all</span>
+      <h2 class="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">Sohbet</h2>
+      <div class="flex items-center space-x-1 sm:space-x-2">
+        <button class="p-1.5 sm:p-2 bg-slate-100/80 dark:bg-slate-700/80 hover:bg-slate-200/80 dark:hover:bg-slate-600/80 rounded-lg transition-all duration-200 hover:scale-105" (click)="clearChat()" title="Sohbeti Temizle">
+          <span class="material-symbols-outlined text-sm text-slate-600 dark:text-slate-300">delete_sweep</span>
         </button>
-        <button class="p-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors" (click)="onClose()" title="Sohbeti Kapat">
+        <button class="p-1.5 sm:p-2 bg-slate-100/80 dark:bg-slate-700/80 hover:bg-slate-200/80 dark:hover:bg-slate-600/80 rounded-lg transition-all duration-200 hover:scale-105" (click)="onClose()" title="Sohbeti Kapat">
           <span class="material-symbols-outlined text-sm text-slate-600 dark:text-slate-300">close</span>
         </button>
       </div>
     </div>
     <div class="flex items-center space-x-2 mt-2">
-      <div class="w-2 h-2 rounded-full" [class.bg-emerald-500]="isConnected" [class.bg-red-500]="!isConnected"></div>
-      <span class="text-sm text-slate-600 dark:text-slate-300">{{ isConnected ? 'Bağlı' : 'Bağlantı Kesildi' }}</span>
+      <div class="w-2 h-2 rounded-full animate-pulse" [class.bg-emerald-500]="isConnected" [class.bg-red-500]="!isConnected"></div>
+      <span class="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium">{{ isConnected ? 'Bağlı' : 'Bağlantı Kesildi' }}</span>
     </div>
   </div>
 
   <!-- Messages Container -->
-  <div class="flex-1 overflow-y-auto p-4 space-y-3" #messagesContainer>
-    <div *ngIf="messages.length === 0" class="h-full flex items-center justify-center">
+  <div class="flex-1 overflow-y-auto p-2 sm:p-3 lg:p-4 space-y-2 sm:space-y-3 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent" #messagesContainer>
+    <div *ngIf="allMessages.length === 0" class="h-full flex items-center justify-center px-4">
       <div class="text-center text-slate-500 dark:text-slate-400">
-        <span class="material-symbols-outlined text-4xl mb-2">chat</span>
-        <h3 class="text-lg font-medium">Henüz mesaj yok</h3>
-        <p class="text-sm">Sohbeti başlatın!</p>
+        <span class="material-symbols-outlined text-3xl sm:text-4xl mb-2 opacity-50">chat_bubble_outline</span>
+        <h3 class="text-base sm:text-lg font-medium">Henüz mesaj yok</h3>
+        <p class="text-xs sm:text-sm opacity-75">Sohbeti başlatın veya dosya paylaşın!</p>
       </div>
     </div>
 
-    <div *ngFor="let message of messages" class="flex" [class.justify-end]="message.isOwn">
-      <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-2xl" 
-           [class.bg-blue-500]="message.isOwn"
-           [class.bg-slate-200]="!message.isOwn"
-           [class.dark:bg-slate-600]="!message.isOwn">
-        <div class="flex items-center space-x-2 mb-1">
-          <span class="text-xs font-medium" 
-                [class.text-white]="message.isOwn"
-                [class.text-slate-600]="!message.isOwn"
-                [class.dark:text-slate-300]="!message.isOwn">{{ message.userName }}</span>
-          <span class="text-xs opacity-75"
-                [class.text-white]="message.isOwn"
-                [class.text-slate-500]="!message.isOwn"
-                [class.dark:text-slate-400]="!message.isOwn">{{ getMessageTime(message.timestamp) }}</span>
+    <!-- All Messages (Chat + File) -->
+    <div *ngFor="let msg of allMessages" class="flex w-full" [class.justify-end]="msg.isOwn" [class.justify-start]="!msg.isOwn">
+      
+      <!-- Chat Message -->
+      <div *ngIf="msg.type === 'chat'" class="max-w-[90%] sm:max-w-[80%] md:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 sm:py-3 rounded-2xl shadow-sm transition-all duration-200 hover:shadow-md min-w-0" 
+           [class.bg-gradient-to-br]="msg.isOwn"
+           [class.from-blue-500]="msg.isOwn"
+           [class.to-blue-600]="msg.isOwn"
+           [class.bg-white/90]="!msg.isOwn"
+           [class.dark:bg-slate-800/90]="!msg.isOwn"
+           [class.border]="!msg.isOwn"
+           [class.border-slate-200/50]="!msg.isOwn"
+           [class.dark:border-slate-700/50]="!msg.isOwn">
+        
+        <!-- Message Header -->
+        <div class="flex items-center justify-between mb-1 min-w-0">
+          <span class="text-xs font-semibold truncate flex-1 min-w-0" 
+                [class.text-white]="msg.isOwn"
+                [class.text-slate-700]="!msg.isOwn"
+                [class.dark:text-slate-200]="!msg.isOwn">{{ msg.userName }}</span>
+          <span class="text-xs opacity-70 ml-2 flex-shrink-0"
+                [class.text-white]="msg.isOwn"
+                [class.text-slate-500]="!msg.isOwn"
+                [class.dark:text-slate-400]="!msg.isOwn">{{ getMessageTime(msg.timestamp) }}</span>
         </div>
-        <div class="text-sm"
-             [class.text-white]="message.isOwn"
-             [class.text-slate-700]="!message.isOwn"
-             [class.dark:text-slate-200]="!message.isOwn">{{ message.message }}</div>
+        
+        <!-- Message Content -->
+        <div class="text-sm leading-relaxed break-words whitespace-normal word-wrap overflow-wrap-anywhere"
+             [class.text-white]="msg.isOwn"
+             [class.text-slate-800]="!msg.isOwn"
+             [class.dark:text-slate-100]="!msg.isOwn">{{ msg.message }}</div>
+      </div>
+
+      <!-- File Message -->
+      <div *ngIf="msg.type === 'file'" class="max-w-[90%] sm:max-w-[80%] md:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 sm:py-3 rounded-2xl shadow-sm transition-all duration-200 hover:shadow-md min-w-0 cursor-pointer" 
+           [class.bg-gradient-to-br]="msg.isOwn"
+           [class.from-blue-500]="msg.isOwn"
+           [class.to-blue-600]="msg.isOwn"
+           [class.bg-white/90]="!msg.isOwn"
+           [class.dark:bg-slate-800/90]="!msg.isOwn"
+           [class.border]="!msg.isOwn"
+           [class.border-slate-200/50]="!msg.isOwn"
+           [class.dark:border-slate-700/50]="!msg.isOwn"
+           (click)="downloadFile(msg)">
+        
+        <!-- File Message Header -->
+        <div class="flex items-center justify-between mb-2 min-w-0">
+          <span class="text-xs font-semibold truncate flex-1 min-w-0" 
+                [class.text-white]="msg.isOwn"
+                [class.text-slate-700]="!msg.isOwn"
+                [class.dark:text-slate-200]="!msg.isOwn">{{ msg.userName }}</span>
+          <span class="text-xs opacity-70 ml-2 flex-shrink-0"
+                [class.text-white]="msg.isOwn"
+                [class.text-slate-500]="!msg.isOwn"
+                [class.dark:text-slate-400]="!msg.isOwn">{{ getMessageTime(msg.timestamp) }}</span>
+        </div>
+        
+        <!-- File Content -->
+        <div class="flex items-center space-x-3">
+          <div class="flex-shrink-0">
+            <span class="material-symbols-outlined text-2xl"
+                  [class.text-white]="msg.isOwn"
+                  [class.text-slate-600]="!msg.isOwn"
+                  [class.dark:text-slate-300]="!msg.isOwn">{{ getFileIcon(msg.fileType) }}</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-medium truncate"
+                 [class.text-white]="msg.isOwn"
+                 [class.text-slate-800]="!msg.isOwn"
+                 [class.dark:text-slate-100]="!msg.isOwn">{{ msg.originalFileName }}</div>
+            <div class="text-xs opacity-70"
+                 [class.text-white]="msg.isOwn"
+                 [class.text-slate-500]="!msg.isOwn"
+                 [class.dark:text-slate-400]="!msg.isOwn">{{ formatFileSize(msg.fileSize) }}</div>
+          </div>
+          <div class="flex-shrink-0">
+            <span class="material-symbols-outlined text-lg opacity-70"
+                  [class.text-white]="msg.isOwn"
+                  [class.text-slate-500]="!msg.isOwn"
+                  [class.dark:text-slate-400]="!msg.isOwn">download</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Message Input -->
-  <div class="p-4 border-t border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700">
-    <div class="flex items-center space-x-3">
-      <input #messageInput
-             type="text"
-             class="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-             placeholder="Mesaj yazın..."
-             [(ngModel)]="newMessage"
-             (keypress)="onKeyPress($event)"
-             [disabled]="!isConnected">
-      <button class="p-2 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-400 dark:disabled:bg-slate-600 text-white rounded-xl transition-colors disabled:cursor-not-allowed"
+  <div class="p-3 sm:p-4 border-t border-slate-200/50 dark:border-slate-700/50 bg-gradient-to-r from-slate-50/80 to-slate-100/80 dark:from-slate-800/80 dark:to-slate-900/80 backdrop-blur-sm">
+    <div class="flex items-end space-x-2 sm:space-x-3">
+      <!-- File Upload Button -->
+      <div class="relative">
+        <input #fileInput
+               type="file"
+               class="hidden"
+               (change)="onFileSelected($event)"
+               [disabled]="!isConnected || isUploading"
+               accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.zip,.rar,.xlsx,.xls,.pptx,.ppt">
+        <button class="p-2 sm:p-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 disabled:from-slate-400 disabled:to-slate-500 dark:disabled:from-slate-600 dark:disabled:to-slate-700 text-white rounded-2xl transition-all duration-200 disabled:cursor-not-allowed shadow-sm hover:shadow-md hover:scale-105 disabled:hover:scale-100"
+                (click)="fileInput.click()"
+                [disabled]="!isConnected || isUploading"
+                title="Dosya Ekle">
+          <span class="material-symbols-outlined text-sm sm:text-base" *ngIf="!isUploading">attach_file</span>
+          <span class="material-symbols-outlined text-sm sm:text-base animate-spin" *ngIf="isUploading">hourglass_empty</span>
+        </button>
+      </div>
+      
+      <div class="flex-1 relative">
+        <input #messageInput
+               type="text"
+               class="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-slate-300/50 dark:border-slate-600/50 rounded-2xl bg-white/90 dark:bg-slate-800/90 text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200 text-sm sm:text-base backdrop-blur-sm shadow-sm"
+               placeholder="Mesaj yazın..."
+               [(ngModel)]="newMessage"
+               (keypress)="onKeyPress($event)"
+               [disabled]="!isConnected">
+      </div>
+      <button class="p-2 sm:p-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-slate-400 disabled:to-slate-500 dark:disabled:from-slate-600 dark:disabled:to-slate-700 text-white rounded-2xl transition-all duration-200 disabled:cursor-not-allowed shadow-sm hover:shadow-md hover:scale-105 disabled:hover:scale-100"
               (click)="sendMessage()"
               [disabled]="!newMessage.trim() || !isConnected">
-        <span class="material-symbols-outlined text-sm">send</span>
+        <span class="material-symbols-outlined text-sm sm:text-base">send</span>
       </button>
     </div>
   </div>

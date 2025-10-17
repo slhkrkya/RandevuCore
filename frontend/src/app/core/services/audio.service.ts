@@ -81,7 +81,6 @@ export class AudioService {
       
       return true;
     } catch (error) {
-      console.error('Failed to initialize audio:', error);
       this.cleanup();
       return false;
     }
@@ -198,11 +197,9 @@ export class AudioService {
         await anyAudio.setSinkId(sinkId);
         return true;
       } else {
-        console.warn('setSinkId not supported in this browser');
         return false;
       }
     } catch (e) {
-      console.warn('Failed to set output device:', e);
       return false;
     }
   }

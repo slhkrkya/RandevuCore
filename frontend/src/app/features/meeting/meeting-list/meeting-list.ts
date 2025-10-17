@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth';
 import { AppConfigService } from '../../../core/services/app-config.service';
@@ -26,17 +27,31 @@ interface Meeting {
   updatedAt: string;
 }
 
+interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
 @Component({
   selector: 'app-meeting-list',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, FormsModule],
   templateUrl: './meeting-list.html',
   styleUrls: ['./meeting-list.css']
 })
 export class MeetingListComponent implements OnInit {
   items: Meeting[] = [];
+  users: User[] = [];
   loading = true;
+  loadingUsers = false;
   error: string | null = null;
+  selectedUserId: string | null = null;
+  
+  // Cache için
+  private usersCache: User[] | null = null;
+  private usersCacheTime: number = 0;
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 dakika
 
   constructor(
     private http: HttpClient,
@@ -45,7 +60,38 @@ export class MeetingListComponent implements OnInit {
   ) {}
 
   ngOnInit() {
+    this.loadUsers();
     this.loadMeetings();
+  }
+
+  loadUsers() {
+    // Cache kontrolü
+    const now = Date.now();
+    if (this.usersCache && (now - this.usersCacheTime) < this.CACHE_DURATION) {
+      this.users = this.usersCache;
+      return;
+    }
+
+    const token = this.auth.getToken();
+    if (!token) return;
+
+    this.loadingUsers = true;
+    this.http.get<User[]>(`${this.cfg.apiBaseUrl || ''}/api/users`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    }).subscribe({
+      next: (users) => {
+        this.users = users;
+        this.usersCache = users;
+        this.usersCacheTime = now;
+        this.loadingUsers = false;
+      },
+      error: (err) => {
+        console.error('Kullanıcılar yüklenirken hata:', err);
+        this.loadingUsers = false;
+      }
+    });
   }
 
   loadMeetings() {
@@ -59,23 +105,29 @@ export class MeetingListComponent implements OnInit {
       return;
     }
 
+    // Filtreleme parametresi ekle
+    const params: any = {};
+    if (this.selectedUserId && this.selectedUserId !== 'null') {
+      params.filterByUserId = this.selectedUserId;
+    }
+
     this.http.get<Meeting[]>(`${this.cfg.apiBaseUrl || ''}/api/meetings`, {
       headers: {
         'Authorization': `Bearer ${token}`
-      }
+      },
+      params: params
     }).subscribe({
       next: (meetings) => {
-        // Ensure invitees is always an array
+        // Ensure invitees is always an array and sort by start time
         this.items = meetings.map(meeting => ({
           ...meeting,
           invitees: meeting.invitees || []
-        }));
+        })).sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
         this.loading = false;
       },
       error: (err) => {
         this.error = 'Toplantılar yüklenirken bir hata oluştu';
         this.loading = false;
-        console.error('Error loading meetings:', err);
       }
     });
   }
@@ -130,5 +182,15 @@ export class MeetingListComponent implements OnInit {
         }
       });
     }
+  }
+
+  onUserFilterChange(userId: string | null) {
+    this.selectedUserId = userId;
+    this.loadMeetings();
+  }
+
+  clearFilter() {
+    this.selectedUserId = null;
+    this.loadMeetings();
   }
 }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.SignalR;
 using RandevuCore.Infrastructure.Persistence;
 using System.Collections.Concurrent;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Hosting;
 
 namespace RandevuCore.API.Realtime
 {
@@ -20,11 +21,20 @@ namespace RandevuCore.API.Realtime
         // Room end times for TTL-based cleanup
         private static readonly ConcurrentDictionary<string, DateTimeOffset> RoomEndTimes = new();
         
+        // Chat messages storage (in-memory, per room)
+        private static readonly ConcurrentDictionary<string, ConcurrentQueue<ChatMessageDto>> RoomChatMessages = new();
+        private static readonly ConcurrentDictionary<string, DateTimeOffset> RoomChatStartTimes = new();
+        
+        // File messages storage (in-memory, per room)
+        private static readonly ConcurrentDictionary<string, ConcurrentQueue<FileMessageDto>> RoomFileMessages = new();
+        
         private readonly RandevuDbContext _db;
+        private readonly IWebHostEnvironment _environment;
 
-        public RealtimeHub(RandevuDbContext db)
+        public RealtimeHub(RandevuDbContext db, IWebHostEnvironment environment)
         {
             _db = db;
+            _environment = environment;
         }
 
         private (Guid userId, string name) GetUser()
@@ -106,6 +116,12 @@ namespace RandevuCore.API.Realtime
                 
                 // Send initial state only to the caller (newly joined user)
                 await Clients.Caller.SendAsync("initial-participant-states", stateSnapshot);
+                
+                // Send chat history to newly joined user
+                await GetChatHistory(roomId);
+                
+                // Send file history to newly joined user
+                await GetFileHistory(roomId);
                 
                 await BroadcastPresence(roomId, members);
                 await BroadcastMeetingDuration(roomId);
@@ -340,6 +356,30 @@ namespace RandevuCore.API.Realtime
             public Guid TargetUserId { get; set; }
             public object? Candidate { get; set; } // RTCIceCandidateInit
         }
+        
+        // Chat message DTO
+        public class ChatMessageDto
+        {
+            public string Id { get; set; } = string.Empty;
+            public Guid UserId { get; set; }
+            public string UserName { get; set; } = string.Empty;
+            public string Message { get; set; } = string.Empty;
+            public DateTimeOffset Timestamp { get; set; }
+        }
+
+        // File message DTO
+        public class FileMessageDto
+        {
+            public string Id { get; set; } = string.Empty;
+            public Guid UserId { get; set; }
+            public string UserName { get; set; } = string.Empty;
+            public string OriginalFileName { get; set; } = string.Empty;
+            public string FileName { get; set; } = string.Empty;
+            public long FileSize { get; set; }
+            public string FileType { get; set; } = string.Empty;
+            public string UploadPath { get; set; } = string.Empty;
+            public DateTimeOffset Timestamp { get; set; }
+        }
 
         // NEW: WebRTC Signaling Methods for direct offer/answer/ICE communication
         public async Task SendOffer(string roomId, WebRtcOfferDto dto)
@@ -417,6 +457,27 @@ namespace RandevuCore.API.Realtime
                 // Clear participant list (but keep state for TTL period)
                 RoomIdToParticipants.TryRemove(roomId, out _);
                 
+                // Clear chat messages when meeting ends
+                RoomChatMessages.TryRemove(roomId, out _);
+                RoomChatStartTimes.TryRemove(roomId, out _);
+                
+                // Clear file messages when meeting ends
+                RoomFileMessages.TryRemove(roomId, out _);
+                
+                // Clean up meeting files immediately when meeting ends
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await CleanupMeetingFiles(roomId);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error but don't fail the meeting end process
+                        Console.WriteLine($"Failed to cleanup files for room {roomId}: {ex.Message}");
+                    }
+                });
+                
                 // Schedule state cleanup after TTL (30 seconds)
                 _ = Task.Run(async () =>
                 {
@@ -436,6 +497,129 @@ namespace RandevuCore.API.Realtime
                 // Notify all participants that meeting has ended
                 await Clients.Group(roomId).SendAsync("meeting-ended");
             }
+        }
+
+        // Chat methods
+        public async Task SendChatMessage(string roomId, string message)
+        {
+            if (!roomId.StartsWith("meeting-")) return;
+            if (string.IsNullOrWhiteSpace(message)) return;
+
+            var (userId, userName) = GetUser();
+            
+            // Create chat message
+            var chatMessage = new ChatMessageDto
+            {
+                Id = Guid.NewGuid().ToString(),
+                UserId = userId,
+                UserName = userName,
+                Message = message.Trim(),
+                Timestamp = DateTimeOffset.UtcNow
+            };
+
+            // Store message in room's chat history
+            var roomMessages = RoomChatMessages.GetOrAdd(roomId, _ => new ConcurrentQueue<ChatMessageDto>());
+            roomMessages.Enqueue(chatMessage);
+
+            // Set chat start time if this is the first message
+            if (!RoomChatStartTimes.ContainsKey(roomId))
+            {
+                RoomChatStartTimes[roomId] = DateTimeOffset.UtcNow;
+            }
+
+            // Broadcast message to all participants in the room
+            await Clients.Group(roomId).SendAsync("chat-message", chatMessage);
+        }
+
+        public async Task GetChatHistory(string roomId)
+        {
+            if (!roomId.StartsWith("meeting-")) return;
+
+            var (userId, _) = GetUser();
+            
+            // Get chat start time for this room
+            if (!RoomChatStartTimes.TryGetValue(roomId, out var chatStartTime))
+            {
+                // No chat history yet
+                await Clients.Caller.SendAsync("chat-history", new List<ChatMessageDto>());
+                return;
+            }
+
+            // Get messages from room's chat history
+            var roomMessages = RoomChatMessages.GetOrAdd(roomId, _ => new ConcurrentQueue<ChatMessageDto>());
+            var messages = roomMessages.ToList();
+
+            // Send chat history to the caller (newly joined user)
+            await Clients.Caller.SendAsync("chat-history", messages);
+        }
+
+        // File sharing methods
+        public async Task SendFileMessage(string roomId, FileMessageDto fileMessage)
+        {
+            if (!roomId.StartsWith("meeting-")) return;
+
+            var (userId, userName) = GetUser();
+            
+            // Create file message
+            var fileMsg = new FileMessageDto
+            {
+                Id = fileMessage.Id,
+                UserId = userId,
+                UserName = userName,
+                OriginalFileName = fileMessage.OriginalFileName,
+                FileName = fileMessage.FileName,
+                FileSize = fileMessage.FileSize,
+                FileType = fileMessage.FileType,
+                UploadPath = fileMessage.UploadPath,
+                Timestamp = DateTimeOffset.UtcNow
+            };
+
+            // Store file message in room's file history
+            var roomFileMessages = RoomFileMessages.GetOrAdd(roomId, _ => new ConcurrentQueue<FileMessageDto>());
+            roomFileMessages.Enqueue(fileMsg);
+
+            // Broadcast file message to all participants in the room
+            await Clients.Group(roomId).SendAsync("file-message", fileMsg);
+        }
+
+        public async Task GetFileHistory(string roomId)
+        {
+            if (!roomId.StartsWith("meeting-")) return;
+
+            var (userId, _) = GetUser();
+            
+            // Get file messages from room's file history
+            var roomFileMessages = RoomFileMessages.GetOrAdd(roomId, _ => new ConcurrentQueue<FileMessageDto>());
+            var fileMessages = roomFileMessages.ToList();
+
+            // Send file history to the caller (newly joined user)
+            await Clients.Caller.SendAsync("file-history", fileMessages);
+        }
+
+        private Task CleanupMeetingFiles(string roomId)
+        {
+            try
+            {
+                var uploadsPath = Path.Combine(_environment.ContentRootPath, "uploads", "chat-files");
+                var meetingFolderPath = Path.Combine(uploadsPath, roomId);
+                
+                if (Directory.Exists(meetingFolderPath))
+                {
+                    // Count files before deletion
+                    var files = Directory.GetFiles(meetingFolderPath, "*", SearchOption.AllDirectories);
+                    
+                    // Delete the entire folder
+                    Directory.Delete(meetingFolderPath, true);
+                    
+                    Console.WriteLine($"Cleaned up meeting files for {roomId}: {files.Length} files deleted");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to cleanup files for room {roomId}: {ex.Message}");
+            }
+            
+            return Task.CompletedTask;
         }
 
         private void StartDurationTimer(string roomId)
@@ -472,3 +656,4 @@ namespace RandevuCore.API.Realtime
         }
     }
 }
+

@@ -60,6 +60,21 @@ namespace RandevuCore.Infrastructure.Persistence
 
             modelBuilder.Entity<Appointment>()
                 .HasIndex(a => new { a.InviteeId, a.StartsAt });
+
+            // Meeting performans indexleri
+            modelBuilder.Entity<Meeting>()
+                .HasIndex(m => m.CreatorId);
+
+            modelBuilder.Entity<Meeting>()
+                .HasIndex(m => m.StartsAt);
+
+            modelBuilder.Entity<Meeting>()
+                .HasIndex(m => new { m.CreatorId, m.StartsAt });
+
+            // User performans indexleri
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Email)
+                .IsUnique();
         }
     }
 }
