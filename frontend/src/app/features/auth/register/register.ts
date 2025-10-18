@@ -15,6 +15,7 @@ export class RegisterComponent {
   form: FormGroup;
   loading = false;
   error: string | null = null;
+  success: string | null = null;
   showPassword = false;
   showConfirm = false;
 
@@ -30,10 +31,16 @@ export class RegisterComponent {
   onSubmit() {
     if (this.form.invalid || this.loading) return;
     this.error = null;
+    this.success = null;
     this.loading = true;
     const { name, email, password } = this.form.value;
     this.auth.register(name!, email!, password!).subscribe({
-      next: () => this.router.navigate(['/appointments']),
+      next: () => {
+        this.success = 'Kayıt başarılı! Giriş yapmak için yönlendiriliyorsunuz...';
+        setTimeout(() => {
+          this.router.navigate(['/login']);
+        }, 2000);
+      },
       error: () => {
         this.error = 'Kayıt başarısız. Email kullanımda olabilir.';
         this.loading = false;

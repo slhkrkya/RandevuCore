@@ -2,6 +2,7 @@ import { Component, computed, signal, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { AuthService } from '../../../core/services/auth';
+import { MeetingStatusService } from '../../../core/services/meeting-status.service';
 import { SettingsPanelComponent } from '../settings-panel/settings-panel.component';
 import { filter } from 'rxjs/operators';
 
@@ -18,10 +19,15 @@ export class NavbarComponent {
   isMobileMenuOpen = false;
   isClosing = false;
   isSettingsMenuOpen = signal(false);
+  
+  // Meeting status
+  hasActiveMeeting = computed(() => this.meetingStatus.hasActiveMeeting);
+  currentMeeting = computed(() => this.meetingStatus.currentMeeting());
 
   constructor(
     private auth: AuthService, 
-    private router: Router
+    private router: Router,
+    private meetingStatus: MeetingStatusService
   ) {
     // Track current route for page title
     this.router.events
@@ -66,6 +72,20 @@ export class NavbarComponent {
   logout() {
     this.auth.logout();
     this.router.navigate(['/login']);
+  }
+
+  returnToMeeting() {
+    const returnUrl = this.meetingStatus.getMeetingReturnUrl();
+    console.log('Return to meeting:', returnUrl);
+    console.log('Current meeting:', this.meetingStatus.currentMeeting());
+    if (returnUrl) {
+      this.router.navigate([returnUrl]);
+    }
+  }
+
+  isInMeetingRoom(): boolean {
+    // Check if current route is a meeting room (not meeting list or other meeting routes)
+    return this.currentRoute.match(/^\/meetings\/[^\/]+$/) !== null;
   }
 
   toggleMobileMenu() {

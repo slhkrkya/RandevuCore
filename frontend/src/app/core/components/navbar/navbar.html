@@ -17,6 +17,23 @@
           <span class="hidden xl:inline">Toplantılar</span>
         </a>
       </div>
+      
+      <!-- Return to Meeting Button - Show when there's an active meeting but not in meeting room -->
+      <div *ngIf="hasActiveMeeting() && !isInMeetingRoom()" 
+           class="flex items-center space-x-2 ml-4 animate-fade-in">
+        <button 
+          (click)="returnToMeeting()"
+          class="btn btn-primary btn-sm flex items-center space-x-2 px-3 py-2 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105"
+          [class.bg-orange-500]="currentMeeting()?.isBackground"
+          [class.hover:bg-orange-600]="currentMeeting()?.isBackground"
+          title="Toplantıya Dön: {{ currentMeeting()?.title }} {{ currentMeeting()?.isBackground ? '(Arka planda devam ediyor)' : '' }}"
+        >
+          <span class="material-symbols-outlined text-sm">video_call</span>
+          <span class="text-sm font-medium">
+            {{ currentMeeting()?.isBackground ? 'Toplantıya Dön (Arka planda)' : 'Toplantıya Dön' }}
+          </span>
+        </button>
+      </div>
     </div>
 
     <!-- Center Section: Current Page Title (Desktop) - Only show when authenticated -->

@@ -101,12 +101,19 @@
               <p class="text-sm text-slate-500 dark:text-slate-400">{{ meeting.startsAt | date:'dd MMMM yyyy, HH:mm':'tr-TR' }}</p>
             </div>
             <!-- Status Badge -->
-            <div class="flex items-center">
+            <div class="flex items-center space-x-2">
               <span class="badge"
                     [class.badge-success]="meeting.status === 'scheduled'"
                     [class.badge-warning]="meeting.status === 'done'"
                     [class.badge-error]="meeting.status === 'canceled'">
                 {{ getStatusText(meeting.status) }}
+              </span>
+              
+              <!-- Current Meeting Status -->
+              <span *ngIf="isCurrentlyInThisMeeting(meeting.id)" 
+                    class="badge badge-primary animate-pulse">
+                <span class="material-symbols-outlined text-xs mr-1">videocam</span>
+                {{ meetingStatus.currentMeeting()?.isBackground ? 'Arka planda' : 'Aktif' }}
               </span>
             </div>
           </div>
@@ -125,6 +132,15 @@
             <div *ngIf="meeting.notes" class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed text-clamp-2">
               <span class="material-symbols-outlined text-xs mr-1 align-middle">notes</span>
               {{ meeting.notes }}
+            </div>
+
+            <!-- Host Information -->
+            <div class="text-sm text-slate-600 dark:text-slate-300 mb-3">
+              <div class="flex items-center">
+                <span class="material-symbols-outlined text-base mr-2 text-amber-500">person</span>
+                <span class="font-medium">Host:</span>
+                <span class="ml-1">{{ meeting.creatorName }}</span>
+              </div>
             </div>
 
             <!-- Participants -->
@@ -153,13 +169,22 @@
           <div class="flex items-center justify-between">
             <div class="flex space-x-3">
               <button 
-                [routerLink]="['/meetings', meeting.id, 'prejoin']"
-                class="btn btn-primary btn-sm"
+                [routerLink]="['/meetings', meeting.id]"
+                [disabled]="!canJoinMeeting(meeting.id)"
+                [class.btn-primary]="canJoinMeeting(meeting.id)"
+                [class.btn-secondary]="!canJoinMeeting(meeting.id)"
+                [class.opacity-50]="!canJoinMeeting(meeting.id)"
+                class="btn btn-sm"
+                [title]="getCurrentMeetingStatus(meeting.id)"
               >
                 <span class="material-symbols-outlined text-sm mr-1">video_call</span>
-                Odaya Gir
+                <span *ngIf="isCurrentlyInThisMeeting(meeting.id)">
+                  {{ meetingStatus.currentMeeting()?.isBackground ? 'Toplantıya Dön' : 'Toplantıda' }}
+                </span>
+                <span *ngIf="!isCurrentlyInThisMeeting(meeting.id)">Odaya Gir</span>
               </button>
               <button 
+                *ngIf="isHost(meeting)"
                 class="btn btn-secondary btn-sm"
                 (click)="editMeeting(meeting)"
               >
@@ -168,6 +193,7 @@
               </button>
             </div>
             <button 
+              *ngIf="isHost(meeting)"
               class="btn btn-danger btn-sm p-2"
               (click)="deleteMeeting(meeting)"
               title="Toplantıyı Sil"
@@ -238,6 +264,156 @@
           <h3 class="text-lg font-semibold text-red-800 dark:text-red-200 mb-2">Bir Hata Oluştu</h3>
           <p class="text-red-700 dark:text-red-300">{{ error }}</p>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Meeting Modal -->
+  <div *ngIf="showEditModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-scale-in">
+      <!-- Modal Header -->
+      <div class="p-6 border-b border-slate-200 dark:border-slate-700">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold text-slate-900 dark:text-white flex items-center">
+            <span class="material-symbols-outlined text-blue-500 mr-2">edit</span>
+            Toplantıyı Düzenle
+          </h2>
+          <button 
+            (click)="closeEditModal()"
+            class="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+          >
+            <span class="material-symbols-outlined text-slate-500 dark:text-slate-400">close</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 space-y-6">
+        <!-- Error Message -->
+        <div *ngIf="editError" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <div class="flex items-center">
+            <span class="material-symbols-outlined text-red-500 mr-2">error</span>
+            <p class="text-red-700 dark:text-red-300 text-sm">{{ editError }}</p>
+          </div>
+        </div>
+
+        <!-- Form -->
+        <form (ngSubmit)="saveMeeting()" class="space-y-6">
+          <!-- Title -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Toplantı Başlığı
+            </label>
+            <input 
+              type="text" 
+              [(ngModel)]="editForm.title"
+              name="title"
+              required
+              class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              placeholder="Toplantı başlığını girin"
+            >
+          </div>
+
+          <!-- Date and Time -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Başlangıç Zamanı
+              </label>
+              <input 
+                type="datetime-local" 
+                [(ngModel)]="editForm.startsAt"
+                name="startsAt"
+                required
+                class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              >
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                Bitiş Zamanı
+              </label>
+              <input 
+                type="datetime-local" 
+                [(ngModel)]="editForm.endsAt"
+                name="endsAt"
+                required
+                class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              >
+            </div>
+          </div>
+
+          <!-- Notes -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Notlar
+            </label>
+            <textarea 
+              [(ngModel)]="editForm.notes"
+              name="notes"
+              rows="3"
+              class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+              placeholder="Toplantı notları (opsiyonel)"
+            ></textarea>
+          </div>
+
+          <!-- Status -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              Durum
+            </label>
+            <select 
+              [(ngModel)]="editForm.status"
+              name="status"
+              class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            >
+              <option value="scheduled">Planlandı</option>
+              <option value="canceled">İptal Edildi</option>
+              <option value="done">Tamamlandı</option>
+            </select>
+          </div>
+
+          <!-- Invitees -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
+              Katılımcılar
+            </label>
+            <div class="space-y-2 max-h-40 overflow-y-auto border border-slate-200 dark:border-slate-600 rounded-xl p-4">
+              <div *ngFor="let user of users" class="flex items-center space-x-3">
+                <input 
+                  type="checkbox" 
+                  [id]="'invitee-' + user.id"
+                  [checked]="isInviteeSelected(user.id)"
+                  (change)="toggleInvitee(user.id)"
+                  class="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-slate-800 focus:ring-2 dark:bg-slate-700 dark:border-slate-600"
+                >
+                <label [for]="'invitee-' + user.id" class="text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+                  {{ user.name }} ({{ user.email }})
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal Footer -->
+          <div class="flex items-center justify-end space-x-3 pt-6 border-t border-slate-200 dark:border-slate-700">
+            <button 
+              type="button"
+              (click)="closeEditModal()"
+              class="btn btn-secondary"
+              [disabled]="editLoading"
+            >
+              İptal
+            </button>
+            <button 
+              type="submit"
+              class="btn btn-primary"
+              [disabled]="editLoading"
+            >
+              <span *ngIf="editLoading" class="material-symbols-outlined text-sm mr-2 animate-spin">refresh</span>
+              <span *ngIf="!editLoading" class="material-symbols-outlined text-sm mr-2">save</span>
+              {{ editLoading ? 'Kaydediliyor...' : 'Kaydet' }}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>

@@ -54,9 +54,10 @@ namespace RandevuCore.Infrastructure.Services
                 accessibleMeetingIds = accessibleMeetingIds.Intersect(filteredMeetingIds).ToList();
             }
 
-            // Sadece erişilebilir toplantıları çek (Include ile invitee bilgilerini de al)
+            // Sadece erişilebilir toplantıları çek (Include ile invitee ve creator bilgilerini de al)
             var meetings = await _db.Meetings
                 .Include(m => m.Invitees)
+                .Include(m => m.Creator)
                 .Where(m => accessibleMeetingIds.Contains(m.Id))
                 .OrderBy(m => m.StartsAt)
                 .ToListAsync();
@@ -70,6 +71,7 @@ namespace RandevuCore.Infrastructure.Services
                 Notes = m.Notes,
                 Status = m.Status,
                 CreatorId = m.CreatorId,
+                CreatorName = m.Creator.Name,
                 VideoSessionId = m.VideoSessionId,
                 WhiteboardSessionId = m.WhiteboardSessionId,
                 Invitees = m.Invitees.Select(i => new MeetingInviteeDto
@@ -118,13 +120,23 @@ namespace RandevuCore.Infrastructure.Services
 
         public async Task<(bool Ok, string? Error)> UpdateAsync(Guid id, Guid userId, MeetingUpdateDto dto)
         {
-            var existing = await _db.Meetings.FindAsync(id);
+            var existing = await _db.Meetings
+                .Include(m => m.Invitees)
+                .FirstOrDefaultAsync(m => m.Id == id);
             if (existing == null) return (false, "Toplantı bulunamadı");
             if (existing.CreatorId != userId) return (false, "Bu toplantıyı düzenleme yetkiniz bulunmamaktadır");
             
-            var now = DateTimeOffset.UtcNow;
+            var now = DateTimeOffset.UtcNow.AddMinutes(-5); // 5 dakika tolerans
             if (dto.StartsAt < now) return (false, "Toplantı başlangıç zamanı geçmiş bir tarih olamaz");
             if (dto.StartsAt >= dto.EndsAt) return (false, "Başlangıç zamanı bitiş zamanından önce olmalıdır");
+
+            // Katılımcıları güncelle
+            var newInvitees = await _db.Users.Where(u => dto.InviteeIds.Contains(u.Id)).ToListAsync();
+            existing.Invitees.Clear();
+            foreach (var invitee in newInvitees)
+            {
+                existing.Invitees.Add(invitee);
+            }
 
             existing.Title = dto.Title;
             existing.StartsAt = dto.StartsAt;

@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth';
 import { AppConfigService } from '../../../core/services/app-config.service';
+import { MeetingStatusService } from '../../../core/services/meeting-status.service';
 
 interface MeetingInvitee {
   id: string;
@@ -20,6 +21,7 @@ interface Meeting {
   notes?: string;
   status: 'scheduled' | 'canceled' | 'done';
   creatorId: string;
+  creatorName: string;
   videoSessionId?: string;
   whiteboardSessionId?: string;
   invitees?: MeetingInvitee[]; // Optional, can be undefined
@@ -48,6 +50,13 @@ export class MeetingListComponent implements OnInit {
   error: string | null = null;
   selectedUserId: string | null = null;
   
+  // Edit modal için
+  showEditModal = false;
+  editingMeeting: Meeting | null = null;
+  editForm: any = {};
+  editLoading = false;
+  editError: string | null = null;
+  
   // Cache için
   private usersCache: User[] | null = null;
   private usersCacheTime: number = 0;
@@ -56,8 +65,15 @@ export class MeetingListComponent implements OnInit {
   constructor(
     private http: HttpClient,
     private auth: AuthService,
-    private cfg: AppConfigService
+    private cfg: AppConfigService,
+    public meetingStatus: MeetingStatusService
   ) {}
+
+  // Host kontrolü için helper method
+  isHost(meeting: Meeting): boolean {
+    const currentUserId = this.auth.getCurrentUserId();
+    return currentUserId === meeting.creatorId;
+  }
 
   ngOnInit() {
     this.loadUsers();
@@ -159,8 +175,106 @@ export class MeetingListComponent implements OnInit {
   }
 
   editMeeting(meeting: Meeting) {
-    // TODO: Implement edit functionality
-    console.log('Edit meeting:', meeting);
+    this.editingMeeting = meeting;
+    
+    // Tarihleri yerel saat diliminde formatla
+    const startsAt = new Date(meeting.startsAt);
+    const endsAt = new Date(meeting.endsAt);
+    
+    this.editForm = {
+      title: meeting.title,
+      startsAt: this.formatDateTimeLocal(startsAt),
+      endsAt: this.formatDateTimeLocal(endsAt),
+      notes: meeting.notes || '',
+      status: meeting.status,
+      inviteeIds: meeting.invitees?.map(i => i.id) || []
+    };
+    this.editError = null;
+    this.showEditModal = true;
+  }
+
+  // datetime-local input için tarih formatı
+  private formatDateTimeLocal(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  }
+
+  closeEditModal() {
+    this.showEditModal = false;
+    this.editingMeeting = null;
+    this.editForm = {};
+    this.editError = null;
+    this.editLoading = false;
+  }
+
+  saveMeeting() {
+    if (!this.editingMeeting) return;
+    
+    this.editLoading = true;
+    this.editError = null;
+    
+    const token = this.auth.getToken();
+    if (!token) return;
+
+    // Tarih validasyonu
+    const startsAt = new Date(this.editForm.startsAt);
+    const endsAt = new Date(this.editForm.endsAt);
+    const now = new Date();
+    
+    if (startsAt < now) {
+      this.editError = 'Toplantı başlangıç zamanı geçmiş bir tarih olamaz';
+      this.editLoading = false;
+      return;
+    }
+    
+    if (startsAt >= endsAt) {
+      this.editError = 'Başlangıç zamanı bitiş zamanından önce olmalıdır';
+      this.editLoading = false;
+      return;
+    }
+
+    const updateData = {
+      title: this.editForm.title,
+      startsAt: startsAt.toISOString(),
+      endsAt: endsAt.toISOString(),
+      notes: this.editForm.notes,
+      status: this.editForm.status,
+      inviteeIds: this.editForm.inviteeIds
+    };
+
+    this.http.put(`${this.cfg.apiBaseUrl || ''}/api/meetings/${this.editingMeeting.id}`, updateData, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    }).subscribe({
+      next: () => {
+        this.editLoading = false;
+        this.closeEditModal();
+        this.loadMeetings(); // Reload the list
+      },
+      error: (err) => {
+        this.editError = err.error?.error || 'Toplantı güncellenirken bir hata oluştu';
+        this.editLoading = false;
+      }
+    });
+  }
+
+  toggleInvitee(userId: string) {
+    const index = this.editForm.inviteeIds.indexOf(userId);
+    if (index > -1) {
+      this.editForm.inviteeIds.splice(index, 1);
+    } else {
+      this.editForm.inviteeIds.push(userId);
+    }
+  }
+
+  isInviteeSelected(userId: string): boolean {
+    return this.editForm.inviteeIds?.includes(userId) || false;
   }
 
   deleteMeeting(meeting: Meeting) {
@@ -192,5 +306,37 @@ export class MeetingListComponent implements OnInit {
   clearFilter() {
     this.selectedUserId = null;
     this.loadMeetings();
+  }
+
+  // Toplantı durumu kontrol metodları
+  isCurrentlyInMeeting(): boolean {
+    return this.meetingStatus.hasActiveMeeting;
+  }
+
+  isCurrentlyInThisMeeting(meetingId: string): boolean {
+    const currentMeeting = this.meetingStatus.currentMeeting();
+    return currentMeeting?.meetingId === meetingId;
+  }
+
+  getCurrentMeetingStatus(meetingId: string): string {
+    const currentMeeting = this.meetingStatus.currentMeeting();
+    if (!currentMeeting) return '';
+    
+    if (currentMeeting.meetingId === meetingId) {
+      return currentMeeting.isBackground ? 'Arka planda devam ediyor' : 'Şu anda bu toplantıdasınız';
+    }
+    
+    return 'Başka bir toplantıdasınız';
+  }
+
+  canJoinMeeting(meetingId: string): boolean {
+    const currentMeeting = this.meetingStatus.currentMeeting();
+    if (!currentMeeting) return true;
+    
+    // Aynı toplantıdaysa katılabilir
+    if (currentMeeting.meetingId === meetingId) return true;
+    
+    // Farklı toplantıdaysa katılamaz
+    return false;
   }
 }

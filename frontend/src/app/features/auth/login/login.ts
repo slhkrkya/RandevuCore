@@ -30,7 +30,7 @@ export class LoginComponent {
     this.loading = true;
     const { email, password } = this.form.value;
     this.auth.login(email!, password!).subscribe({
-      next: () => this.router.navigate(['/appointments']),
+      next: () => this.router.navigate(['/meetings']),
       error: () => {
         this.error = 'Giriş başarısız. Bilgileri kontrol edin.';
         this.loading = false;

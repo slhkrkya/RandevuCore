@@ -40,6 +40,7 @@ export class ChatPanelComponent implements OnInit, OnDestroy {
   @Input() roomKey = '';
   @Input() currentUserId = '';
   @Input() currentUserName = '';
+  @Input() isHost = false;
 
   @Output() close = new EventEmitter<void>();
 
@@ -105,6 +106,16 @@ export class ChatPanelComponent implements OnInit, OnDestroy {
       this.signalr.on<any>('connection-status', (status) => {
         this.isConnected = status.connected;
         this.cdr.markForCheck();
+      });
+
+      // Listen for chat cleared signal
+      this.signalr.on<any>('chat-cleared', (data) => {
+        if (data.roomId === this.roomKey) {
+          this.messages = [];
+          this.fileMessages = [];
+          this.allMessages = [];
+          this.cdr.markForCheck();
+        }
       });
     };
 
@@ -264,9 +275,21 @@ export class ChatPanelComponent implements OnInit, OnDestroy {
   }
 
   clearChat() {
-    this.messages = [];
-    this.fileMessages = [];
-    this.allMessages = [];
+    if (!this.isHost) return; // Güvenlik kontrolü
+    
+    // Onay iste
+    if (confirm('Tüm sohbet geçmişini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) {
+      // Backend'e temizleme sinyali gönder
+      this.signalr.invoke('ClearChat', this.roomKey).then(() => {
+        // Frontend'de de temizle
+        this.messages = [];
+        this.fileMessages = [];
+        this.allMessages = [];
+      }).catch((error) => {
+        console.error('Error clearing chat:', error);
+        alert('Sohbet temizlenirken bir hata oluştu.');
+      });
+    }
   }
 
   private updateAllMessages() {

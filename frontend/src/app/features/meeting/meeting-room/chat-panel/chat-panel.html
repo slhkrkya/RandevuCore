@@ -5,7 +5,12 @@
     <div class="flex items-center justify-between">
       <h2 class="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">Sohbet</h2>
       <div class="flex items-center space-x-1 sm:space-x-2">
-        <button class="p-1.5 sm:p-2 bg-slate-100/80 dark:bg-slate-700/80 hover:bg-slate-200/80 dark:hover:bg-slate-600/80 rounded-lg transition-all duration-200 hover:scale-105" (click)="clearChat()" title="Sohbeti Temizle">
+        <button 
+          *ngIf="isHost"
+          class="p-1.5 sm:p-2 bg-slate-100/80 dark:bg-slate-700/80 hover:bg-slate-200/80 dark:hover:bg-slate-600/80 rounded-lg transition-all duration-200 hover:scale-105" 
+          (click)="clearChat()" 
+          title="Sohbeti Temizle (Sadece Host)"
+        >
           <span class="material-symbols-outlined text-sm text-slate-600 dark:text-slate-300">delete_sweep</span>
         </button>
         <button class="p-1.5 sm:p-2 bg-slate-100/80 dark:bg-slate-700/80 hover:bg-slate-200/80 dark:hover:bg-slate-600/80 rounded-lg transition-all duration-200 hover:scale-105" (click)="onClose()" title="Sohbeti Kapat">

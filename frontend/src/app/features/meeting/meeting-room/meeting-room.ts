@@ -16,6 +16,7 @@ import { ToastService } from '../../../core/services/toast.service';
 import { SettingsService } from '../../../core/services/settings.service';
 import { AppConfigService } from '../../../core/services/app-config.service';
 import { PermissionService } from '../../../core/services/permission.service';
+import { MeetingStatusService } from '../../../core/services/meeting-status.service';
 
 export interface Participant {
   connectionId: string;
@@ -225,7 +226,8 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     private zone: NgZone,
     private toast: ToastService,
     private cfg: AppConfigService,
-    private permissionService: PermissionService
+    private permissionService: PermissionService,
+    private meetingStatus: MeetingStatusService
   ) {
     // ✅ REACTIVE: Initialize participants observable after service is available
     this.participants$ = this.participantService.participants$;
@@ -305,17 +307,28 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     this.subscriptions.unsubscribe();
     
     window.removeEventListener('settingschange', this.handleSettingsChange);
-    try { this.videoEffects.stop(); } catch {}
+    // Don't stop video effects - keep them running in background
+    // try { this.videoEffects.stop(); } catch {}
     
     const refreshKey = `meeting-auto-refresh-${this.meetingId}`;
     sessionStorage.removeItem(refreshKey);
     
-    await this.cleanup();
+    // Set meeting to background mode instead of full cleanup
+    this.meetingStatus.setBackgroundMode(true);
+    
+    // Don't cleanup connections - keep them alive in background
+    // await this.cleanup();
   }
 
   private async initializeMeeting() {
     this.meetingId = this.route.snapshot.paramMap.get('id') || '';
     this.roomKey = `meeting-${this.meetingId}`;
+    
+    // Check if returning from background mode
+    const currentMeeting = this.meetingStatus.currentMeeting();
+    const isReturningFromBackground = currentMeeting && 
+      currentMeeting.meetingId === this.meetingId && 
+      currentMeeting.isBackground;
     
     const token = localStorage.getItem('token') || '';
     try {
@@ -328,11 +341,39 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    await this.signalr.start(token);
-    this.connected = true;
-    this.setupSignalRListeners();
-    await this.signalr.joinRoom(this.roomKey);
-    this.signalr.invoke('GetMeetingDuration', this.roomKey);
+    if (!isReturningFromBackground) {
+      // Only start new connection if not returning from background
+      await this.signalr.start(token);
+      this.connected = true;
+      this.setupSignalRListeners();
+      await this.signalr.joinRoom(this.roomKey);
+      this.signalr.invoke('GetMeetingDuration', this.roomKey);
+    } else {
+      // Already connected, just set connected state
+      this.connected = true;
+      this.setupSignalRListeners();
+      
+      // Restore meeting state from background
+      const savedState = currentMeeting.meetingState;
+      if (savedState) {
+        this.meetingStateSubject.next({
+          isMuted: savedState.isMuted,
+          isVideoOn: savedState.isVideoOn,
+          isScreenSharing: savedState.isScreenSharing,
+          isWhiteboardActive: savedState.isWhiteboardActive
+        });
+      }
+    }
+    
+    // Update meeting status service
+    if (isReturningFromBackground) {
+      this.meetingStatus.setBackgroundMode(false);
+    } else {
+      this.meetingStatus.joinMeeting(this.meetingId, this.roomKey, 'Toplantı', this.isHost);
+    }
+    
+    // Start updating meeting state periodically
+    this.startMeetingStateSync();
   }
 
   private addCurrentUserAsParticipant() {
@@ -353,6 +394,18 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     };
 
     this.participants.push(currentUser);
+  }
+
+  private startMeetingStateSync() {
+    // Update meeting state every 2 seconds
+    setInterval(() => {
+      this.meetingStatus.updateMeetingState({
+        isMuted: this.meetingState.isMuted,
+        isVideoOn: this.meetingState.isVideoOn,
+        isScreenSharing: this.meetingState.isScreenSharing,
+        isWhiteboardActive: this.meetingState.isWhiteboardActive
+      });
+    }, 2000);
   }
 
   private setupSignalRListeners() {
@@ -2350,6 +2403,10 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       await this.signalr.leaveRoom(this.roomKey);
       await this.cleanup();
+      
+      // Clear meeting status completely (real exit)
+      this.meetingStatus.leaveMeeting();
+      
       this.router.navigate(['/meetings']);
     } catch (error) {
       this.router.navigate(['/meetings']);

@@ -654,6 +654,32 @@ namespace RandevuCore.API.Realtime
                 timer.Dispose();
             }
         }
+
+        public async Task ClearChat(string roomId)
+        {
+            try
+            {
+                // Chat geçmişini temizle (memory'den)
+                if (RoomChatMessages.ContainsKey(roomId))
+                {
+                    RoomChatMessages[roomId].Clear();
+                }
+                
+                if (RoomFileMessages.ContainsKey(roomId))
+                {
+                    RoomFileMessages[roomId].Clear();
+                }
+
+                // Tüm katılımcılara chat temizlendi sinyali gönder
+                await Clients.Group(roomId).SendAsync("chat-cleared", new { roomId });
+                
+                Console.WriteLine($"Chat cleared for room: {roomId}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error clearing chat for room {roomId}: {ex.Message}");
+            }
+        }
     }
 }
 

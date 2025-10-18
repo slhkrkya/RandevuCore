@@ -18,6 +18,7 @@ namespace RandevuCore.Application.DTOs
         public DateTimeOffset EndsAt { get; set; }
         public string? Notes { get; set; }
         public AppointmentStatus Status { get; set; }
+        public List<Guid> InviteeIds { get; set; } = new();
     }
 
     public class MeetingListItemDto
@@ -29,6 +30,7 @@ namespace RandevuCore.Application.DTOs
         public string? Notes { get; set; }
         public AppointmentStatus Status { get; set; }
         public Guid CreatorId { get; set; }
+        public string CreatorName { get; set; } = null!;
         public string? VideoSessionId { get; set; }
         public string? WhiteboardSessionId { get; set; }
         public List<MeetingInviteeDto> Invitees { get; set; } = new();

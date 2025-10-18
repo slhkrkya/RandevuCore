@@ -12,6 +12,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -157,6 +158,47 @@ if (!app.Environment.IsDevelopment())
         await next();
     });
 }
+// Detect uploads folder dynamically (for AWS/Linux compatibility)
+var uploadPath = Path.Combine(app.Environment.ContentRootPath, "uploads");
+
+// Eğer uploads dizini yoksa oluştur
+if (!Directory.Exists(uploadPath))
+{
+    Directory.CreateDirectory(uploadPath);
+}
+
+// AWS ortamında bazen uygulama /tmp dizinine yazma iznine sahiptir
+if (!Directory.Exists(uploadPath) || !HasWritePermission(uploadPath))
+{
+    uploadPath = "/tmp/uploads";
+    if (!Directory.Exists(uploadPath))
+    {
+        Directory.CreateDirectory(uploadPath);
+    }
+}
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadPath),
+    RequestPath = "/uploads"
+});
+
+// Helper: write permission kontrolü
+bool HasWritePermission(string path)
+{
+    try
+    {
+        string testFile = Path.Combine(path, Path.GetRandomFileName());
+        File.WriteAllText(testFile, "test");
+        File.Delete(testFile);
+        return true;
+    }
+    catch
+    {
+        return false;
+    }
+}
+
 // In development, do not force HTTPS redirection to simplify local testing
 app.UseCors(FrontendCorsPolicy);
 app.UseAuthentication();
