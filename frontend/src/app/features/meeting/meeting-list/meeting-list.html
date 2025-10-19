@@ -169,7 +169,7 @@
           <div class="flex items-center justify-between">
             <div class="flex space-x-3">
               <button 
-                [routerLink]="['/meetings', meeting.id]"
+                [routerLink]="getJoinRoute(meeting.id)"
                 [disabled]="!canJoinMeeting(meeting.id)"
                 [class.btn-primary]="canJoinMeeting(meeting.id)"
                 [class.btn-secondary]="!canJoinMeeting(meeting.id)"

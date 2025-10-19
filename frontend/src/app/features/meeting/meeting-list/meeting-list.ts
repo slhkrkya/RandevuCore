@@ -339,4 +339,16 @@ export class MeetingListComponent implements OnInit {
     // Farklı toplantıdaysa katılamaz
     return false;
   }
+
+  getJoinRoute(meetingId: string): string[] {
+    const currentMeeting = this.meetingStatus.currentMeeting();
+    
+    // Eğer zaten bu toplantıdaysa, direkt toplantıya git (pre-join olmadan)
+    if (currentMeeting && currentMeeting.meetingId === meetingId) {
+      return ['/meetings', meetingId];
+    }
+    
+    // Değilse pre-join'e git
+    return ['/meetings', meetingId, 'prejoin'];
+  }
 }

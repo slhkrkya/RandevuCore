@@ -307,11 +307,17 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     this.subscriptions.unsubscribe();
     
     window.removeEventListener('settingschange', this.handleSettingsChange);
-    // Don't stop video effects - keep them running in background
-    // try { this.videoEffects.stop(); } catch {}
     
     const refreshKey = `meeting-auto-refresh-${this.meetingId}`;
     sessionStorage.removeItem(refreshKey);
+    
+    // ✅ ENHANCED: Always cleanup camera resources on component destroy
+    // This ensures camera LED turns off even if user navigates away
+    try {
+      await this.cleanupCameraResources();
+    } catch (error) {
+      // Ignore cleanup errors during component destruction
+    }
     
     // Set meeting to background mode instead of full cleanup
     this.meetingStatus.setBackgroundMode(true);
@@ -931,13 +937,23 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     try {
       if (this.localStream && this.localStream.getVideoTracks().length > 0) {
         const videoTrack = this.localStream.getVideoTracks()[0];
+        
+        // ✅ ENHANCED: Ensure camera LED turns off immediately
         videoTrack.stop(); // This will turn off the camera LED
         this.localStream.removeTrack(videoTrack);
+        
+        // Also stop video track from raw stream
+        if (this.rawLocalStream && this.rawLocalStream.getVideoTracks().length > 0) {
+          const rawVideoTrack = this.rawLocalStream.getVideoTracks()[0];
+          rawVideoTrack.stop(); // Additional stop to ensure LED turns off
+        }
         
         // Create audio-only stream
         const audioTracks = this.localStream.getAudioTracks();
         if (audioTracks.length > 0) {
           this.localStreamSubject.next(new MediaStream(audioTracks));
+        } else {
+          this.localStreamSubject.next(undefined);
         }
         
         // Stop video effects processing
@@ -989,8 +1005,14 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       if (this.localStream && this.localStream.getVideoTracks()[0]) {
         try {
           const cam = this.localStream.getVideoTracks()[0];
-          cam.stop();
+          cam.stop(); // This will turn off the camera LED
           this.localStream.removeTrack(cam);
+          
+          // Also stop from raw stream to ensure LED turns off
+          if (this.rawLocalStream && this.rawLocalStream.getVideoTracks()[0]) {
+            const rawCam = this.rawLocalStream.getVideoTracks()[0];
+            rawCam.stop(); // Additional stop to ensure LED turns off
+          }
         } catch {}
       }
       
@@ -2397,6 +2419,10 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       // Clear auto-refresh flag so next join will refresh again
       const refreshKey = `meeting-auto-refresh-${this.meetingId}`;
       sessionStorage.removeItem(refreshKey);
+      
+      // ✅ ENHANCED: Immediate camera cleanup before leaving
+      await this.cleanupCameraResources();
+      
       // Notify backend to end the meeting (only if host)
       if (this.isHost) {
         await this.signalr.invoke('EndMeeting', this.roomKey);
@@ -2409,6 +2435,12 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       
       this.router.navigate(['/meetings']);
     } catch (error) {
+      // Even if there's an error, ensure camera is cleaned up
+      try {
+        await this.cleanupCameraResources();
+      } catch (cleanupError) {
+        // Ignore cleanup errors during error handling
+      }
       this.router.navigate(['/meetings']);
     }
   }
@@ -2456,25 +2488,8 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       this.negotiationTimers.forEach(timer => clearTimeout(timer));
       this.negotiationTimers.clear();
       
-      // Stop local media tracks to turn off camera LED
-      if (this.localStream) {
-        this.localStream.getTracks().forEach(track => {
-          try {
-            track.stop(); // This will turn off camera LED
-          } catch (error) {
-          }
-        });
-        this.localStreamSubject.next(undefined);
-      }
-      if (this.rawLocalStream) {
-        this.rawLocalStream.getTracks().forEach(track => {
-          try { track.stop(); } catch {}
-        });
-        this.rawLocalStream = undefined;
-      }
-
-      // Aggressively clear video elements
-      this.clearAllVideoElements();
+      // ✅ ENHANCED: Comprehensive camera cleanup to ensure LED turns off
+      await this.cleanupCameraResources();
       
       // Stop active speaker monitoring and clean audio graph
       this.stopActiveSpeakerLoop();
@@ -2495,6 +2510,74 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       this.eventListeners.clear();
       
     } catch (error) {
+    }
+  }
+
+  // ✅ NEW: Comprehensive camera cleanup to ensure LED turns off
+  private async cleanupCameraResources() {
+    try {
+      // Stop all local media tracks
+      if (this.localStream) {
+        this.localStream.getTracks().forEach(track => {
+          try {
+            track.stop(); // This will turn off camera LED
+          } catch (error) {
+            // Track might already be stopped
+          }
+        });
+        this.localStreamSubject.next(undefined);
+      }
+      
+      if (this.rawLocalStream) {
+        this.rawLocalStream.getTracks().forEach(track => {
+          try { 
+            track.stop(); // This will turn off camera LED
+          } catch (error) {
+            // Track might already be stopped
+          }
+        });
+        this.rawLocalStream = undefined;
+      }
+
+      // Stop video effects processing
+      try { 
+        this.videoEffects.stop(); 
+      } catch (error) {
+        // Video effects might already be stopped
+      }
+
+      // Clear all video elements
+      this.clearAllVideoElements();
+      
+      // Force garbage collection of media streams
+      this.localStreamSubject.next(undefined);
+      
+      // Additional cleanup for stubborn camera resources
+      try {
+        // Get all media devices and stop any active tracks
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        
+        // Force stop any remaining video tracks
+        for (const device of videoDevices) {
+          try {
+            // This is a fallback to ensure camera is released
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+              video: { deviceId: { exact: device.deviceId } } 
+            });
+            stream.getTracks().forEach(track => {
+              track.stop();
+            });
+          } catch (error) {
+            // Device might not be accessible, which is fine
+          }
+        }
+      } catch (error) {
+        // Device enumeration might fail, which is acceptable
+      }
+      
+    } catch (error) {
+      // Camera cleanup error - log but don't throw
     }
   }
 
