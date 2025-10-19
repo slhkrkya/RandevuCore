@@ -4,6 +4,7 @@ import { ReactiveFormsModule, FormBuilder, Validators, FormGroup } from '@angula
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { AppConfigService } from '../../../core/services/app-config.service';
+import { AuthService } from '../../../core/services/auth';
 import { map } from 'rxjs';
 
 @Component({
@@ -37,7 +38,7 @@ export class MeetingCreateComponent {
     return this.minDateTime;
   }
 
-  constructor(private fb: FormBuilder, private http: HttpClient, private router: Router, private cfg: AppConfigService) {
+  constructor(private fb: FormBuilder, private http: HttpClient, private router: Router, private cfg: AppConfigService, private auth: AuthService) {
     this.form = this.fb.group({
       title: ['', Validators.required],
       startsAt: ['', Validators.required],
@@ -49,7 +50,11 @@ export class MeetingCreateComponent {
 
   ngOnInit() {
     this.http.get<any[]>(`${this.cfg.apiBaseUrl || ''}/api/users`)
-      .subscribe(u => this.users = u);
+      .subscribe(u => {
+        // Filter out current user from invitee list since they are already the host
+        const currentUserId = this.auth.getCurrentUserId();
+        this.users = u.filter(user => user.id !== currentUserId);
+      });
 
     // Başlangıç tarihi değiştiğinde bitiş tarihini güncelle
     this.form.get('startsAt')?.valueChanges.subscribe(startsAt => {

@@ -36,9 +36,9 @@ export class RegisterComponent {
     const { name, email, password } = this.form.value;
     this.auth.register(name!, email!, password!).subscribe({
       next: () => {
-        this.success = 'Kayıt başarılı! Giriş yapmak için yönlendiriliyorsunuz...';
+        this.success = 'Kayıt başarılı! Anasayfaya yönlendiriliyorsunuz...';
         setTimeout(() => {
-          this.router.navigate(['/login']);
+          this.router.navigate(['/']);
         }, 2000);
       },
       error: () => {

@@ -55,7 +55,7 @@
                   {{ loadingUsers ? 'Kullanıcılar yükleniyor...' : 'Tüm Toplantılar' }}
                 </option>
                 <option *ngFor="let user of users" [value]="user.id" class="text-slate-700 dark:text-slate-200">
-                  {{ user.name }} ({{ user.email }})
+                  {{ user.name }}
                 </option>
               </select>
               <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -387,7 +387,7 @@
                   class="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-slate-800 focus:ring-2 dark:bg-slate-700 dark:border-slate-600"
                 >
                 <label [for]="'invitee-' + user.id" class="text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
-                  {{ user.name }} ({{ user.email }})
+                  {{ user.name }}
                 </label>
               </div>
             </div>

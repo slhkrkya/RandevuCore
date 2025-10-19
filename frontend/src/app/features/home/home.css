@@ -1,0 +1,314 @@
+/* Home Component Styles */
+.container {
+  max-width: 1200px;
+}
+
+/* Slide in from right animation */
+@keyframes slideInFromRight {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInFromRight 0.8s ease-out;
+  animation-delay: 0.3s;
+  animation-fill-mode: both;
+}
+
+/* Scroll Smoother Animations - Applied via JavaScript */
+
+/* Staggered animations for feature cards */
+.scroll-hidden .group:nth-child(1) {
+  transition-delay: 0.3s;
+}
+
+.scroll-hidden .group:nth-child(2) {
+  transition-delay: 0.6s;
+}
+
+.scroll-hidden .group:nth-child(3) {
+  transition-delay: 0.9s;
+}
+
+.scroll-hidden .group:nth-child(4) {
+  transition-delay: 1.2s;
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Enhanced scroll animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Apply different animations to different sections */
+.scroll-visible[data-animation="fade-up"] {
+  animation: fadeInUp 2s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+.scroll-visible[data-animation="fade-left"] {
+  animation: fadeInLeft 2s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+.scroll-visible[data-animation="fade-right"] {
+  animation: fadeInRight 2s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+.scroll-visible[data-animation="scale-in"] {
+  animation: scaleIn 2s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+/* Animation classes */
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .5;
+  }
+}
+
+/* Button styles */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+.btn-primary {
+  background: linear-gradient(to right, #2563eb, #9333ea);
+  color: white;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(to right, #1d4ed8, #7c3aed);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  transform: translateY(-2px);
+}
+
+.btn-outline {
+  background: transparent;
+  border: 2px solid #2563eb;
+  color: #2563eb;
+}
+
+.btn-outline:hover {
+  background: #2563eb;
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .text-5xl {
+    font-size: 3rem;
+  }
+  
+  .text-7xl {
+    font-size: 4rem;
+  }
+  
+  .text-4xl {
+    font-size: 2.5rem;
+  }
+  
+  .text-5xl {
+    font-size: 3rem;
+  }
+  
+  .py-20 {
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+  }
+  
+  .gap-12 {
+    gap: 2rem;
+  }
+  
+  .gap-8 {
+    gap: 1.5rem;
+  }
+}
+
+/* Features Section Responsive */
+@media (max-width: 640px) {
+  /* Mobile: 2x2 grid */
+  .grid.grid-cols-2 {
+    gap: 1rem;
+  }
+  
+  .grid.grid-cols-2 .group {
+    padding: 1rem;
+  }
+  
+  .grid.grid-cols-2 .group .w-16 {
+    width: 3rem;
+    height: 3rem;
+  }
+  
+  .grid.grid-cols-2 .group .text-xl {
+    font-size: 1rem;
+  }
+  
+  .grid.grid-cols-2 .group .text-sm {
+    font-size: 0.75rem;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+  /* Small tablets: 2x2 grid */
+  .grid.grid-cols-2 .group {
+    padding: 1.5rem;
+  }
+  
+  .grid.grid-cols-2 .group .w-16 {
+    width: 3.5rem;
+    height: 3.5rem;
+  }
+}
+
+@media (min-width: 769px) {
+  /* Desktop: 4x1 grid */
+  .grid.grid-cols-4 .group {
+    padding: 2rem;
+  }
+  
+  .grid.grid-cols-4 .group .w-16 {
+    width: 4rem;
+    height: 4rem;
+  }
+}
+
+/* Dark mode specific adjustments */
+@media (prefers-color-scheme: dark) {
+  .bg-gradient-to-br {
+    background-image: linear-gradient(to bottom right, var(--tw-gradient-stops));
+  }
+}
+
+/* Custom hover effects */
+.group:hover .group-hover\:scale-110 {
+  transform: scale(1.1);
+}
+
+.group:hover .group-hover\:-translate-y-2 {
+  transform: translateY(-0.5rem);
+}
+
+/* Smooth transitions */
+* {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Focus states for accessibility */
+.btn:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+a:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Loading states */
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Dark mode scrollbar */
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-track {
+    background: #1e293b;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #475569;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+}

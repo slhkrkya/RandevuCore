@@ -2,10 +2,12 @@
   <nav class="container mx-auto px-4 sm:px-6 py-6 flex items-center justify-between">
     <!-- Left Section: Logo and Navigation -->
     <div class="flex items-center space-x-2 sm:space-x-4">
-      <div class="w-6 h-6 sm:w-8 sm:h-8 gradient-primary rounded-lg flex items-center justify-center animate-scale-in">
-        <span class="material-symbols-outlined text-white text-sm sm:text-base">calendar_month</span>
-      </div>
-      <h1 class="text-lg sm:text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 dark:from-blue-500 dark:to-purple-500 bg-clip-text text-transparent animate-fade-in">RandevuCore</h1>
+      <a routerLink="/" class="flex items-center space-x-2 sm:space-x-4 hover:opacity-80 transition-opacity duration-200 focus:outline-none">
+        <div class="w-6 h-6 sm:w-8 sm:h-8 gradient-primary rounded-lg flex items-center justify-center animate-scale-in">
+          <span class="material-symbols-outlined text-white text-sm sm:text-base">calendar_month</span>
+        </div>
+        <h1 class="text-lg sm:text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 dark:from-blue-500 dark:to-purple-500 bg-clip-text text-transparent animate-fade-in">RandevuCore</h1>
+      </a>
       
       <!-- Desktop Navigation - Only show when authenticated -->
       <div class="hidden lg:flex items-center space-x-2 ml-4" *ngIf="isAuthenticated()">

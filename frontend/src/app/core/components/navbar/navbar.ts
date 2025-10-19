@@ -71,7 +71,7 @@ export class NavbarComponent {
 
   logout() {
     this.auth.logout();
-    this.router.navigate(['/login']);
+    this.router.navigate(['/']);
   }
 
   returnToMeeting() {
