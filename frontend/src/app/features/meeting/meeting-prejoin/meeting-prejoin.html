@@ -24,7 +24,7 @@
         
         <span class="material-symbols-outlined text-xl" *ngIf="!isDeviceReady && !loading">hourglass_empty</span>
         <span class="material-symbols-outlined text-xl" *ngIf="isDeviceReady && !loading">check_circle</span>
-        <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" *ngIf="loading"></div>
+        <span class="material-symbols-outlined text-xl animate-spin" *ngIf="loading">hourglass_top</span>
         
         <span class="text-lg" *ngIf="!isDeviceReady && !loading">{{ deviceCheckMessage }}</span>
         <span class="text-lg" *ngIf="isDeviceReady && !loading">Toplantıya Katıl</span>

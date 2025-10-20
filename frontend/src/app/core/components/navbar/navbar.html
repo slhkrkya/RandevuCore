@@ -243,3 +243,14 @@
     </div>
   </div>
 </header>
+
+<!-- Background audio elements to keep audio playing when not in meeting room -->
+<ng-container *ngIf="hasActiveMeeting() && !isInMeetingRoom()">
+  <!-- Removed local stream playback to avoid hearing own voice -->
+  <audio *ngIf="combinedRemoteAudioStream"
+         [srcObject]="combinedRemoteAudioStream"
+         autoplay
+         style="position:absolute;width:0;height:0;opacity:0;pointer-events:none"></audio>
+  
+  <!-- Safari fallback: attach via element ref if binding fails -->
+</ng-container>

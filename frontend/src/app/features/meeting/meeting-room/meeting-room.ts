@@ -17,6 +17,8 @@ import { SettingsService } from '../../../core/services/settings.service';
 import { AppConfigService } from '../../../core/services/app-config.service';
 import { PermissionService } from '../../../core/services/permission.service';
 import { MeetingStatusService } from '../../../core/services/meeting-status.service';
+import { MeetingAudioService } from '../../../core/services/meeting-audio.service';
+import { ParticipantVolumeService } from '../../../core/services/participant-volume.service';
 
 export interface Participant {
   connectionId: string;
@@ -227,7 +229,9 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     private toast: ToastService,
     private cfg: AppConfigService,
     private permissionService: PermissionService,
-    private meetingStatus: MeetingStatusService
+    private meetingStatus: MeetingStatusService,
+    private meetingAudioService: MeetingAudioService,
+    private participantVolume: ParticipantVolumeService
   ) {
     // ✅ REACTIVE: Initialize participants observable after service is available
     this.participants$ = this.participantService.participants$;
@@ -249,28 +253,66 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async ngOnInit() {
-    // ✅ REACTIVE: Update initializing state through reactive stream
+    // Detect if we are returning from background for this meeting
+    const meetingIdFromRoute = this.route.snapshot.paramMap.get('id') || '';
+    const currentMeetingInit = this.meetingStatus.currentMeeting();
+    const isReturningFromBackgroundInit = !!currentMeetingInit && currentMeetingInit.meetingId === meetingIdFromRoute && currentMeetingInit.isBackground;
+
+    // Only show initializing/loading UI on fresh join
+    if (!isReturningFromBackgroundInit) {
     this.isInitializingSubject.next(true);
     this.initializingMessageSubject.next('Toplantı hazırlanıyor...');
+    }
     
     try { await this.videoEffects.preload(); } catch {}
+    
+    // Skip media re-initialization when returning from background
+    if (!isReturningFromBackgroundInit) {
     await this.initializeMedia();
+    }
+    
     await this.initializeMeeting();
+
+    // Set room for per-participant volume control
+    if (this.roomKey) {
+      try { this.participantVolume.setRoom(this.roomKey); } catch {}
+    }
+
+    // If returning from background, force-hide any loading UI immediately
+    if (isReturningFromBackgroundInit) {
+      this.isInitializingSubject.next(false);
+      this.initializingMessageSubject.next('');
+    }
+    
+    // Check if returning from background mode
+    const currentMeetingPost = this.meetingStatus.currentMeeting();
+    const isReturningFromBackground = currentMeetingPost && 
+      currentMeetingPost.meetingId === this.meetingId && 
+      currentMeetingPost.isBackground;
     
     const refreshKey = `meeting-auto-refresh-${this.meetingId}`;
     const hasAutoRefreshed = sessionStorage.getItem(refreshKey);
     
-    if (!hasAutoRefreshed) {
+    // ✅ NEW: Skip refresh if returning from background mode
+    if (!hasAutoRefreshed && !isReturningFromBackground) {
       sessionStorage.setItem(refreshKey, 'true');
       this.initializingMessageSubject.next('Bağlantı optimize ediliyor...');
       setTimeout(() => window.location.reload(), 500);
       return;
     }
     
+    // ✅ NEW: If returning from background, clear refresh flag for next fresh join
+    if (isReturningFromBackground && hasAutoRefreshed) {
+      sessionStorage.removeItem(refreshKey);
+    }
+    
     // ✅ REACTIVE: Subscribe to participants stream and update local array for backward compatibility
     this.subscriptions.add(
     this.participantService.participants$.subscribe(participants => {
       this.participants = participants;
+      
+      // ✅ CRITICAL: Create peer connections for new participants
+      this.handleParticipantsChange(participants);
       })
     );
 
@@ -424,6 +466,8 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.signalr.on('meeting-ended', () => {
       this.zone.run(() => {
+        // Mark meeting as ended when host ends the meeting
+        this.meetingStatus.endMeeting();
       this.router.navigate(['/meetings']);
       });
     });
@@ -492,10 +536,19 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private async initializeMedia() {
     try {
-      // Load pre-join settings
-      const cameraEnabled = localStorage.getItem('cameraEnabled') === 'true';
-      const microphoneEnabled = localStorage.getItem('microphoneEnabled') === 'true';
-      
+      // Prefer restoring in-room state if available (e.g., after background)
+      const restored = this.meetingStatus.currentMeeting();
+      let cameraEnabled: boolean;
+      let microphoneEnabled: boolean;
+      if (restored && restored.meetingState) {
+        cameraEnabled = !!restored.meetingState.isVideoOn;
+        microphoneEnabled = !restored.meetingState.isMuted;
+      } else {
+        // Fallback to pre-join settings only on fresh joins
+        cameraEnabled = localStorage.getItem('cameraEnabled') === 'true';
+        microphoneEnabled = localStorage.getItem('microphoneEnabled') === 'true';
+      }
+
       this.meetingState.isVideoOn = cameraEnabled;
       this.meetingState.isMuted = !microphoneEnabled;
 
@@ -565,12 +618,17 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       const cameraEnabled = this.meetingState.isVideoOn;
       const microphoneEnabled = !this.meetingState.isMuted;
       
-      // If both are disabled, enable audio by default
-      const finalAudioEnabled = microphoneEnabled || (!cameraEnabled && !microphoneEnabled);
+      // ✅ NEW: Always enable audio for voice connection (required for meeting participation)
+      // Users can mute themselves but they need audio connection to hear others
+      const finalAudioEnabled = true; // Always true - everyone needs to hear others
       
       const constraints: MediaStreamConstraints = {
         video: cameraEnabled,
-        audio: finalAudioEnabled
+        audio: finalAudioEnabled ? {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: false
+        } : false
       };
 
       // ✅ FIXED: Use SettingsService device preferences
@@ -580,7 +638,8 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         (constraints.video as any) = { deviceId: { exact: deviceSettings.cameraDeviceId } };
       }
       if (deviceSettings.microphoneDeviceId && finalAudioEnabled) {
-        (constraints.audio as any) = { deviceId: { exact: deviceSettings.microphoneDeviceId } };
+        const audioObj = (constraints.audio as MediaTrackConstraints) || {};
+        (constraints.audio as any) = { ...audioObj, deviceId: { exact: deviceSettings.microphoneDeviceId } };
       }
 
       const rawStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -593,9 +652,19 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         videoTrack.enabled = cameraEnabled;
       }
       if (audioTrack) {
-        audioTrack.enabled = microphoneEnabled;
+        // ✅ NEW: Audio track is always enabled for voice connection
+        // User can mute themselves via meeting controls, but track stays active
+        audioTrack.enabled = microphoneEnabled; // This controls if user speaks or not
         // ✅ FIXED: Apply microphone volume from settings
         this.applyMicrophoneVolume(audioTrack);
+        try {
+          // Prevent sudden gain changes when camera toggles
+          (audioTrack as any).applyConstraints?.({
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: false
+          });
+        } catch {}
       }
 
       // Cache raw
@@ -614,6 +683,9 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
 
       // ✅ REACTIVE: Update local stream through reactive stream
       this.localStreamSubject.next(this.localStream);
+
+      // ✅ Publish local audio for background playback
+      try { this.meetingAudioService.setLocalStream(this.localStream || null); } catch {}
 
       // Notify UI and attach listeners
       this.attachLocalTrackListeners();
@@ -634,14 +706,14 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       // This fixes the issue where user can't see existing participants' videos until they toggle their own camera
       await this.debouncedTrackSending('video-enabled', 1000);
     } catch (error) {
-      this.toast.error('Yerel medya alınamadı. Mikrofon/kamera izni gerekli olabilir.');
-      // Fallback to audio-only if video fails
-      if (this.meetingState.isVideoOn) {
+      this.toast.error('Mikrofon başlatılamadı. Sesli bağlantı için mikrofon izni gerekli.');
+      // ✅ NEW: If audio fails, user cannot participate in voice call
+      // This is critical - without audio, user cannot hear others
         this.meetingState.isVideoOn = false;
-        this.meetingState.isMuted = false;
-        // Retry with audio only
-        await this.ensureLocalStream();
-      }
+      this.meetingState.isMuted = true;
+      
+      // Broadcast state immediately even if media fails (no setTimeout)
+      await this.broadcastStateChange();
     }
   }
 
@@ -669,13 +741,16 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         
         replacePromises.push(
-          transceiver.sender.replaceTrack(track as any)
+          transceiver.sender.replaceTrack(track)
             .then(() => {
               if (track) {
+                // Track replaced successfully
               } else {
+                // Track removed successfully
               }
             })
             .catch(err => {
+              // Track replacement failed
             })
         );
       }
@@ -692,13 +767,13 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private async updateAllPeerConnections() {
-
     // ✅ UNIFIED: Use single track replacement method
     const audioTrack = this.localStream?.getAudioTracks()[0] || null;
     const videoTrack = this.localStream?.getVideoTracks()[0] || null;
     
     // Handle audio track replacement
-    const shouldSendAudio = !!audioTrack && !this.meetingState.isMuted;
+    // ✅ NEW: Always send audio track if available (required for voice connection)
+    const shouldSendAudio = !!audioTrack; // Always true if audio track exists
     await this.replaceTrackForAllPeers(shouldSendAudio ? audioTrack : null, 'audio');
     
     // Handle video track replacement
@@ -744,8 +819,12 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         // Update participant state to reflect video is off
         this.updateParticipantStateUnified(userId, { isVideoOn: false });
         
-        // If no video tracks left, remove the stream
-        if (stream.getVideoTracks().length === 0) {
+        // ✅ CRITICAL: Broadcast state change to update UI immediately
+        try { this.broadcastStateChange(); } catch {}
+        
+        // ✅ FIXED: Don't delete stream if audio tracks still exist
+        // Only delete if no tracks at all (both video and audio)
+        if (stream.getTracks().length === 0) {
           this.remoteStreams.delete(userId);
         }
       }
@@ -758,6 +837,38 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     
     // ✅ FIXED: Force change detection when remote track ends
     this.cdr.markForCheck();
+  }
+
+  // ✅ NEW: Handle participants change and create peer connections
+  private async handleParticipantsChange(participants: any[]) {
+    try {
+      // ✅ FIXED: Create peer connections for ALL participants (not just new ones)
+      const participantsNeedingConnections = participants.filter(p => 
+        p.userId !== this.currentUserId && !this.peerConnections.has(p.userId)
+      );
+      
+      if (participantsNeedingConnections.length > 0) {
+        // Create peer connections for all participants who need them
+        for (const participant of participantsNeedingConnections) {
+          try {
+            await this.createPeerConnection(participant.userId);
+          } catch (error) {
+          }
+        }
+        
+        // Update peer connections with local tracks
+        await this.updateAllPeerConnections();
+      }
+      
+      // Remove peer connections for participants who left
+      const currentParticipantIds = new Set(participants.map(p => p.userId));
+      for (const [userId] of this.peerConnections) {
+        if (!currentParticipantIds.has(userId)) {
+          this.cleanupPeerConnection(userId);
+        }
+      }
+    } catch (error) {
+    }
   }
 
   // ✅ REACTIVE: Meeting controls with reactive state management
@@ -777,10 +888,11 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       });
       
       if (this.localStream && this.localStream.getAudioTracks()[0]) {
-        // ✅ ENHANCED: Instant audio track enable/disable (P2P connections already exist)
+        // ✅ NEW: Instant audio track enable/disable (P2P connections already exist)
+        // Audio track is always active, we just control if user speaks or not
         this.localStream.getAudioTracks()[0].enabled = !newMutedState;
       } else if (!newMutedState) {
-        // Try to get microphone access if not available
+        // ✅ NEW: If user wants to unmute but no audio track exists, try to get microphone access
         try {
           await this.ensureLocalStream();
         } catch (error) {
@@ -793,9 +905,14 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
           return;
         }
       }
+      // ✅ NEW: If user mutes, we don't need to do anything special
+      // Audio track stays active, just user doesn't speak
 
       // Update participant state via service
       this.updateParticipantStateUnified(this.currentUserId, { isMuted: newMutedState });
+
+      // ✅ CRITICAL: Update peer connections to send/receive audio based on mute state
+      await this.updateAllPeerConnections();
 
       // Broadcast state change
       await this.broadcastStateChange();
@@ -835,6 +952,9 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       
       // Update participant state via service BEFORE peer updates
       this.updateParticipantStateUnified(this.currentUserId, { isVideoOn: this.meetingState.isVideoOn });
+      
+      // ✅ NEW: Broadcast state immediately so remotes switch avatar without waiting track end
+      try { await this.broadcastStateChange(); } catch {}
       
       // Attach listeners before updating peers
       this.attachLocalTrackListeners();
@@ -891,13 +1011,18 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       
       // Video stream obtained successfully
       
-      // Merge with existing audio if available
+      // ✅ NEW: Merge with existing audio if available to maintain audio connection
       if (this.localStream && this.localStream.getAudioTracks().length > 0) {
         const audioTrack = this.localStream.getAudioTracks()[0];
         const combinedStream = new MediaStream([videoStream.getVideoTracks()[0], audioTrack]);
         this.rawLocalStream = combinedStream;
+        this.localStreamSubject.next(combinedStream); // ✅ CRITICAL: Update localStream via subject
+        
+        // ✅ REMOVED: Don't update peer connections here - let toggleVideo handle it
+        // await this.updateAllPeerConnections();
       } else {
         this.rawLocalStream = videoStream;
+        this.localStreamSubject.next(videoStream); // ✅ CRITICAL: Update localStream via subject
       }
       
       // Apply video effects if needed (including mirror preview)
@@ -940,7 +1065,9 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         
         // ✅ ENHANCED: Ensure camera LED turns off immediately
         videoTrack.stop(); // This will turn off the camera LED
-        this.localStream.removeTrack(videoTrack);
+        
+        // ✅ FIXED: Don't try to remove track from readonly localStream
+        // Instead, create new stream without video track
         
         // Also stop video track from raw stream
         if (this.rawLocalStream && this.rawLocalStream.getVideoTracks().length > 0) {
@@ -948,10 +1075,15 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
           rawVideoTrack.stop(); // Additional stop to ensure LED turns off
         }
         
-        // Create audio-only stream
+        // ✅ NEW: Create audio-only stream to maintain audio connection
         const audioTracks = this.localStream.getAudioTracks();
         if (audioTracks.length > 0) {
-          this.localStreamSubject.next(new MediaStream(audioTracks));
+          // Create new audio-only stream to maintain connection
+          const audioOnlyStream = new MediaStream(audioTracks);
+          this.localStreamSubject.next(audioOnlyStream); // ✅ CRITICAL: Update localStream via subject
+          
+          // ✅ REMOVED: Don't update peer connections here - let toggleVideo handle it
+          // await this.updateAllPeerConnections();
         } else {
           this.localStreamSubject.next(undefined);
         }
@@ -1297,7 +1429,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         { urls: 'stun:stun3.l.google.com:19302' }
       ],
       iceCandidatePoolSize: 10,
-      bundlePolicy: 'max-bundle' as RTCBundlePolicy,
+      bundlePolicy: 'max-bundle' as RTCBundlePolicy, // ✅ REVERT: Back to original for stability
       rtcpMuxPolicy: 'require' as RTCRtcpMuxPolicy
     };
     
@@ -1322,7 +1454,8 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       this.peerAudioTransceiver.set(userId, audioTx);
       this.peerVideoTransceiver.set(userId, videoTx);
       
-    } catch {}
+    } catch (error) {
+    }
 
     // Enable ICE candidate signaling for better connectivity
     pc.onicecandidate = async (event) => {
@@ -1404,6 +1537,13 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
           hasAudio: track.kind === 'audio'
         }).catch(() => {});
         
+        // ✅ Publish audio-only stream for background playback
+        if (track.kind === 'audio') {
+          try {
+            this.meetingAudioService.setRemoteStream(userId, stream);
+          } catch {}
+        }
+        
         this.updateParticipantStateFromTracks(userId, stream);
         
           const currentStates = this.participantStatesSubject.value;
@@ -1437,6 +1577,9 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
         
       track.onended = () => {
         this.handleTrackEnded(userId, track);
+        if (track.kind === 'audio') {
+          try { this.meetingAudioService.setRemoteStream(userId, null); } catch {}
+        }
       };
       
       (track as any).onmute = () => {
@@ -1499,7 +1642,8 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
 
     try {
       // Apply audio track
-        const shouldSendAudio = !!audioTrack && !this.meetingState.isMuted;
+      // ✅ NEW: Always send audio track if available (required for voice connection)
+      const shouldSendAudio = !!audioTrack; // Always true if audio track exists
       await this.replaceTrackForSinglePeer(userId, shouldSendAudio ? audioTrack : null, 'audio');
       
       // Apply video track
@@ -1521,7 +1665,7 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       transceiver.direction = shouldSend ? 'sendrecv' : 'recvonly';
       
       try {
-        await transceiver.sender.replaceTrack(track as any);
+        await transceiver.sender.replaceTrack(track);
     } catch (err) {
         // Track apply failed
       }
@@ -1925,7 +2069,8 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
 
-    if (audioTransceiver && !state.isMuted) {
+    if (audioTransceiver) {
+      // ✅ NEW: Always send audio track if available (required for voice connection)
       const audioTrack = this.localStream.getAudioTracks()[0];
       if (audioTrack) {
         try {
@@ -2347,8 +2492,32 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     newStates.set(userId, newState);
     this.participantStatesSubject.next(newStates);
     
-    // Update participant service for backward compatibility
+    // ✅ CRITICAL: Also update ParticipantService so UI components get notified
+    // First check if participant exists in service, if not create it
+    const participants = this.participantService.getParticipants();
+    const participantExists = participants.some(p => p.userId === userId);
+    
+    if (!participantExists) {
+      // ✅ CRITICAL: Create participant in service if it doesn't exist
+      const newParticipant: Participant = {
+        userId: userId,
+        connectionId: userId, // Use userId as connectionId for local participant
+        name: userId === this.currentUserId ? 'You' : 'Unknown',
+        isHost: userId === this.currentUserId,
+        isMuted: false,
+        isVideoOn: false,
+        isScreenSharing: false,
+        isWhiteboardEnabled: false,
+        ...updates // Apply the updates
+      };
+      
+      // Add to participants array
+      const updatedParticipants = [...participants, newParticipant];
+      this.participantService.setParticipants(updatedParticipants);
+    } else {
+      // Update existing participant
     this.participantService.updateParticipantState(userId, updates);
+    }
     
     // ✅ FIXED: Force change detection after participant state update
     this.cdr.markForCheck();
@@ -2422,6 +2591,9 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
       
       // ✅ ENHANCED: Immediate camera cleanup before leaving
       await this.cleanupCameraResources();
+      
+      // Mark meeting as ended in status service first
+      this.meetingStatus.endMeeting();
       
       // Notify backend to end the meeting (only if host)
       if (this.isHost) {
@@ -2513,72 +2685,32 @@ export class MeetingRoomComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // ✅ NEW: Comprehensive camera cleanup to ensure LED turns off
+  // ✅ UPDATED: Cleanup only camera/video resources; keep audio alive for background mode
   private async cleanupCameraResources() {
     try {
-      // Stop all local media tracks
+      // If we have a local stream, preserve audio tracks and stop video tracks
       if (this.localStream) {
-        this.localStream.getTracks().forEach(track => {
-          try {
-            track.stop(); // This will turn off camera LED
-          } catch (error) {
-            // Track might already be stopped
-          }
-        });
-        this.localStreamSubject.next(undefined);
+        const audioOnly = new MediaStream();
+        this.localStream.getAudioTracks().forEach(t => audioOnly.addTrack(t));
+        this.localStream.getVideoTracks().forEach(track => { try { track.stop(); } catch {} });
+        // Replace current local stream with audio-only
+        this.localStreamSubject.next(audioOnly);
+        this.rawLocalStream = audioOnly;
+        try { this.meetingAudioService.setLocalStream(audioOnly); } catch {}
       }
       
       if (this.rawLocalStream) {
-        this.rawLocalStream.getTracks().forEach(track => {
-          try { 
-            track.stop(); // This will turn off camera LED
-          } catch (error) {
-            // Track might already be stopped
-          }
-        });
-        this.rawLocalStream = undefined;
+        this.rawLocalStream.getVideoTracks().forEach(track => { try { track.stop(); } catch {} });
       }
 
       // Stop video effects processing
-      try { 
-        this.videoEffects.stop(); 
-      } catch (error) {
-        // Video effects might already be stopped
-      }
+      try { this.videoEffects.stop(); } catch {}
 
-      // Clear all video elements
+      // Clear only video elements, keep audio playback
       this.clearAllVideoElements();
       
-      // Force garbage collection of media streams
-      this.localStreamSubject.next(undefined);
-      
-      // Additional cleanup for stubborn camera resources
-      try {
-        // Get all media devices and stop any active tracks
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        
-        // Force stop any remaining video tracks
-        for (const device of videoDevices) {
-          try {
-            // This is a fallback to ensure camera is released
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-              video: { deviceId: { exact: device.deviceId } } 
-            });
-            stream.getTracks().forEach(track => {
-              track.stop();
-            });
-          } catch (error) {
-            // Device might not be accessible, which is fine
-          }
-        }
-      } catch (error) {
-        // Device enumeration might fail, which is acceptable
-      }
-      
-    } catch (error) {
-      // Camera cleanup error - log but don't throw
-    }
+      // Do not clear localStream entirely; audio must persist
+    } catch {}
   }
 
   // ✅ ENHANCED: Comprehensive cleanup method for peer connection

@@ -310,44 +310,42 @@ export class MeetingListComponent implements OnInit {
 
   // Toplantı durumu kontrol metodları
   isCurrentlyInMeeting(): boolean {
+    // Only consider active if not ended
     return this.meetingStatus.hasActiveMeeting;
   }
 
   isCurrentlyInThisMeeting(meetingId: string): boolean {
     const currentMeeting = this.meetingStatus.currentMeeting();
-    return currentMeeting?.meetingId === meetingId;
+    if (!currentMeeting) return false;
+    if (currentMeeting.isEnded) return false;
+    return currentMeeting.meetingId === meetingId;
   }
 
   getCurrentMeetingStatus(meetingId: string): string {
     const currentMeeting = this.meetingStatus.currentMeeting();
     if (!currentMeeting) return '';
-    
+    if (currentMeeting.isEnded) return '';
     if (currentMeeting.meetingId === meetingId) {
       return currentMeeting.isBackground ? 'Arka planda devam ediyor' : 'Şu anda bu toplantıdasınız';
     }
-    
     return 'Başka bir toplantıdasınız';
   }
 
   canJoinMeeting(meetingId: string): boolean {
     const currentMeeting = this.meetingStatus.currentMeeting();
-    if (!currentMeeting) return true;
-    
+    if (!currentMeeting || currentMeeting.isEnded) return true;
     // Aynı toplantıdaysa katılabilir
     if (currentMeeting.meetingId === meetingId) return true;
-    
     // Farklı toplantıdaysa katılamaz
     return false;
   }
 
   getJoinRoute(meetingId: string): string[] {
     const currentMeeting = this.meetingStatus.currentMeeting();
-    
-    // Eğer zaten bu toplantıdaysa, direkt toplantıya git (pre-join olmadan)
-    if (currentMeeting && currentMeeting.meetingId === meetingId) {
+    // Eğer zaten bu toplantıdaysa ve aktifse, direkt toplantıya git (pre-join olmadan)
+    if (currentMeeting && !currentMeeting.isEnded && currentMeeting.meetingId === meetingId) {
       return ['/meetings', meetingId];
     }
-    
     // Değilse pre-join'e git
     return ['/meetings', meetingId, 'prejoin'];
   }

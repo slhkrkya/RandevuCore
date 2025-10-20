@@ -14,43 +14,25 @@ export function isParticipantVideoVisible(
   localStream?: MediaStream,
   remoteStreams: Map<string, MediaStream> = new Map()
 ): boolean {
+  // ✅ FIXED: Correct video visibility logic
+  
   if (participant.userId === currentUserId) {
-    const hasLive = isVideoTrackLive(localStream);
-    return !!(hasLive && (meetingState.isVideoOn || meetingState.isScreenSharing));
+    // For current user: show video if meeting state says video is on AND we have a stream
+    const shouldShow = meetingState.isVideoOn || meetingState.isScreenSharing;
+    if (!shouldShow) return false;
+    
+    const hasStream = !!localStream && localStream.getVideoTracks().length > 0;
+    return hasStream; // Show if we have video track (regardless of live state)
   }
+  
+  // For remote participants: show video if participant state says video is on AND we have a LIVE video track
+  const shouldShow = participant.isVideoOn || participant.isScreenSharing;
+  if (!shouldShow) return false; // ← This is CORRECT: if video is off, don't show video
   
   const remoteStream = remoteStreams.get(participant.userId);
-  const hasLive = isVideoTrackLive(remoteStream);
+  const hasStream = !!remoteStream && isVideoTrackLive(remoteStream);
   
-  // ✅ FIXED: Proper video visibility check for camera toggle scenarios
-  // Only show video if participant actually has video on AND we have a live track
-  const shouldShow = participant.isVideoOn || participant.isScreenSharing;
-  
-  // ✅ CRITICAL FIX: If participant has video off, never show video (show avatar instead)
-  if (!shouldShow) {
-    return false;
-  }
-  
-  const hasStream = !!remoteStream && remoteStream.getVideoTracks().length > 0;
-  const hasVideoTrack = hasStream && remoteStream!.getVideoTracks()[0];
-  
-  // ✅ ENHANCED: Show video if:
-  // 1. Track is live and participant has video on, OR
-  // 2. Participant has video on and we have a stream (even if not fully live yet), OR
-  // 3. Participant has video on and we have a video track (even if not live), OR
-  // 4. Participant has video on (for late joiner scenarios where stream might not be ready yet)
-  // 5. ✅ NEW: Always show if participant state says video is on (for rejoin scenarios)
-  // 6. ✅ FIXED: For rejoin scenarios, be more aggressive about showing video
-  const isRejoinScenario = shouldShow && !hasStream && !hasVideoTrack;
-  
-  const result = !!(hasLive && shouldShow) || 
-         !!(hasStream && shouldShow) || 
-         !!(hasVideoTrack && shouldShow) || 
-         shouldShow ||
-         isRejoinScenario;
-  
-  
-  return result;
+  return hasStream; // Show if we have video track (regardless of live state)
 }
 
 export function getStreamForParticipant(
@@ -114,18 +96,7 @@ export function isParticipantVideoLoading(
   localStream?: MediaStream,
   remoteStreams: Map<string, MediaStream> = new Map()
 ): boolean {
-  // Check if participant has video on but track hasn't arrived yet
-  if (!participant.isVideoOn) return false;
-  
-  const stream = participant.userId === currentUserId 
-    ? localStream 
-    : remoteStreams.get(participant.userId);
-    
-  if (!stream) return true; // Video is on but no stream yet
-  
-  const videoTrack = stream.getVideoTracks()[0];
-  if (!videoTrack) return true; // Video is on but no track yet
-  
-  return !isVideoTrackLive(stream); // Track exists but not live yet
+  // Prefer showing avatar instead of loading at all states
+  return false;
 }
 

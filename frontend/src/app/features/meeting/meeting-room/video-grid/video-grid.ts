@@ -6,6 +6,7 @@ import { isParticipantVideoVisible as isVisibleSel, getStreamForParticipant as g
 import { ParticipantService } from '../services/participant.service';
 import { ParticipantUIService } from '../services/participant-ui.service';
 import { SettingsService } from '../../../../core/services/settings.service';
+import { ParticipantVolumeService } from '../../../../core/services/participant-volume.service';
 
 @Component({
   selector: 'app-video-grid',
@@ -29,6 +30,7 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
   participants: Participant[] = [];
 
   @ViewChildren('remoteVideo') remoteVideos!: QueryList<ElementRef<HTMLVideoElement>>;
+  @ViewChildren('remoteAudio') remoteAudios!: QueryList<ElementRef<HTMLAudioElement>>;
 
   private participantsSubscription?: Subscription;
   private readonly logUi = ((): boolean => {
@@ -43,7 +45,8 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
   constructor(
     private cdr: ChangeDetectorRef,
     private participantService: ParticipantService,
-    private participantUI: ParticipantUIService
+    private participantUI: ParticipantUIService,
+    public participantVolume: ParticipantVolumeService
   ) {}
 
   ngOnInit() {
@@ -76,6 +79,14 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
         el.load();
       });
     }
+    if (this.remoteAudios) {
+      this.remoteAudios.forEach(audioRef => {
+        const el = audioRef.nativeElement;
+        el.pause();
+        el.srcObject = null;
+        el.load();
+      });
+    }
     
     this.scheduleChangeDetection();
   }
@@ -87,6 +98,14 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
     if (this.remoteVideos) {
       this.remoteVideos.forEach(videoRef => {
         const el = videoRef.nativeElement;
+        el.pause();
+        el.srcObject = null;
+        el.load();
+      });
+    }
+    if (this.remoteAudios) {
+      this.remoteAudios.forEach(audioRef => {
+        const el = audioRef.nativeElement;
         el.pause();
         el.srcObject = null;
         el.load();
@@ -175,6 +194,10 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
   }
   
   private changeDetectionScheduled = false;
+
+  // Context volume UI state
+  contextVolumeUserId: string | null = null;
+  contextVolumeValue = 100; // percent
   
   private updateVideoElements() {
     this.remoteVideos.forEach(videoRef => {
@@ -188,6 +211,55 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
         }
       }
     });
+    // Sync audio elements per participant to ensure audio plays even without video
+    if (this.remoteAudios) {
+      this.remoteAudios.forEach(audioRef => {
+        const audioElement = audioRef.nativeElement;
+        const userId = audioElement.getAttribute('data-user-id');
+        if (!userId) return;
+        let stream: MediaStream | undefined;
+        if (userId === this.currentUserId) {
+          stream = this.localStream || undefined;
+        } else {
+          stream = this.remoteStreams?.get(userId);
+        }
+        if (stream && stream.getAudioTracks().length > 0) {
+          if (audioElement.srcObject !== stream) {
+            audioElement.srcObject = stream;
+            audioElement.play().catch(() => {});
+          }
+          // Apply per-user volume (0..1)
+          const vol = this.participantVolume.getVolume(userId);
+          audioElement.volume = vol;
+        } else if (audioElement.srcObject) {
+          audioElement.srcObject = null;
+        }
+      });
+    }
+  }
+
+  // Right-click open volume menu
+  openVolumeMenu(event: MouseEvent, participant: Participant) {
+    event.preventDefault();
+    this.contextVolumeUserId = participant.userId;
+    this.contextVolumeValue = Math.round(this.participantVolume.getVolume(participant.userId) * 100);
+    this.cdr.markForCheck();
+  }
+
+  // Close volume menu
+  closeVolumeMenu() {
+    this.contextVolumeUserId = null;
+    this.cdr.markForCheck();
+  }
+
+  // Apply slider change
+  onVolumeChange(userId: string, event: Event) {
+    const input = event.target as HTMLInputElement;
+    const value = Number(input.value);
+    this.contextVolumeValue = value;
+    this.participantVolume.setVolume(userId, value / 100);
+    // Update any existing audio elements immediately
+    this.updateVideoElements();
   }
   
   // ✅ UNIFIED: Single video element update logic
@@ -202,30 +274,26 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
     
     if (stream && stream.getVideoTracks().length > 0) {
       const videoTrack = stream.getVideoTracks()[0];
-      const isTrackLive = isVideoTrackLive(stream);
       
-      if (isTrackLive && videoElement.srcObject !== stream) {
-        
+      // ✅ FIXED: Show video if track exists (not just if live)
+      // This fixes the issue where video doesn't show immediately when camera is turned on
+      if (videoElement.srcObject !== stream) {
         videoElement.srcObject = stream;
         
         // Remove CSS transform since mirror is now handled by video effects service
         videoElement.style.transform = 'none';
         
         videoElement.play().catch(error => {
+          // Video play failed - this is normal during transitions
         });
-      } else if (videoElement.srcObject && !isTrackLive) {
-        videoElement.srcObject = null;
       }
     } else if (videoElement.srcObject) {
+      // ✅ FIXED: Clear video when no stream or no video tracks
       videoElement.srcObject = null;
     }
     
-    // ✅ FIXED: Force video element update for rejoin scenarios
-    // This ensures video elements are properly updated even when streams are not immediately available
-    if (participant.isVideoOn && !stream) {
-      // Participant should have video but stream is not available yet
-      // This is common in rejoin scenarios
-    }
+    // ✅ FIXED: Force change detection for video element updates
+    this.cdr.markForCheck();
   }
   
   // ✅ UNIFIED: Use service methods instead of duplicates
@@ -236,8 +304,9 @@ export class VideoGridComponent implements OnInit, OnDestroy, OnChanges, AfterVi
       isScreenSharing: false,
       isWhiteboardActive: false
     };
-    const result = isVisibleSel(participant, this.currentUserId, this.meetingState || defaultMeetingState, this.localStream || undefined, this.remoteStreams || new Map());
     
+    const result = isVisibleSel(participant, this.currentUserId, this.meetingState || defaultMeetingState, this.localStream || undefined, this.remoteStreams || new Map());
+
     return result;
   }
   

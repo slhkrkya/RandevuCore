@@ -1,8 +1,10 @@
-import { Component, computed, signal, HostListener } from '@angular/core';
+import { Component, computed, signal, HostListener, ElementRef, ViewChildren, QueryList, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { AuthService } from '../../../core/services/auth';
 import { MeetingStatusService } from '../../../core/services/meeting-status.service';
+import { MeetingAudioService } from '../../services/meeting-audio.service';
+import { Subscription } from 'rxjs';
 import { SettingsPanelComponent } from '../settings-panel/settings-panel.component';
 import { filter } from 'rxjs/operators';
 
@@ -13,7 +15,7 @@ import { filter } from 'rxjs/operators';
   templateUrl: './navbar.html',
   styleUrls: ['./navbar.css']
 })
-export class NavbarComponent {
+export class NavbarComponent implements AfterViewInit {
   isAuthenticated = computed(() => this.auth.isAuthenticated());
   currentRoute = '';
   isMobileMenuOpen = false;
@@ -23,11 +25,15 @@ export class NavbarComponent {
   // Meeting status
   hasActiveMeeting = computed(() => this.meetingStatus.hasActiveMeeting);
   currentMeeting = computed(() => this.meetingStatus.currentMeeting());
+  private subscriptions = new Subscription();
+  localAudioStream: MediaStream | null = null;
+  combinedRemoteAudioStream: MediaStream | null = null;
 
   constructor(
     private auth: AuthService, 
     private router: Router,
-    private meetingStatus: MeetingStatusService
+    private meetingStatus: MeetingStatusService,
+    private meetingAudio: MeetingAudioService
   ) {
     // Track current route for page title
     this.router.events
@@ -37,6 +43,9 @@ export class NavbarComponent {
         this.isMobileMenuOpen = false; // Close mobile menu on route change
         this.isSettingsMenuOpen.set(false); // Close settings menu on route change
       });
+    // Subscribe to background audio streams
+    this.subscriptions.add(this.meetingAudio.localAudioStream$.subscribe(s => this.localAudioStream = s));
+    this.subscriptions.add(this.meetingAudio.combinedRemoteStream$.subscribe(s => this.combinedRemoteAudioStream = s));
   }
 
   getCurrentPageTitle(): string {
@@ -117,4 +126,6 @@ export class NavbarComponent {
       this.isSettingsMenuOpen.set(false);
     }
   }
+
+  ngAfterViewInit(): void {}
 }

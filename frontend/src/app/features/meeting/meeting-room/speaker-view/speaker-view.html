@@ -13,6 +13,15 @@
              (loadedmetadata)="onMainVideoLoaded($event)"
              (error)="onMainVideoError($event)">
       </video>
+
+      <!-- Hidden audio element to always play remote audio even when video is off -->
+      <audio *ngIf="getActiveSpeaker()"
+             #mainAudio
+             [attr.data-user-id]="getActiveSpeaker()?.userId"
+             [muted]="getActiveSpeaker()?.userId === currentUserId"
+             autoplay
+             style="display: none;">
+      </audio>
       
       <!-- Placeholder when no video -->
       <div *ngIf="!getActiveSpeaker() || !isParticipantVideoVisible(getActiveSpeaker()!)"
@@ -54,7 +63,8 @@
     <!-- Other Participants Thumbnails -->
     <div class="participants-thumbnails" *ngIf="getOtherParticipants().length > 0">
     <div *ngFor="let participant of getOtherParticipants(); trackBy: trackByUserId" 
-         class="participant-thumbnail">
+         class="participant-thumbnail"
+         (contextmenu)="participant.userId !== currentUserId && openVolumeMenu($event, participant)">
       
       <!-- Participant Name -->
       <div class="thumbnail-name">
@@ -72,6 +82,14 @@
              (loadedmetadata)="onThumbnailVideoLoaded($event, participant)"
              (error)="onThumbnailVideoError($event, participant)">
       </video>
+
+      <!-- Hidden audio element to always play remote audio even when video is off -->
+      <audio #thumbnailAudio
+             [attr.data-user-id]="participant.userId"
+             [muted]="participant.userId === currentUserId"
+             autoplay
+             style="display: none;">
+      </audio>
       
       <!-- Placeholder when no video -->
       <div *ngIf="!isParticipantVideoVisible(participant)"
@@ -85,6 +103,15 @@
         <div class="thumbnail-initials">
           {{ getParticipantInitials(participant) }}
         </div>
+      </div>
+
+      <!-- Context volume slider for thumbnail -->
+      <div *ngIf="contextVolumeUserId === participant.userId && participant.userId !== currentUserId"
+           class="absolute bottom-1 left-1 right-1 bg-black/75 text-white rounded px-2 py-1 flex items-center space-x-1"
+           (click)="$event.stopPropagation()">
+        <span class="text-[10px]">Ses</span>
+        <input type="range" min="0" max="100" [value]="contextVolumeValue" class="flex-1" (input)="onVolumeChange(participant.userId, $event)">
+        <span class="text-[10px] w-8 text-right">{{ contextVolumeValue }}%</span>
       </div>
 
       <!-- Pin toggle on thumbnail - Top Left Corner -->

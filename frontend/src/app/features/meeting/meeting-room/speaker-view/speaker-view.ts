@@ -6,6 +6,7 @@ import { isParticipantVideoVisible as isVisibleSel, getStreamForParticipant as g
 import { ParticipantService } from '../services/participant.service';
 import { ParticipantUIService } from '../services/participant-ui.service';
 import { SettingsService } from '../../../../core/services/settings.service';
+import { ParticipantVolumeService } from '../../../../core/services/participant-volume.service';
 
 @Component({
   selector: 'app-speaker-view',
@@ -32,7 +33,9 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
   pinnedUserId: string | null = null;
 
   @ViewChild('mainVideo') mainVideo?: ElementRef<HTMLVideoElement>;
+  @ViewChild('mainAudio') mainAudio?: ElementRef<HTMLAudioElement>;
   @ViewChildren('thumbnailVideo') thumbnailVideos!: QueryList<ElementRef<HTMLVideoElement>>;
+  @ViewChildren('thumbnailAudio') thumbnailAudios!: QueryList<ElementRef<HTMLAudioElement>>;
 
   private settings = inject(SettingsService);
 
@@ -42,7 +45,8 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
   constructor(
     private cdr: ChangeDetectorRef,
     private participantService: ParticipantService,
-    private participantUI: ParticipantUIService
+    private participantUI: ParticipantUIService,
+    public participantVolume: ParticipantVolumeService
   ) {}
 
   private readonly logUi = ((): boolean => {
@@ -82,9 +86,25 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
       el.load();
     }
     
+    if (this.mainAudio?.nativeElement) {
+      const el = this.mainAudio.nativeElement;
+      el.pause();
+      el.srcObject = null;
+      el.load();
+    }
+    
     if (this.thumbnailVideos) {
       this.thumbnailVideos.forEach(videoRef => {
         const el = videoRef.nativeElement;
+        el.pause();
+        el.srcObject = null;
+        el.load();
+      });
+    }
+    
+    if (this.thumbnailAudios) {
+      this.thumbnailAudios.forEach(audioRef => {
+        const el = audioRef.nativeElement;
         el.pause();
         el.srcObject = null;
         el.load();
@@ -106,9 +126,25 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
       el.load();
     }
     
+    if (this.mainAudio?.nativeElement) {
+      const el = this.mainAudio.nativeElement;
+      el.pause();
+      el.srcObject = null;
+      el.load();
+    }
+    
     if (this.thumbnailVideos) {
       this.thumbnailVideos.forEach(videoRef => {
         const el = videoRef.nativeElement;
+        el.pause();
+        el.srcObject = null;
+        el.load();
+      });
+    }
+    
+    if (this.thumbnailAudios) {
+      this.thumbnailAudios.forEach(audioRef => {
+        const el = audioRef.nativeElement;
         el.pause();
         el.srcObject = null;
         el.load();
@@ -199,12 +235,45 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
   }
   
   private changeDetectionScheduled = false;
+  // Context volume state
+  contextVolumeUserId: string | null = null;
+  contextVolumeValue = 100;
   
   private updateAllVideoElements() {
     this.updateMainVideo();
+    this.updateMainAudio();
     this.updateThumbnailVideos();
+    this.updateThumbnailAudios();
   }
   
+  // ✅ UNIFIED: Main audio update logic
+  private updateMainAudio() {
+    if (!this.mainAudio) return;
+    
+    const activeSpeaker = this.getActiveSpeaker();
+    if (!activeSpeaker) return;
+    
+    const stream = this.getStreamForParticipant(activeSpeaker);
+    const audioElement = this.mainAudio.nativeElement;
+    
+    if (stream && stream.getAudioTracks().length > 0) {
+      const audioTrack = stream.getAudioTracks()[0];
+      if (audioTrack.readyState === 'live' && audioElement.srcObject !== stream) {
+        audioElement.srcObject = stream;
+        audioElement.play().catch(error => {
+          // Audio play failed
+        });
+      }
+      // Apply per-user volume for main
+      const activeSpeaker = this.getActiveSpeaker();
+      if (activeSpeaker) {
+        audioElement.volume = this.participantVolume.getVolume(activeSpeaker.userId);
+      }
+    } else if (audioElement.srcObject) {
+      audioElement.srcObject = null;
+    }
+  }
+
   // ✅ UNIFIED: Main video update logic
   private updateMainVideo() {
     if (!this.mainVideo) return;
@@ -218,6 +287,53 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
     this.updateSingleVideoElement(videoElement, stream, activeSpeaker, 'main');
   }
   
+  // ✅ UNIFIED: Thumbnail audios update logic
+  private updateThumbnailAudios() {
+    if (!this.thumbnailAudios) return;
+    
+    this.thumbnailAudios.forEach(audioRef => {
+      const audioElement = audioRef.nativeElement;
+      const userId = audioElement.getAttribute('data-user-id');
+      
+      if (userId) {
+        const participant = this.participants.find(p => p.userId === userId);
+        if (participant) {
+          const stream = this.getStreamForParticipant(participant);
+          
+          if (stream && stream.getAudioTracks().length > 0) {
+            const audioTrack = stream.getAudioTracks()[0];
+            if (audioTrack.readyState === 'live' && audioElement.srcObject !== stream) {
+              audioElement.srcObject = stream;
+              audioElement.play().catch(error => {
+                // Audio play failed
+              });
+            }
+            // Apply per-user volume for thumbnails
+            audioElement.volume = this.participantVolume.getVolume(participant.userId);
+          } else if (audioElement.srcObject) {
+            audioElement.srcObject = null;
+          }
+        }
+      }
+    });
+  }
+
+  openVolumeMenu(event: MouseEvent, participant: Participant) {
+    event.preventDefault();
+    this.contextVolumeUserId = participant.userId;
+    this.contextVolumeValue = Math.round(this.participantVolume.getVolume(participant.userId) * 100);
+    this.cdr.markForCheck();
+  }
+
+  onVolumeChange(userId: string, event: Event) {
+    const input = event.target as HTMLInputElement;
+    const value = Number(input.value);
+    this.contextVolumeValue = value;
+    this.participantVolume.setVolume(userId, value / 100);
+    this.updateThumbnailAudios();
+    this.updateMainAudio();
+  }
+
   // ✅ UNIFIED: Thumbnail videos update logic
   private updateThumbnailVideos() {
     if (!this.thumbnailVideos) return;
@@ -238,33 +354,29 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
   
   // ✅ UNIFIED: Single video element update logic
   private updateSingleVideoElement(videoElement: HTMLVideoElement, stream: MediaStream | undefined, participant: Participant, type: 'main' | 'thumbnail') {
-        if (stream && stream.getVideoTracks().length > 0) {
-          const videoTrack = stream.getVideoTracks()[0];
-      const isTrackLive = isVideoTrackLive(stream);
-          
-          if (isTrackLive && videoElement.srcObject !== stream) {
-            
-            videoElement.srcObject = stream;
-            
-            // Remove CSS transform since mirror is now handled by video effects service
-            videoElement.style.transform = 'none';
-            
-            videoElement.play().catch(error => {
-            });
-          } else if (videoElement.srcObject && !isTrackLive) {
-            videoElement.srcObject = null;
-          }
-        } else if (videoElement.srcObject) {
-          videoElement.srcObject = null;
-        }
+    if (stream && stream.getVideoTracks().length > 0) {
+      const videoTrack = stream.getVideoTracks()[0];
+      
+      // ✅ FIXED: Show video if track exists (not just if live)
+      // This fixes the issue where video doesn't show immediately when camera is turned on
+      if (videoElement.srcObject !== stream) {
+        videoElement.srcObject = stream;
         
-        // ✅ FIXED: Force video element update for rejoin scenarios
-        // This ensures video elements are properly updated even when streams are not immediately available
-        if (participant.isVideoOn && !stream) {
-          // Participant should have video but stream is not available yet
-          // This is common in rejoin scenarios
-        }
+        // Remove CSS transform since mirror is now handled by video effects service
+        videoElement.style.transform = 'none';
+        
+        videoElement.play().catch(error => {
+          // Video play failed - this is normal during transitions
+        });
       }
+    } else if (videoElement.srcObject) {
+      // ✅ FIXED: Clear video when no stream or no video tracks
+      videoElement.srcObject = null;
+    }
+    
+    // ✅ FIXED: Force change detection for video element updates
+    this.cdr.markForCheck();
+  }
   
   // ✅ UNIFIED: Get stream for participant
   private getStreamForParticipant(participant: Participant): MediaStream | undefined {
@@ -283,8 +395,9 @@ export class SpeakerViewComponent implements OnInit, AfterViewInit, OnDestroy, O
       isScreenSharing: false,
       isWhiteboardActive: false
     };
-    const result = isVisibleSel(participant, this.currentUserId, this.meetingState || defaultMeetingState, this.localStream || undefined, this.remoteStreams || new Map());
     
+    const result = isVisibleSel(participant, this.currentUserId, this.meetingState || defaultMeetingState, this.localStream || undefined, this.remoteStreams || new Map());
+
     return result;
   }
   

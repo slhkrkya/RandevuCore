@@ -3,7 +3,8 @@
     
     <!-- Participant Video Tiles -->
     <div *ngFor="let participant of participants; trackBy: trackByUserId" 
-         class="rounded-xl overflow-hidden relative group hover:shadow-xl transition-all duration-300 hover:scale-105 mb-2 aspect-video">
+         class="rounded-xl overflow-hidden relative group hover:shadow-xl transition-all duration-300 hover:scale-105 mb-2 aspect-video"
+         (contextmenu)="participant.userId !== currentUserId && openVolumeMenu($event, participant)">
       
       <!-- Video Stream -->
       <video *ngIf="isParticipantVideoVisible(participant); else placeholder"
@@ -16,6 +17,23 @@
              (loadedmetadata)="onVideoLoaded($event, participant)"
              (error)="onVideoError($event, participant)">
       </video>
+
+      <!-- Hidden audio element to always play remote audio even when video is off -->
+      <audio #remoteAudio
+             [attr.data-user-id]="participant.userId"
+             [muted]="participant.userId === currentUserId"
+             autoplay
+             style="position:absolute;width:0;height:0;opacity:0;pointer-events:none"></audio>
+
+      <!-- Context volume slider -->
+      <div *ngIf="contextVolumeUserId === participant.userId && participant.userId !== currentUserId"
+           class="absolute bottom-2 left-2 right-2 bg-black/75 text-white rounded-lg px-3 py-2 flex items-center space-x-2"
+           (click)="$event.stopPropagation()">
+        <span class="text-xs whitespace-nowrap">Ses</span>
+        <input type="range" min="0" max="100" [value]="contextVolumeValue" class="flex-1" (input)="onVolumeChange(participant.userId, $event)">
+        <span class="text-xs w-10 text-right">{{ contextVolumeValue }}%</span>
+        <button class="ml-2 text-xs px-2 py-1 bg-white/10 rounded hover:bg-white/20" (click)="closeVolumeMenu()">Kapat</button>
+      </div>
       
       <!-- Placeholder when no video -->
       <ng-template #placeholder>
