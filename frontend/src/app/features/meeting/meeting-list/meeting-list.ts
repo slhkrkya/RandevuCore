@@ -75,6 +75,11 @@ export class MeetingListComponent implements OnInit {
     return currentUserId === meeting.creatorId;
   }
 
+  // Toplam katılımcı sayısını hesapla (host + invitees)
+  getTotalParticipants(meeting: Meeting): number {
+    return 1 + (meeting.invitees || []).length; // Host + invitees
+  }
+
   ngOnInit() {
     this.loadUsers();
     this.loadMeetings();

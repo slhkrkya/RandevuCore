@@ -60,4 +60,18 @@ export class AuthService {
       return null;
     }
   }
+
+  getCurrentUserName(): string | null {
+    const token = this.getToken();
+    if (!token) return null;
+    
+    try {
+      // JWT token'ı decode et (payload kısmı)
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.name || payload.userName || payload.username || 'Kullanıcı';
+    } catch (error) {
+      console.error('Error decoding token:', error);
+      return 'Kullanıcı';
+    }
+  }
 }

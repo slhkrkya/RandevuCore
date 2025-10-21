@@ -43,13 +43,18 @@ namespace RandevuCore.API.Controllers
                     return BadRequest("Dosya boyutu 10MB'dan büyük olamaz.");
                 }
 
-                // Dosya uzantısı kontrolü
-                var allowedExtensions = new[] { ".pdf", ".doc", ".docx", ".txt", ".jpg", ".jpeg", ".png", ".gif", ".zip", ".rar", ".xlsx", ".xls", ".pptx", ".ppt" };
+                // Dosya uzantısı kontrolü - sadece PDF
                 var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
                 
-                if (!allowedExtensions.Contains(fileExtension))
+                if (fileExtension != ".pdf")
                 {
-                    return BadRequest("Desteklenmeyen dosya türü.");
+                    return BadRequest("Sadece PDF dosyaları yüklenebilir. Lütfen PDF formatında bir dosya seçin.");
+                }
+
+                // MIME type kontrolü - sadece PDF
+                if (file.ContentType != "application/pdf")
+                {
+                    return BadRequest("Sadece PDF dosyaları yüklenebilir. Lütfen PDF formatında bir dosya seçin.");
                 }
 
                 // Kullanıcı bilgilerini al

@@ -680,6 +680,113 @@ namespace RandevuCore.API.Realtime
                 Console.WriteLine($"Error clearing chat for room {roomId}: {ex.Message}");
             }
         }
+
+        // Whiteboard document management methods
+        public async Task UploadWhiteboardDocument(string roomId, FileMessageDto fileMessage)
+        {
+            if (!roomId.StartsWith("meeting-")) return;
+
+            var (userId, userName) = GetUser();
+            
+            // Create file message
+            var fileMsg = new FileMessageDto
+            {
+                Id = fileMessage.Id,
+                UserId = userId,
+                UserName = userName,
+                OriginalFileName = fileMessage.OriginalFileName,
+                FileName = fileMessage.FileName,
+                FileSize = fileMessage.FileSize,
+                FileType = fileMessage.FileType,
+                UploadPath = fileMessage.UploadPath,
+                Timestamp = DateTimeOffset.UtcNow
+            };
+
+            // Broadcast document upload to all participants in the room
+            await Clients.Group(roomId).SendAsync("whiteboard-document-uploaded", fileMsg);
+        }
+
+        public async Task RemoveWhiteboardDocument(string roomId)
+        {
+            if (!roomId.StartsWith("meeting-")) return;
+
+            // Only meeting creator can remove documents
+            var (callerId, _) = GetUser();
+            var meetingIdStr = roomId[8..]; // Remove "meeting-" prefix
+            if (Guid.TryParse(meetingIdStr, out var meetingId))
+            {
+                var meeting = await _db.Meetings.FindAsync(meetingId);
+                if (meeting == null || meeting.CreatorId != callerId) 
+                {
+                    return; // Not authorized to remove document
+                }
+            }
+
+            // Broadcast document removal to all participants in the room
+            await Clients.Group(roomId).SendAsync("whiteboard-document-removed", new { roomId });
+        }
+
+        // Whiteboard permission request method
+        public async Task RequestWhiteboardPermission(string roomId, string requesterId, string requesterName)
+        {
+            if (!roomId.StartsWith("meeting-")) return;
+
+            // Get meeting creator (host)
+            var meetingIdStr = roomId[8..]; // Remove "meeting-" prefix
+            if (Guid.TryParse(meetingIdStr, out var meetingId))
+            {
+                var meeting = await _db.Meetings.FindAsync(meetingId);
+                if (meeting != null)
+                {
+                    // Find host's connection ID
+                    var hostConnectionId = RoomIdToParticipants[roomId]
+                        .Values
+                        .FirstOrDefault(p => p.UserId == meeting.CreatorId)?.ConnectionId;
+
+                    if (hostConnectionId != null)
+                    {
+                        // Send permission request to host only
+                        await Clients.Client(hostConnectionId).SendAsync("whiteboard-permission-request", new
+                        {
+                            requesterId = requesterId,
+                            requesterName = requesterName,
+                            roomId = roomId
+                        });
+                    }
+                }
+            }
+        }
+
+        // Grant whiteboard permission to all participants
+        public async Task GrantWhiteboardPermission(string roomId, string targetUserId)
+        {
+            if (!roomId.StartsWith("meeting-")) return;
+
+            // Get meeting creator (host)
+            var meetingIdStr = roomId[8..]; // Remove "meeting-" prefix
+            if (Guid.TryParse(meetingIdStr, out var meetingId))
+            {
+                var meeting = await _db.Meetings.FindAsync(meetingId);
+                if (meeting != null)
+                {
+                    // Find host's connection ID
+                    var hostConnectionId = RoomIdToParticipants[roomId]
+                        .Values
+                        .FirstOrDefault(p => p.UserId == meeting.CreatorId)?.ConnectionId;
+
+                    if (hostConnectionId != null)
+                    {
+                        // Broadcast permission to all participants
+                        await Clients.Group(roomId).SendAsync("whiteboard-permission", new
+                        {
+                            targetUserId = targetUserId,
+                            canDraw = true,
+                            grantedBy = "host"
+                        });
+                    }
+                }
+            }
+        }
     }
 }
 

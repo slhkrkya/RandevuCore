@@ -147,17 +147,25 @@
             <div class="text-sm text-slate-600 dark:text-slate-300">
               <div class="flex items-center mb-2">
                 <span class="material-symbols-outlined text-base mr-2 text-purple-500">people</span>
-                <span>{{ (meeting.invitees || []).length }} katılımcı</span>
+                <span>{{ getTotalParticipants(meeting) }} katılımcı</span>
               </div>
-              <div *ngIf="meeting.invitees && meeting.invitees.length > 0" class="ml-6 text-xs text-slate-500 dark:text-slate-400 space-y-1">
-                <div *ngFor="let invitee of meeting.invitees.slice(0, 3)" class="flex items-center">
+              <div class="ml-6 text-xs text-slate-500 dark:text-slate-400 space-y-1">
+                <!-- Host -->
+                <div class="flex items-center">
+                  <div class="avatar avatar-sm bg-gradient-to-r from-orange-500 to-red-500 text-white mr-2">
+                    {{ meeting.creatorName.charAt(0) }}
+                  </div>
+                  <span>{{ meeting.creatorName }} (Host)</span>
+                </div>
+                <!-- Invitees -->
+                <div *ngFor="let invitee of (meeting.invitees || []).slice(0, 2)" class="flex items-center">
                   <div class="avatar avatar-sm bg-gradient-to-r from-purple-500 to-blue-500 text-white mr-2">
                     {{ invitee.name.charAt(0) }}
                   </div>
                   <span>{{ invitee.name }}</span>
                 </div>
-                <div *ngIf="meeting.invitees.length > 3" class="text-slate-400 dark:text-slate-500 mt-1">
-                  +{{ meeting.invitees.length - 3 }} daha
+                <div *ngIf="(meeting.invitees || []).length > 2" class="text-slate-400 dark:text-slate-500 mt-1">
+                  +{{ (meeting.invitees || []).length - 2 }} daha
                 </div>
               </div>
             </div>

@@ -1,4 +1,4 @@
-<div class="meeting-room-container flex h-screen w-full bg-gradient-to-br from-slate-100 via-slate-200 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 text-slate-900 dark:text-white overflow-hidden pt-20">
+<div class="meeting-room-container flex min-h-screen w-full bg-gradient-to-br from-slate-100 via-slate-200 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 text-slate-900 dark:text-white overflow-visible pt-20">
   
   <!-- Loading Overlay (during initialization and auto-refresh) -->
   <div *ngIf="isInitializing$ | async" 
@@ -35,10 +35,10 @@
        [class.mr-80]="(showParticipantsPanel$ | async) || (showChatPanel$ | async)">
     
     <!-- Meeting Content -->
-    <div class="flex-1 relative pb-32">
+    <div class="flex-1 relative pb-32 min-h-screen">
       
       <!-- Video Grid View -->
-      <div *ngIf="(activeView$ | async) === 'grid'" class="h-full w-full">
+      <div *ngIf="(activeView$ | async) === 'grid'" class="h-screen w-full">
         <app-video-grid 
           [currentUserId]="currentUserId"
           [localStream]="localStream$ | async"
@@ -48,7 +48,7 @@
       </div>
 
       <!-- Speaker View -->
-      <div *ngIf="(activeView$ | async) === 'speaker'" class="h-full w-full">
+      <div *ngIf="(activeView$ | async) === 'speaker'" class="h-screen w-full">
         <app-speaker-view 
           [currentUserId]="currentUserId"
           [localStream]="localStream$ | async"
@@ -58,11 +58,15 @@
       </div>
 
       <!-- Whiteboard View -->
-      <div *ngIf="(activeView$ | async) === 'whiteboard'" class="h-full w-full pb-32">
+      <div *ngIf="(activeView$ | async) === 'whiteboard'" class="w-full">
         <app-whiteboard 
           [isActive]="(meetingState$ | async)?.isWhiteboardActive || false"
           [isHost]="isHost"
-          [roomKey]="roomKey">
+          [roomKey]="roomKey"
+          [currentUserId]="currentUserId"
+          [localStream]="localStream$ | async"
+          [remoteStreams]="remoteStreams$ | async"
+          [meetingState]="meetingState$ | async">
         </app-whiteboard>
       </div>
 

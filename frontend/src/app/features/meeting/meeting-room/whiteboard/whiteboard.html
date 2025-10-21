@@ -1,139 +1,309 @@
-<div class="whiteboard-container h-full w-full flex flex-col bg-white">
+<div class="whiteboard-container min-h-screen w-full flex flex-col bg-gradient-to-br from-slate-50 to-slate-200 dark:from-slate-900 dark:to-slate-800 overflow-visible">
+  
+  <!-- Hidden audio elements for remote participants -->
+  <div *ngFor="let participant of participants; trackBy: trackByUserId" style="display: none;">
+    <audio #remoteAudio
+           [attr.data-user-id]="participant.userId"
+           [muted]="participant.userId === currentUserId"
+           autoplay
+           style="position:absolute;width:0;height:0;opacity:0;pointer-events:none"></audio>
+  </div>
   
   <!-- Whiteboard Header -->
-  <div class="flex items-center justify-between p-4 bg-gray-100 border-b border-gray-300">
-    <div class="flex items-center space-x-4">
-      <h2 class="text-lg font-semibold text-gray-800">Beyaz Tahta</h2>
-      <div class="flex items-center space-x-2">
-        <span class="text-sm text-gray-600">Durum:</span>
-        <span class="px-2 py-1 text-xs rounded-full"
+  <div class="whiteboard-header flex items-center justify-between p-2 sm:p-4 bg-slate-100/90 dark:bg-slate-800/90 border-b border-slate-300/50 dark:border-slate-600/50 backdrop-blur-sm">
+    <div class="flex items-center space-x-2 sm:space-x-4">
+      <h2 class="whiteboard-title text-sm sm:text-lg font-semibold text-slate-800 dark:text-slate-200">Beyaz Tahta</h2>
+      <div class="flex items-center space-x-1 sm:space-x-2">
+        <span class="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Durum:</span>
+        <span class="status-indicator px-1 sm:px-2 py-1 text-xs rounded-full"
               [class.bg-green-100]="whiteboardState.canDraw"
               [class.text-green-800]="whiteboardState.canDraw"
+              [class.dark:bg-green-900]="whiteboardState.canDraw"
+              [class.dark:text-green-200]="whiteboardState.canDraw"
               [class.bg-red-100]="!whiteboardState.canDraw"
-              [class.text-red-800]="!whiteboardState.canDraw">
-          {{ whiteboardState.canDraw ? 'Çizim Yapabilir' : 'Sadece Görüntüle' }}
+              [class.text-red-800]="!whiteboardState.canDraw"
+              [class.dark:bg-red-900]="!whiteboardState.canDraw"
+              [class.dark:text-red-200]="!whiteboardState.canDraw">
+          <span class="hidden sm:inline">{{ whiteboardState.canDraw ? 'Çizim Yapabilir' : 'Sadece Görüntüle' }}</span>
+          <span class="sm:hidden">{{ whiteboardState.canDraw ? 'Çizim' : 'Görüntüle' }}</span>
         </span>
+      </div>
+      
+      <!-- Document Info -->
+      <div *ngIf="whiteboardState.uploadedDocument" class="flex items-center space-x-1 sm:space-x-2">
+        <span class="text-xs sm:text-sm text-gray-600 hidden sm:inline">Doküman:</span>
+        <div class="flex items-center space-x-1 sm:space-x-2">
+          <span class="px-1 sm:px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded truncate max-w-20 sm:max-w-none">
+            {{ whiteboardState.uploadedDocument.originalFileName }}
+          </span>
+          <span class="text-xs text-gray-500 hidden sm:inline" *ngIf="whiteboardState.uploadedDocument.fileSize">
+            ({{ formatFileSize(whiteboardState.uploadedDocument.fileSize) }})
+          </span>
+          <span class="text-xs text-gray-500 hidden sm:inline" *ngIf="whiteboardState.uploadedDocument.fileType">
+            {{ whiteboardState.uploadedDocument.fileType.toUpperCase() }}
+          </span>
+        </div>
+        <button *ngIf="isHost" 
+                class="px-1 sm:px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                (click)="removeDocument()"
+                title="Dokümanı Kaldır">
+          ✕
+        </button>
       </div>
     </div>
     
-    <div class="flex items-center space-x-2">
-      <button class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+    <div class="flex items-center space-x-1 sm:space-x-2">
+      <!-- İzin İste Butonu (Sadece izni olmayan kullanıcılar için) -->
+      <button *ngIf="!whiteboardState.canDraw && !isHost" 
+              class="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-orange-500 hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-700 text-white rounded transition-colors flex items-center gap-1"
+              (click)="requestDrawingPermission()"
+              title="Çizim yapmak için host'tan izin iste">
+        <span class="material-symbols-outlined text-sm">edit</span>
+        <span class="hidden sm:inline">İzin İste</span>
+      </button>
+      
+      <button *ngIf="isHost" 
+              class="clear-button px-2 sm:px-3 py-1 text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded transition-colors flex items-center gap-1"
               (click)="clearCanvas()"
-              title="Beyaz Tahtayı Temizle">
-        <span class="material-symbols-outlined text-sm mr-1">clear_all</span>
-        Temizle
+              [title]="whiteboardState.uploadedDocument ? 'PDF Üzerindeki Çizimleri Temizle' : 'Beyaz Tahtayı Temizle'">
+        <span class="material-symbols-outlined text-sm">clear_all</span>
+        <span class="hidden sm:inline">{{ whiteboardState.uploadedDocument ? 'Çizimleri Temizle' : 'Temizle' }}</span>
       </button>
     </div>
   </div>
 
   <!-- Whiteboard Content -->
-  <div class="whiteboard-content flex-1 flex pb-8">
+  <div class="whiteboard-content flex-1 flex pb-8 bg-white/5 dark:bg-slate-800/10 rounded-2xl m-2 backdrop-blur-sm">
     
     <!-- Drawing Tools Sidebar -->
-    <div class="w-16 bg-gray-50 border-r border-gray-300 flex flex-col items-center py-4 space-y-4">
+    <div class="tools-sidebar w-12 sm:w-16 bg-slate-50/90 dark:bg-slate-800/90 border-r border-slate-300/30 dark:border-slate-600/30 backdrop-blur-lg flex flex-col items-center py-2 sm:py-4 gap-2 sm:gap-4 rounded-l-2xl">
       
       <!-- Tool Selection -->
-      <div class="flex flex-col space-y-2">
+      <div class="tool-group flex flex-col gap-1 sm:gap-2">
         <div *ngFor="let tool of tools" 
-             class="p-2 rounded-lg cursor-pointer transition-colors"
+             class="tool-button p-1 sm:p-2 rounded-lg cursor-pointer transition-all duration-200 flex items-center justify-center relative"
              [class.bg-blue-100]="isToolActive(tool.name)"
              [class.text-blue-600]="isToolActive(tool.name)"
-             [class.bg-gray-100]="!isToolActive(tool.name)"
-             [class.text-gray-600]="!isToolActive(tool.name)"
-             [class.hover:bg-gray-200]="!isToolActive(tool.name)"
+             [class.dark:bg-blue-900]="isToolActive(tool.name)"
+             [class.dark:text-blue-300]="isToolActive(tool.name)"
+             [class.bg-slate-100]="!isToolActive(tool.name)"
+             [class.text-slate-500]="!isToolActive(tool.name)"
+             [class.dark:bg-slate-700]="!isToolActive(tool.name)"
+             [class.dark:text-slate-400]="!isToolActive(tool.name)"
+             [class.hover:bg-slate-200]="!isToolActive(tool.name)"
+             [class.dark:hover:bg-slate-600]="!isToolActive(tool.name)"
              (click)="selectTool(tool.name)"
-             [title]="tool.name.charAt(0).toUpperCase() + tool.name.slice(1)">
-          <span class="material-symbols-outlined text-xl">{{ tool.icon }}</span>
+             (mouseenter)="onToolHover($event, tool.name)"
+             (mouseleave)="onToolLeave()"
+             [title]="getToolTitle(tool.name)">
+          <span class="material-symbols-outlined text-lg sm:text-xl">{{ tool.icon }}</span>
+          
         </div>
       </div>
       
       <!-- Color Selection -->
-      <div class="flex flex-col space-y-2">
+      <div class="color-palette flex flex-col gap-1 sm:gap-2 mt-2 sm:mt-4">
         <div *ngFor="let color of colors" 
-             class="w-8 h-8 rounded-full cursor-pointer border-2 transition-all"
+             class="color-button w-6 h-6 sm:w-8 sm:h-8 rounded-full cursor-pointer border-2 transition-all duration-200"
              [class.border-gray-400]="isColorActive(color)"
+             [class.dark:border-gray-300]="isColorActive(color)"
              [class.border-gray-200]="!isColorActive(color)"
+             [class.dark:border-gray-600]="!isColorActive(color)"
              [style.background-color]="color"
              (click)="selectColor(color)"
-             [title]="color">
+             [title]="getColorTitle(color)">
         </div>
       </div>
       
-      <!-- Line Width Selection -->
-      <div class="flex flex-col space-y-2">
-        <div *ngFor="let width of lineWidths" 
-             class="flex items-center justify-center cursor-pointer transition-colors"
-             [class.bg-blue-100]="isLineWidthActive(width)"
-             [class.text-blue-600]="isLineWidthActive(width)"
-             [class.bg-gray-100]="!isLineWidthActive(width)"
-             [class.text-gray-600]="!isLineWidthActive(width)"
-             [class.hover:bg-gray-200]="!isLineWidthActive(width)"
-             (click)="selectLineWidth(width)"
-             [title]="width + 'px'">
-          <div class="w-6 h-1 rounded-full bg-current"></div>
-        </div>
-      </div>
       
     </div>
     
-    <!-- Canvas Area -->
-    <div class="canvas-container flex-1 flex items-center justify-center p-4">
-      <div class="relative">
-        <canvas #whiteboardCanvas
-                class="border border-gray-300 rounded-lg shadow-lg cursor-crosshair"
-                (mousedown)="onMouseDown($event)"
-                (mousemove)="onMouseMove($event)"
-                (mouseup)="onMouseUp()"
-                (mouseleave)="onMouseUp()"
-                (touchstart)="onTouchStart($event)"
-                (touchmove)="onTouchMove($event)"
-                (touchend)="onTouchEnd($event)">
-        </canvas>
-        
-        <!-- Drawing Instructions -->
-        <div *ngIf="!whiteboardState.canDraw" 
-             class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg">
-          <div class="text-center text-white p-4">
-            <span class="material-symbols-outlined text-4xl mb-2">lock</span>
-            <p class="text-lg font-semibold">View Only</p>
-            <p class="text-sm">Ask the host for drawing permission</p>
+    <!-- Görünmez Köprü (İkondan menüye geçiş için) -->
+    <div *ngIf="showLineWidthMenu" 
+         class="invisible-bridge fixed"
+         [style.left.px]="lineWidthMenuPosition.x - 10"
+         [style.top.px]="lineWidthMenuPosition.y - 20"
+         [style.width.px]="10"
+         [style.height.px]="40"
+         style="z-index: 9998; background: transparent;"
+         (mouseenter)="onMenuEnter()"
+         (mouseleave)="onMenuLeave()">
+    </div>
+
+    <!-- Line Width Hover Menu (floating outside sidebar) -->
+    <div *ngIf="showLineWidthMenu" 
+         class="line-width-hover-menu fixed bg-white/95 dark:bg-slate-800/95 border border-gray-300 dark:border-slate-600 rounded-xl shadow-xl p-2 backdrop-blur-lg transition-all duration-200"
+         [style.left.px]="lineWidthMenuPosition.x"
+         [style.top.px]="lineWidthMenuPosition.y"
+         style="z-index: 9999;"
+         (mouseenter)="onMenuEnter()"
+         (mouseleave)="onMenuLeave()">
+      <div class="flex items-center space-x-2">
+        <div *ngFor="let width of lineWidths" 
+             class="w-6 h-6 sm:w-7 sm:h-7 rounded-full cursor-pointer border-2 transition-all duration-200 flex items-center justify-center hover:scale-110"
+             [class.border-blue-500]="isLineWidthActive(width)"
+             [class.bg-blue-100]="isLineWidthActive(width)"
+             [class.dark:bg-blue-900]="isLineWidthActive(width)"
+             [class.border-gray-300]="!isLineWidthActive(width)"
+             [class.dark:border-slate-500]="!isLineWidthActive(width)"
+             [class.hover:border-blue-400]="!isLineWidthActive(width)"
+             [class.hover:bg-blue-50]="!isLineWidthActive(width)"
+             [class.dark:hover:bg-blue-800]="!isLineWidthActive(width)"
+             (click)="selectLineWidth(width)"
+             [title]="getLineWidthTitle(width)">
+          <div class="rounded-full bg-current"
+               [style.width.px]="Math.min(width, 12)"
+               [style.height.px]="Math.min(width, 12)">
           </div>
         </div>
       </div>
+    </div>
+    
+    <!-- Canvas Area -->
+    <div class="canvas-container flex-1 p-2 sm:p-4 overflow-hidden min-h-0 flex justify-center items-center relative bg-white/10 dark:bg-slate-800/20 rounded-xl m-2 sm:m-4 backdrop-blur-lg">
+      <canvas #whiteboardCanvas
+              class="whiteboard-canvas border-2 border-blue-500 dark:border-blue-400 rounded-xl shadow-2xl cursor-crosshair bg-white dark:bg-slate-900 transform-origin-center transition-shadow duration-300"
+              style="display: block; max-width: 100%; height: auto;"
+              (mousedown)="onMouseDown($event)"
+              (mousemove)="onMouseMove($event)"
+              (mouseup)="onMouseUp()"
+              (mouseleave)="onMouseUp()"
+              (touchstart)="onTouchStart($event)"
+              (touchmove)="onTouchMove($event)"
+              (touchend)="onTouchEnd($event)">
+      </canvas>
+      
     </div>
     
   </div>
   
   <!-- Whiteboard Footer -->
-  <div class="p-4 bg-gray-100 border-t border-gray-300">
+  <div class="p-2 sm:p-4 bg-slate-100/90 dark:bg-slate-800/90 border-t border-slate-300/50 dark:border-slate-600/50 backdrop-blur-sm">
     <div class="flex items-center justify-between">
-      <div class="flex items-center space-x-4">
-        <div class="flex items-center space-x-2">
-          <span class="text-sm text-gray-600">Tool:</span>
-          <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
-            {{ currentTool.charAt(0).toUpperCase() + currentTool.slice(1) }}
+      <div class="flex items-center space-x-2 sm:space-x-4">
+        <div class="flex items-center space-x-1 sm:space-x-2">
+          <span class="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Araç:</span>
+          <span class="px-1 sm:px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">
+            {{ getCurrentToolName() }}
           </span>
         </div>
         
-        <div class="flex items-center space-x-2">
-          <span class="text-sm text-gray-600">Color:</span>
-          <div class="w-4 h-4 rounded-full border border-gray-300"
+        <div class="flex items-center space-x-1 sm:space-x-2">
+          <span class="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Renk:</span>
+          <div class="w-3 h-3 sm:w-4 sm:h-4 rounded-full border border-gray-300 dark:border-gray-500"
                [style.background-color]="whiteboardState.currentColor">
           </div>
         </div>
         
-        <div class="flex items-center space-x-2">
-          <span class="text-sm text-gray-600">Size:</span>
-          <span class="px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded">
+        <div class="flex items-center space-x-1 sm:space-x-2">
+          <span class="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Boyut:</span>
+          <span class="px-1 sm:px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded">
             {{ whiteboardState.currentLineWidth }}px
           </span>
         </div>
       </div>
       
-      <div class="flex items-center space-x-2">
-        <span class="text-xs text-gray-500">
-          Click and drag to draw • Use tools on the left to change settings
+      <div class="flex items-center space-x-1 sm:space-x-2">
+        <span class="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
+          Çizmek için tıklayın ve sürükleyin • Sol taraftaki araçları kullanarak ayarları değiştirin
         </span>
+        <span class="text-xs text-gray-500 dark:text-gray-400 sm:hidden">
+          Çizmek için tıklayın
+        </span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Document Upload Modal -->
+  <div *ngIf="showDocumentUpload" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-800">PDF Yükle</h3>
+        <button class="text-gray-500 hover:text-gray-700"
+                (click)="closeDocumentUpload()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      
+      <div class="mb-4">
+        <p class="text-sm text-gray-600 mb-2">
+          Sadece PDF dosyaları desteklenir. (Max: 10MB)
+        </p>
+        
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+          <input #fileInput 
+                 type="file" 
+                 class="hidden"
+                 accept=".pdf"
+                 (change)="onFileSelected($event)">
+          
+          <div *ngIf="!uploadingDocument" class="space-y-2">
+            <span class="material-symbols-outlined text-4xl text-blue-500">picture_as_pdf</span>
+            <p class="text-gray-600 font-medium">PDF Dosyası Yükle</p>
+            <p class="text-sm text-gray-500">Sadece PDF dosyaları desteklenmektedir</p>
+            <button class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                    (click)="fileInput.click()">
+              PDF Seç
+            </button>
+          </div>
+          
+          <div *ngIf="uploadingDocument" class="space-y-2">
+            <div class="w-full bg-gray-200 rounded-full h-2">
+              <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                   [style.width.%]="uploadProgress"></div>
+            </div>
+            <p class="text-sm text-gray-600">Yükleniyor... {{ uploadProgress }}%</p>
+          </div>
+        </div>
+        
+        <div *ngIf="errorMessage" class="mt-3 p-3 bg-red-100 border border-red-300 rounded text-red-700 text-sm">
+          {{ errorMessage }}
+        </div>
+      </div>
+      
+      <div class="flex justify-end space-x-2">
+        <button class="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                (click)="closeDocumentUpload()">
+          İptal
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Download Options Modal -->
+  <div *ngIf="showDownloadOptions" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-800">İndirme Seçenekleri</h3>
+        <button class="text-gray-500 hover:text-gray-700"
+                (click)="closeDownloadOptions()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      
+      <div class="space-y-3">
+        <p class="text-sm text-gray-600 mb-4">
+          Beyaz tahtayı hangi formatta indirmek istiyorsunuz?
+        </p>
+        
+        <button class="w-full px-4 py-3 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors flex items-center justify-center space-x-2"
+                (click)="downloadAsPdf()">
+          <span class="material-symbols-outlined">picture_as_pdf</span>
+          <span>PDF Olarak İndir</span>
+        </button>
+        
+        <button class="w-full px-4 py-3 bg-green-500 text-white rounded hover:bg-green-600 transition-colors flex items-center justify-center space-x-2"
+                (click)="downloadAsImage()">
+          <span class="material-symbols-outlined">image</span>
+          <span>Resim Olarak İndir (PNG)</span>
+        </button>
+      </div>
+      
+      <div class="flex justify-end mt-6">
+        <button class="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                (click)="closeDownloadOptions()">
+          İptal
+        </button>
       </div>
     </div>
   </div>
