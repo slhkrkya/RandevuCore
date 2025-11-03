@@ -31,12 +31,44 @@ Modern ve kapsamlı bir randevu yönetimi ve video konferans platformu. RandevuC
 - Kamera ve mikrofon kontrolü (açma/kapama)
 - Ekran paylaşımı desteği
 - Video grid layout ile katılımcı görünümü
+- **MediaPipe ile gelişmiş video efektleri:**
+  - Arka plan bulanıklaştırma (blur) - seviyeli kontrol
+  - Özel arka plan görselleri ekleme
+  - AI tabanlı kişi segmentasyonu
+  - Gerçek zamanlı video işleme
+
+### 💬 Toplantı İçi Chat
+- Gerçek zamanlı metin mesajlaşma
+- SignalR ile anlık mesaj teslimi
+- Chat geçmişi yönetimi (oda bazlı)
+- **Dosya paylaşımı:**
+  - PDF, DOC, DOCX, TXT, resim dosyaları (JPG, PNG, GIF)
+  - Office belgeleri (XLSX, XLS, PPTX, PPT)
+  - Sıkıştırılmış dosyalar (ZIP, RAR)
+  - Dosya boyutu limiti: 10MB
+  - Mesaj geçmişinde dosya indirme
+  - Toplantı host'u tarafından chat temizleme
+
+### 🎛️ Toplantı Host Kontrolleri
+- Toplantı sahibi (host) yetkilendirmesi
+- Katılımcı kamera ve mikrofon kontrolü
+- Katılımcı ekran paylaşımı kontrolü
+- Beyaz tahta çizim yetkisi yönetimi
+- Chat ve dosya mesaj geçmişi yönetimi
+- Toplantı odası yönetimi
 
 ### 🎨 Beyaz Tahta (Whiteboard)
 - Eşzamanlı çizim desteği
 - Yetkilendirme tabanlı kullanım (toplantı sahibi kontrolü)
 - SignalR ile gerçek zamanlı senkronizasyon
 - Canvas tabanlı interaktif çizim arayüzü
+- **Gelişmiş özellikler:**
+  - PDF dosyası yükleme ve arka plan olarak kullanma
+  - Yüklenen PDF üzerinde çizim yapma
+  - Tüm katılımcılar için senkronize dosya görüntüleme
+  - Çizimli beyaz tahta içeriğini PDF olarak indirme
+  - Çok sayfalı PDF desteği
+  - Sayfa navigasyonu ve zoom özellikleri
 
 ---
 
@@ -57,12 +89,21 @@ Modern ve kapsamlı bir randevu yönetimi ve video konferans platformu. RandevuC
 - **RxJS** - Reactive programming
 - **SignalR Client** - Realtime client connection
 - **WebRTC** - Peer-to-peer video communication
+- **MediaPipe** - AI tabanlı video segmentasyonu ve efekt işleme
+- **PDF.js** - PDF görüntüleme ve işleme kütüphanesi
+- **pdf-lib** - PDF manipülasyonu ve indirme
 
 ### Mimari
 - **Onion Architecture** (Domain, Application, Infrastructure, API katmanları)
 - **Repository Pattern** - Veri erişim soyutlaması
 - **Dependency Injection** - Loose coupling
 - **DTO Pattern** - Veri transfer nesneleri
+
+### AI ve İşleme
+- **MediaPipe Selfie Segmentation** - Gerçek zamanlı kişi segmentasyonu
+- **Canvas API** - Video ve görüntü işleme
+- **PDF.js** - PDF render ve görüntüleme
+- **pdf-lib** - PDF manipülasyon ve birleştirme
 
 ---
 
@@ -193,15 +234,57 @@ RandevuCore/
 3. Toplantı odasına bağlanın
 4. **Kamera/Mikrofon** kontrol butonları ile medya cihazlarınızı yönetin
 5. **Ekran Paylaşımı** ile ekranınızı paylaşın
-6. Toplantı sahibi olarak **Beyaz Tahta** başlatabilir ve katılımcılara yetki verebilirsiniz
+6. **Video Efektleri** (Ayarlar panelinden):
+   - **Blur Modu:** Arka planınızı bulanıklaştırın (seviyeli kontrol)
+   - **Resim Modu:** Özel arka plan görselleri ekleyin
+   - MediaPipe AI ile gerçek zamanlı kişi segmentasyonu
+7. Toplantı sahibi olarak **Beyaz Tahta** başlatabilir ve katılımcılara yetki verebilirsiniz
+
+### Toplantı İçi Chat ve Dosya Paylaşımı
+
+1. Toplantı odasında **Chat** panelini açın
+2. Mesajınızı yazın ve **Enter** tuşuna basın veya gönder butonuna tıklayın
+3. **Dosya Ekle** butonuna tıklayarak dosya yükleyin:
+   - Desteklenen formatlar: PDF, DOC, DOCX, TXT, JPG, PNG, GIF, ZIP, RAR, XLSX, XLS, PPTX, PPT
+   - Maksimum dosya boyutu: 10MB
+4. Yüklenen dosyalar chat geçmişinde görünür ve tüm katılımcılar indirebilir
+5. Toplantı host'u **Chat Temizle** özelliği ile mesaj geçmişini temizleyebilir
+
+### Toplantı Host Kontrolleri
+
+Toplantı sahibi (host) olarak aşağıdaki kontrollere sahipsiniz:
+
+1. **Katılımcı Medya Kontrolü:**
+   - Herhangi bir katılımcının kamerasını açma/kapama
+   - Herhangi bir katılımcının mikrofonunu açma/kapama
+   - Katılımcı ekran paylaşımını kontrol etme
+
+2. **Beyaz Tahta Yönetimi:**
+   - Beyaz tahtayı başlatma/kapatma
+   - Katılımcılara çizim yetkisi verme/alma
+
+3. **Chat Yönetimi:**
+   - Tüm chat geçmişini temizleme
+   - Dosya mesaj geçmişini yönetme
 
 ### Beyaz Tahta Kullanımı
 
 1. Toplantı sahibi olarak **Beyaz Tahta** butonuna tıklayın
 2. Beyaz tahta açılır ve tüm katılımcılar görebilir
-3. Çizim yapmak için kullanıcılara **Çizim Yetkisi** verin
-4. Yetkili kullanıcılar eşzamanlı olarak çizim yapabilir
-5. Çizimler tüm katılımcılara gerçek zamanlı olarak senkronize edilir
+3. **PDF Yükleme:**
+   - **Dosya Yükle** butonuna tıklayın
+   - PDF dosyası seçin (max 10MB)
+   - Yüklenen PDF tüm katılımcılara senkronize şekilde görüntülenir
+   - Çok sayfalı PDF'lerde sayfa navigasyonu yapabilirsiniz
+4. **PDF Üzerinde Çizim:**
+   - Çizim yetkisi olan kullanıcılar yüklenen PDF üzerine çizim yapabilir
+   - Tüm çizimler gerçek zamanlı olarak senkronize edilir
+5. **Çizimli İçeriği İndirme:**
+   - **İndir** butonuna tıklayarak PDF üzerine yapılan çizimlerle birlikte içeriği PDF olarak indirebilirsiniz
+   - İndirilen dosya yüklenen PDF + tüm çizimleri içerir
+6. **Çizim Yetkisi Yönetimi:**
+   - Toplantı sahibi istediği katılımcıya çizim yetkisi verebilir/alabilir
+   - Yetkisi olmayan kullanıcılar sadece görüntüleyebilir
 
 ---
 
@@ -230,7 +313,19 @@ http://localhost:5000/swagger
 - **POST** `/api/meetings` - Yeni toplantı
 - **GET** `/api/meetings/{id}` - Toplantı detayı
 
+- **POST** `/api/file/upload` - Dosya yükleme (chat veya whiteboard için)
+- **GET** `/api/file/download/{fileName}` - Dosya indirme
+
 - **WS** `/ws` - SignalR Hub (realtime events)
+  - `SendChatMessage` - Chat mesajı gönderme
+  - `GetChatHistory` - Chat geçmişi alma
+  - `SendFileMessage` - Dosya mesajı gönderme
+  - `GetFileHistory` - Dosya geçmişi alma
+  - `ClearChat` - Chat temizleme (host only)
+  - `UploadWhiteboardDocument` - Beyaz tahta PDF yükleme
+  - `RemoveWhiteboardDocument` - Beyaz tahta PDF kaldırma
+  - WebRTC signaling metodları
+  - Katılımcı kontrol metodları (host only)
 
 ---
 
@@ -292,6 +387,10 @@ http://localhost:5000/swagger
 - ✅ Event teslimi: < 1 saniye
 - ✅ Çakışma kontrolü: %100 doğruluk
 - ✅ Video konferans: %80+ başarı oranı
+- ✅ Chat mesaj teslimi: < 500ms
+- ✅ Dosya yükleme: max 10MB, desteklenen formatlar
+- ✅ MediaPipe video işleme: 10+ FPS gerçek zamanlı segmentasyon
+- ✅ PDF render ve çizim: sorunsuz senkronizasyon
 
 ---
 
