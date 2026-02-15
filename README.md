@@ -1,11 +1,13 @@
 Modern ve kapsamlı bir randevu yönetimi ve video konferans platformu. RandevuCore, kullanıcıların çevrim içi randevu planlaması, toplantı yönetimi ve gerçek zamanlı video konferans gerçekleştirebilmesi için tasarlanmış full-stack bir web uygulamasıdır.
 <div align="center">
   <img src="https://github.com/user-attachments/assets/4649c6df-533b-4b68-bc12-f1a4ffbfa9ba" alt="RandevuCore Arayüzü" width="400">
-  <p><i>RandevuCore Mobil Uygulama Arayüzü</i></p>
+  <p><i>RandevuCore Web Uygulama Anasayfa</i></p>
 </div>
 
-
-🌐 **Canlı Demo:** [https://staj.salihkarakaya.com.tr/](https://staj.salihkarakaya.com.tr/)
+> [!NOTE]
+> Projenin canlı demo sunucusu, bulut kaynak yönetimi ve maliyet optimizasyonu çalışmaları nedeniyle geçici olarak durdurulmuştur. 
+> Yerel kurulum (Local Setup) adımlarını izleyerek projeyi kendi makinenizde deneyimleyebilirsiniz.
+🌐 **Canlı Demo:** [https://staj.salihkarakaya.com.tr/](https://staj.salihkarakaya.com.tr/) 
 
 ---
 
