@@ -1,8 +1,5 @@
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/4649c6df-533b-4b68-bc12-f1a4ffbfa9ba" alt="RandevuCore Arayüzü" width="400">
-  <p><i>RandevuCore Web Uygulama Anasayfa</i></p>
-</div>
-Modern ve kapsamlı bir randevu yönetimi ve video konferans platformu. RandevuCore, kullanıcıların çevrim içi randevu planlaması, toplantı yönetimi ve gerçek zamanlı video konferans gerçekleştirebilmesi için tasarlanmış full-stack bir web uygulamasıdır.
+# RandevuCore - Modern ve kapsamlı bir randevu yönetimi ve video konferans platformu - https://drive.google.com/file/d/1oa6Ilfoaute97kieQ5Qw4vUwWFSW8hHT/view?usp=sharing 
+RandevuCore, kullanıcıların çevrim içi randevu planlaması, toplantı yönetimi ve gerçek zamanlı video konferans gerçekleştirebilmesi için tasarlanmış full-stack bir web uygulamasıdır.
 
 > [!NOTE]
 > Projenin canlı demo sunucusu, bulut kaynak yönetimi ve maliyet optimizasyonu çalışmaları nedeniyle geçici olarak durdurulmuştur. 
