@@ -417,7 +417,7 @@ Bu proje açık kaynak kodludur. Detaylar için `LICENSE` dosyasına bakın.
 
 **Salih Karakaya**
 
-- 🌐 Website: [https://staj.salihkarakaya.com.tr/](https://staj.salihkarakaya.com.tr/)
+- 🌐 Website: [https://salihkarakaya.com.tr/](https://salihkarakaya.com.tr/)
 - 📧 Email: [İletişim için website üzerinden ulaşabilirsiniz]
 
 ---
