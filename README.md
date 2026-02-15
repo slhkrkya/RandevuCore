@@ -1,4 +1,4 @@
-# RandevuCore - Modern ve kapsamlı bir randevu yönetimi ve video konferans platformu - 
+# RandevuCore - Modern ve kapsamlı bir randevu yönetimi ve video konferans platformu
 https://drive.google.com/file/d/1oa6Ilfoaute97kieQ5Qw4vUwWFSW8hHT/view?usp=sharing 
 RandevuCore, kullanıcıların çevrim içi randevu planlaması, toplantı yönetimi ve gerçek zamanlı video konferans gerçekleştirebilmesi için tasarlanmış full-stack bir web uygulamasıdır.
 
